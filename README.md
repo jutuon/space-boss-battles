@@ -7,19 +7,19 @@ Space Boss Battles is 2D arcade space shooter game. This version of the game is 
 
 General features:
 
-- [] OpenGL 3.3 and OpenGL ES 2.0 support
-- [] Support for display aspect ratios of 4:3 and 16:9
-- [] Basic menu system for main menu and settings
-- [] 4 levels
+- [ ] OpenGL 3.3 and OpenGL ES 2.0 support
+- [ ] Support for display aspect ratios of 4:3 and 16:9
+- [ ] Basic menu system for main menu and settings
+- [ ] 4 levels
 
 
 Platforms:
 
-- [] Linux
-- [] Windows
-- [] Mac
-- [] Android
-- [] Web
+- [ ] Linux
+- [ ] Windows
+- [ ] Mac
+- [ ] Android
+- [ ] Web
 
 
 
@@ -30,30 +30,33 @@ Platforms:
   2. SDL2 library, https://www.libsdl.org/
 
 2. Clone (or download) the repository
+
 ```
 git clone https://github.com/jutuon/space-boss-battles.git
 ```
 
 3. Change working directory to repository directory
+
 ```
 cd space-boss-battles
 ```
 
 4. Build and run the game with Cargo
+
 ```
 cargo run --release
 ```
 
 
-## Licence
+## License
 
 This project's code is licensed under
 
-* Apache License, Version 2.0, [LICENCE-APACHE](https://github.com/jutuon/space-boss-battles/LICENCE-APACHE)
+* Apache License, Version 2.0, [LICENSE-APACHE](https://github.com/jutuon/space-boss-battles/blob/master/LICENSE-APACHE)
 
 or
 
-* MIT License, [LICENCE-MIT](https://github.com/jutuon/space-boss-battles/LICENCE-MIT)
+* MIT License, [LICENSE-MIT](https://github.com/jutuon/space-boss-battles/blob/master/LICENSE-MIT)
 
 You can choose which licence you use when you do something with this code.
 
