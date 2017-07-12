@@ -26,8 +26,8 @@ Platforms:
 ## Building and running
 
 1. Install dependencies
-  1. Rust, https://www.rust-lang.org/en-US/index.html
-  2. SDL2 library, https://www.libsdl.org/
+  - Rust, https://www.rust-lang.org/en-US/index.html
+  - SDL2 library, https://www.libsdl.org/
 
 2. Clone (or download) the repository
 
