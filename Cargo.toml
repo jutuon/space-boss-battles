@@ -1,0 +1,6 @@
+[package]
+name = "space-boss-battles"
+version = "0.1.0"
+authors = ["Juuso Tuononen <jutuon@outlook.com>"]
+
+[dependencies]
