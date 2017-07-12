@@ -1,5 +1,5 @@
 /*
-src/main.rs, 2017-07-12
+gl/src/lib.rs, 2017-07-12
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -12,7 +12,3 @@ or
 MIT License, https://github.com/jutuon/space-boss-battles/LICENCE-MIT
 */
 
-
-fn main() {
-    println!("Hello, world!");
-}
