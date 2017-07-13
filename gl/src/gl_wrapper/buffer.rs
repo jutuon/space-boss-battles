@@ -27,19 +27,15 @@ struct VertexBufferStatic {
 
 impl VertexBufferStatic {
     unsafe fn new(data: &[f32], vector_size: GLint) -> VertexBufferStatic {
-
         let mut id: GLuint = 0;
 
-        unsafe {
-            gl_raw::GenBuffers(1, &mut id);
-            gl_raw::BindBuffer(gl_raw::ARRAY_BUFFER, id);
+        gl_raw::GenBuffers(1, &mut id);
+        gl_raw::BindBuffer(gl_raw::ARRAY_BUFFER, id);
 
-            let size: GLsizeiptr = (size_of::<f32>() * data.len()) as GLsizeiptr;
-            let data_ptr = data.as_ptr() as *const c_void;
+        let size: GLsizeiptr = (size_of::<f32>() * data.len()) as GLsizeiptr;
+        let data_ptr = data.as_ptr() as *const c_void;
 
-            gl_raw::BufferData(gl_raw::ARRAY_BUFFER, size, data_ptr, gl_raw::STATIC_DRAW);
-
-        }
+        gl_raw::BufferData(gl_raw::ARRAY_BUFFER, size, data_ptr, gl_raw::STATIC_DRAW);
 
         VertexBufferStatic {id, vector_size}
     }
