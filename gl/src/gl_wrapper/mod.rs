@@ -12,6 +12,10 @@ or
 MIT License
 */
 
+mod gl_raw {
+    pub use gl_generated::*;
+}
+
 pub mod shader;
 pub mod uniform;
 pub mod buffer;

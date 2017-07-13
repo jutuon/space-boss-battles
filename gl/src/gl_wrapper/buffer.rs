@@ -12,7 +12,7 @@ or
 MIT License
 */
 
-use gl_generated as gl_raw;
+use super::gl_raw;
 use self::gl_raw::types::*;
 
 use std::mem::size_of;
