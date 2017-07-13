@@ -1,5 +1,5 @@
 /*
-src/main.rs, 2017-07-13
+gl/src/gl_wrapper/mod.rs, 2017-07-13
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -12,7 +12,5 @@ or
 MIT License
 */
 
-
-fn main() {
-    println!("Hello, world!");
-}
+pub mod shader;
+pub mod uniform;

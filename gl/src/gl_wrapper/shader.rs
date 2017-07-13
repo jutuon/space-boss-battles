@@ -1,28 +1,25 @@
 /*
-gl/src/gl_wrapper.rs, 2017-07-12
+gl/src/gl_wrapper/shader.rs, 2017-07-13
 
 Copyright (c) 2017 Juuso Tuononen
 
 This file is licensed under
 
-Apache License, Version 2.0, https://github.com/jutuon/space-boss-battles/LICENCE-APACHE
+Apache License, Version 2.0
 
 or
 
-MIT License, https://github.com/jutuon/space-boss-battles/LICENCE-MIT
+MIT License
 */
-
 
 use gl_generated as gl_raw;
 use self::gl_raw::types::*;
 
 use std::ffi::{CString, IntoStringError};
-
-use std::mem::size_of;
-use std::os::raw::c_void;
 use std::ptr;
-
 use std::error::Error;
+
+
 
 #[derive(Debug)]
 pub enum ShaderType {
@@ -145,7 +142,7 @@ impl Program {
         }
     }
 
-    fn id(&self) -> GLuint {
+    pub(crate) fn id(&self) -> GLuint {
         self.program_id
     }
 
@@ -164,75 +161,6 @@ impl Program {
         }
     }
 }
-
-
-pub enum UniformError {
-    UniformNotFoundOrGLPrefix,
-}
-
-use cgmath::{Vector3, Matrix4};
-use cgmath::prelude::*;
-
-pub trait CreateUniform
-    where Self: Sized {
-
-    fn new(name: CString, program: &Program) -> Result<Self, UniformError> {
-        let location;
-
-        unsafe {
-            location = gl_raw::GetUniformLocation(program.id(), name.as_ptr());
-        }
-
-        if location == -1 {
-            Err(UniformError::UniformNotFoundOrGLPrefix)
-        } else {
-            unsafe {
-                Ok(Self::from_location(location))
-            }
-        }
-
-    }
-
-    unsafe fn from_location(location: GLint) -> Self;
-}
-
-
-pub struct UniformVector3 {
-    location: GLint,
-}
-
-impl CreateUniform for UniformVector3 {
-    unsafe fn from_location(location: GLint) -> UniformVector3 {
-        UniformVector3 {location}
-    }
-}
-
-impl UniformVector3 {
-    pub fn send(&self, data: &Vector3<f32>) {
-        unsafe {
-            gl_raw::Uniform3fv(self.location, 1, data.as_ptr());
-        }
-    }
-}
-
-pub struct UniformMatrix4 {
-    location: GLint,
-}
-
-impl CreateUniform for UniformMatrix4 {
-    unsafe fn from_location(location: GLint) -> UniformMatrix4 {
-        UniformMatrix4 {location}
-    }
-}
-
-impl UniformMatrix4 {
-    pub fn send(&self, data: &Matrix4<f32>) {
-        unsafe {
-            gl_raw::UniformMatrix4fv(self.location, 1, gl_raw::FALSE, data.as_ptr());
-        }
-    }
-}
-
 
 fn create_string_buffer(len: usize) -> CString {
     let mut buffer: Vec<u8> = Vec::with_capacity(len);
