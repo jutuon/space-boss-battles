@@ -19,3 +19,4 @@ mod gl_raw {
 pub mod shader;
 pub mod uniform;
 pub mod buffer;
+pub mod texture;
