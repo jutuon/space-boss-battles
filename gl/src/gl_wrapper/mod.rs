@@ -14,3 +14,4 @@ MIT License
 
 pub mod shader;
 pub mod uniform;
+pub mod buffer;
