@@ -1,5 +1,5 @@
 /*
-gl/src/gl_wrapper/shader.rs, 2017-07-13
+gl/src/gl_wrapper/shader.rs, 2017-07-14
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -30,8 +30,8 @@ pub enum ShaderType {
 impl ShaderType {
     fn as_gl_enum(self) -> GLenum {
         match self {
-            ShaderType::Fragment => gl_raw::VERTEX_SHADER,
-            ShaderType::Vertex => gl_raw::FRAGMENT_SHADER,
+            ShaderType::Fragment => gl_raw::FRAGMENT_SHADER,
+            ShaderType::Vertex => gl_raw::VERTEX_SHADER,
         }
     }
 }
