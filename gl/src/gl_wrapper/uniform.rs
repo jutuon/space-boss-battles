@@ -1,5 +1,5 @@
 /*
-gl/src/gl_wrapper/uniform.rs, 2017-07-13
+gl/src/gl_wrapper/uniform.rs, 2017-07-14
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -22,6 +22,7 @@ use std::ffi::CString;
 
 use gl_wrapper::shader::Program;
 
+#[derive(Debug)]
 pub enum UniformError {
     UniformNotFoundOrGLPrefix,
 }
