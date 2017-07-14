@@ -27,11 +27,48 @@ use logic::Logic;
 use gl::buffer::*;
 use gl::shader::*;
 use gl::uniform::*;
+use gl::texture::*;
+
 use gl::gl_raw;
 
 use std::fs::File;
 use std::io::Read;
 use std::ffi::CString;
+
+use image::png::PNGDecoder;
+use image::{ImageDecoder, DecodingResult, ColorType};
+
+pub enum Textures {
+    Player,
+    TextureCount,
+}
+
+impl Textures {
+    fn load_all() -> [TextureRGBA; Textures::TextureCount as usize] {
+        [Textures::load("game_files/images/player.png")]
+    }
+
+    fn load(file_path: &str) -> TextureRGBA {
+        let img_file = File::open(file_path).expect("img opening fail");
+        let mut img = PNGDecoder::new(img_file);
+
+        let (width, height) = img.dimensions().expect("img dimensions fail");
+
+        match img.colortype().expect("img color type fail") {
+            ColorType::RGBA(_) => (),
+            _ => panic!("image's color type is not RGBA"),
+        }
+
+        let img_data_result = img.read_image().expect("img decoding fail");
+
+        let img_data = match img_data_result {
+            DecodingResult::U8(data) => data,
+            _ => panic!("unknown image data"),
+        };
+
+        TextureRGBA::new(width, height, img_data)
+    }
+}
 
 
 pub struct OpenGLRenderer {
@@ -39,6 +76,7 @@ pub struct OpenGLRenderer {
     window: Window,
     context: GLContext,
     program: Program,
+    textures: [TextureRGBA; Textures::TextureCount as usize],
 }
 
 pub trait Renderer {
@@ -99,7 +137,9 @@ impl OpenGLRenderer {
             gl_raw::ClearColor(0.0,0.0,0.0,1.0);
         }
 
-        let renderer = OpenGLRenderer {video_system, window, context, program};
+        let textures = Textures::load_all();
+
+        let renderer = OpenGLRenderer {video_system, window, context, program, textures};
 
         renderer
     }
