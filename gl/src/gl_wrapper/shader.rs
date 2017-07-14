@@ -115,8 +115,8 @@ impl Program {
         unsafe {
             program = Program { program_id: gl_raw::CreateProgram() };
 
-            gl_raw::AttachShader(shader1.id(), program.id());
-            gl_raw::AttachShader(shader2.id(), program.id());
+            gl_raw::AttachShader(program.id(), shader1.id());
+            gl_raw::AttachShader(program.id(), shader2.id());
             gl_raw::LinkProgram(program.id());
         }
 
