@@ -17,7 +17,7 @@ MIT License
 layout (location = 0) in vec3 vertex;
 layout (location = 1) in vec2 texture_coordinates_attribute;
 
-//out vec2 texture_coordinates;
+out vec2 texture_coordinates;
 
 uniform mat4 M;
 uniform mat4 P;
@@ -26,5 +26,5 @@ void main() {
 
     gl_Position = P * M * vec4(vertex, 1.0);
 
-    //texture_coordinates = vec2(texture_coordinates_attribute.x,-texture_coordinates_attribute.y);
+    texture_coordinates = vec2(texture_coordinates_attribute.x,-texture_coordinates_attribute.y);
 }

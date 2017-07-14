@@ -18,9 +18,9 @@ use sdl2::video::{Window};
 use sdl2::video::{GLProfile, GLContext};
 
 
-use cgmath::Vector3;
-use cgmath::Matrix4;
-
+use cgmath::{Vector3, Matrix4};
+use cgmath::prelude::*;
+use cgmath;
 
 use logic::Logic;
 
@@ -77,6 +77,9 @@ pub struct OpenGLRenderer {
     context: GLContext,
     program: Program,
     textures: [TextureRGBA; Textures::TextureCount as usize],
+    rectangle: VertexArray,
+    projection_matrix_uniform: UniformMatrix4,
+    model_matrix_uniform: UniformMatrix4,
 }
 
 pub trait Renderer {
@@ -95,6 +98,20 @@ impl Renderer for OpenGLRenderer {
 
     fn render(&mut self, logic: &Logic) {
         self.program.use_program();
+
+        self.textures[Textures::Player as usize].bind();
+
+        let size = 3.0;
+        let width = 4.0 * size;
+        let height = 3.0 * size;
+
+        let projection_matrix = cgmath::ortho::<f32>(-width, width, -height, height, 1.0, -1.0);
+        self.projection_matrix_uniform.send(&projection_matrix);
+
+        let model_matrix = Matrix4::identity();
+        self.model_matrix_uniform.send(&model_matrix);
+
+        self.rectangle.draw();
     }
 
     fn end(&mut self) {
@@ -139,9 +156,36 @@ impl OpenGLRenderer {
 
         let textures = Textures::load_all();
 
-        let renderer = OpenGLRenderer {video_system, window, context, program, textures};
+        let mut rectangle = VertexArray::new(6);
 
-        renderer
+        let size : f32 = 1.0;
+
+        let vertex_data: [f32; 18]  = [
+                    size, -size, 0.0,
+                    size, size, 0.0,
+                    -size, size, 0.0,
+
+                    size, -size, 0.0,
+                    -size, size, 0.0,
+                    -size, -size, 0.0,
+        ];
+        let texture_coordinates_data: [f32; 12]  = [
+                    1.0, 0.0,
+                    1.0, 1.0,
+                    0.0, 1.0,
+
+                    1.0, 0.0,
+                    0.0, 1.0,
+                    0.0, 0.0,
+        ];
+
+        rectangle.add_static_buffer(&vertex_data, 3, 0);
+        rectangle.add_static_buffer(&texture_coordinates_data, 2, 1);
+
+        let model_matrix_uniform = UniformMatrix4::new(CString::new("M").unwrap(), &program).expect("uniform error");
+        let projection_matrix_uniform = UniformMatrix4::new(CString::new("P").unwrap(), &program).expect("uniform error");
+
+        OpenGLRenderer {video_system, window, context, program, textures, rectangle, projection_matrix_uniform, model_matrix_uniform}
     }
 
 }
