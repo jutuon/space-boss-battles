@@ -1,5 +1,5 @@
 /*
-gl/src/gl_wrapper/texture.rs, 2017-07-13
+gl/src/gl_wrapper/texture.rs, 2017-07-14
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -23,7 +23,7 @@ pub struct TextureRGBA {
 
 impl TextureRGBA {
     pub fn new(width: u32, height: u32, data: Vec<u8>) -> TextureRGBA {
-        if width*height != data.len() as u32 {
+        if width*height*4 != data.len() as u32 {
             panic!("image width and height does not match with data length");
         }
 
