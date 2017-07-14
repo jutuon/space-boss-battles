@@ -1,5 +1,5 @@
 /*
-gl/src/gl_wrapper/mod.rs, 2017-07-13
+gl/src/gl_wrapper/mod.rs, 2017-07-14
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -12,7 +12,7 @@ or
 MIT License
 */
 
-mod gl_raw {
+pub mod gl_raw {
     pub use gl_generated::*;
 }
 
