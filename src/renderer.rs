@@ -82,6 +82,7 @@ pub struct OpenGLRenderer {
     rectangle: VertexArray,
     projection_matrix_uniform: UniformMatrix4,
     model_matrix_uniform: UniformMatrix4,
+    color_draw_program: Program,
 }
 
 pub trait Renderer {
@@ -106,14 +107,23 @@ impl Renderer for OpenGLRenderer {
         let size = 3.0;
         let width = 4.0 * size;
         let height = 3.0 * size;
-
         let projection_matrix = cgmath::ortho::<f32>(-width, width, -height, height, 1.0, -1.0);
-        self.projection_matrix_uniform.send(&projection_matrix);
 
-        let model_matrix = logic.get_player().model_matrix();
-        self.model_matrix_uniform.send(&model_matrix);
+        self.projection_matrix_uniform.send(&projection_matrix);
+        self.model_matrix_uniform.send(logic.get_player().model_matrix());
 
         self.rectangle.draw();
+
+/*
+        self.color_draw_program.use_program();
+
+        for laser in logic.get_player().get_lasers() {
+            self.projection_matrix_uniform.send(&projection_matrix);
+            self.model_matrix_uniform.send(laser.model_matrix());
+            self.rectangle.draw();
+        }
+*/
+
     }
 
     fn end(&mut self) {
@@ -148,6 +158,17 @@ impl OpenGLRenderer {
         };
 
         program.use_program();
+
+        let vertex_shader = load_shader(ShaderType::Vertex,"src/shaders/color-vertex.glsl");
+        let fragment_shader = load_shader(ShaderType::Fragment,"src/shaders/color-fragment.glsl");
+
+        let color_draw_program = match Program::new(vertex_shader, fragment_shader) {
+            Ok(program) => program,
+            Err(message) => {
+                println!("program creation error:\n{}", message);
+                panic!();
+            }
+        };
 
         //video_system.gl_set_swap_interval(0);
 
@@ -187,7 +208,7 @@ impl OpenGLRenderer {
         let model_matrix_uniform = UniformMatrix4::new(CString::new("M").unwrap(), &program).expect("uniform error");
         let projection_matrix_uniform = UniformMatrix4::new(CString::new("P").unwrap(), &program).expect("uniform error");
 
-        OpenGLRenderer {video_system, window, context, program, textures, rectangle, projection_matrix_uniform, model_matrix_uniform}
+        OpenGLRenderer {video_system, window, context, program, textures, rectangle, projection_matrix_uniform, model_matrix_uniform, color_draw_program}
     }
 
 }

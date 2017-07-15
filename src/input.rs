@@ -20,11 +20,12 @@ pub struct InputKeyboard {
     down: bool,
     left: bool,
     right: bool,
+    shoot: bool,
 }
 
 impl InputKeyboard {
     pub fn new() -> InputKeyboard {
-        InputKeyboard {up: false, down: false, left: false, right: false}
+        InputKeyboard {up: false, down: false, left: false, right: false, shoot: false}
     }
 
     pub fn update_key_up(&mut self, key: Keycode) {
@@ -41,6 +42,7 @@ impl InputKeyboard {
             Keycode::Down => self.down = value,
             Keycode::Left => self.left = value,
             Keycode::Right => self.right = value,
+            Keycode::Space => self.shoot = value,
             _ => (),
         }
     }
@@ -51,6 +53,7 @@ pub trait Input {
     fn down(&self) -> bool;
     fn left(&self) -> bool;
     fn right(&self) -> bool;
+    fn shoot(&self) -> bool;
 }
 
 impl Input for InputKeyboard {
@@ -58,4 +61,5 @@ impl Input for InputKeyboard {
     fn down(&self) -> bool { self.down }
     fn left(&self) -> bool { self.left }
     fn right(&self) -> bool { self.right }
+    fn shoot(&self) -> bool { self.shoot }
 }
