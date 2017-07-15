@@ -33,6 +33,8 @@ use logic::Logic;
 
 use input::{Input, InputKeyboard};
 
+use time::PreciseTime;
+
 fn main() {
     let sdl_context = sdl2::init().expect("sdl2 init failed");
     let mut event_pump = sdl_context.event_pump().expect("failed to get handle to sdl2 event_pump");
@@ -62,6 +64,8 @@ pub struct Game {
     game_logic: Logic,
     quit: bool,
     input: InputKeyboard,
+    fps_counter: FpsCounter,
+    timer: GameLoopTimer,
 }
 
 impl Game {
@@ -69,7 +73,10 @@ impl Game {
         let game_logic = Logic::new();
         let quit = false;
         let input = InputKeyboard::new();
-        Game {game_logic, quit, input}
+        let fps_counter = FpsCounter::new();
+        let timer = GameLoopTimer::new(16);
+
+        Game {game_logic, quit, input, fps_counter, timer}
     }
 
     pub fn quit(&self) -> bool {
@@ -85,13 +92,108 @@ impl Game {
         }
     }
 
-    pub fn render<T: Renderer>(&self, renderer: &mut T) {
+    pub fn render<T: Renderer>(&mut self, renderer: &mut T) {
+        if self.timer.drop_frame() {
+            self.fps_counter.frame_drop_count;
+            return;
+        }
+
+        self.fps_counter.frame();
+
         renderer.start();
         renderer.render(&self.game_logic);
         renderer.end();
     }
 
     pub fn update(&mut self) {
-        self.game_logic.update(&self.input);
+        let current_time = PreciseTime::now();
+
+        self.fps_counter.update(current_time);
+        self.timer.update(current_time);
+
+        if self.timer.update_logic() {
+            self.game_logic.update(&self.input);
+        }
+    }
+}
+
+pub struct FpsCounter {
+    fps_count: u32,
+    update_time: PreciseTime,
+    frame_drop_count: u32,
+}
+
+impl FpsCounter {
+    pub fn new() -> FpsCounter {
+        FpsCounter {fps_count: 0, update_time: PreciseTime::now(), frame_drop_count: 0}
+    }
+
+    pub fn frame(&mut self) {
+        self.fps_count += 1;
+    }
+
+    pub fn frame_drop(&mut self) {
+        self.frame_drop_count += 1;
+    }
+
+    fn print(&self) {
+        if self.frame_drop_count == 0 {
+            println!("fps: {}", self.fps_count);
+        } else {
+            println!("fps: {}, frame drops: {}", self.fps_count, self.frame_drop_count);
+        }
+    }
+
+    pub fn update(&mut self, current_time: PreciseTime) {
+        if self.update_time.to(current_time).num_milliseconds() >= 1000 {
+            self.print();
+
+            self.fps_count = 0;
+            self.frame_drop_count = 0;
+            self.update_time = current_time;
+        }
+    }
+}
+
+pub struct GameLoopTimer {
+    logic_update_time_milliseconds: i64,
+    drop_frame: bool,
+    update_logic: bool,
+    update_time: PreciseTime,
+}
+
+impl GameLoopTimer {
+    pub fn new(logic_update_time_milliseconds: i64) -> GameLoopTimer {
+        let drop_frame = false;
+        let update_logic = false;
+        let update_time = PreciseTime::now();
+
+        GameLoopTimer {logic_update_time_milliseconds, drop_frame, update_logic, update_time}
+    }
+
+    pub fn update(&mut self, current_time: PreciseTime) {
+        self.update_logic = false;
+        self.drop_frame = false;
+
+        let time = self.update_time.to(current_time).num_milliseconds();
+        if time == self.logic_update_time_milliseconds {
+            self.update_logic = true;
+            self.drop_frame = false;
+
+            self.update_time = current_time;
+        } else if time > self.logic_update_time_milliseconds {
+            self.update_logic = true;
+            self.drop_frame = true;
+
+            self.update_time = current_time;
+        }
+    }
+
+    pub fn drop_frame(&self) -> bool {
+        self.drop_frame
+    }
+
+    pub fn update_logic(&self) -> bool {
+        self.update_logic
     }
 }
