@@ -1,5 +1,5 @@
 /*
-src/renderer.rs, 2017-07-14
+src/renderer.rs, 2017-07-15
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -37,6 +37,8 @@ use std::ffi::CString;
 
 use image::png::PNGDecoder;
 use image::{ImageDecoder, DecodingResult, ColorType};
+
+use logic::GameObject;
 
 pub enum Textures {
     Player,
@@ -108,7 +110,7 @@ impl Renderer for OpenGLRenderer {
         let projection_matrix = cgmath::ortho::<f32>(-width, width, -height, height, 1.0, -1.0);
         self.projection_matrix_uniform.send(&projection_matrix);
 
-        let model_matrix = Matrix4::identity();
+        let model_matrix = logic.get_player().model_matrix();
         self.model_matrix_uniform.send(&model_matrix);
 
         self.rectangle.draw();
