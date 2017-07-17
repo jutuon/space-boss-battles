@@ -29,7 +29,12 @@ pub struct TextureShader {
 
 impl TextureShader {
     pub fn new() -> TextureShader {
-        let program = create_program("src/shaders/vertex-shader.glsl", "src/shaders/fragment-shader.glsl");
+
+        #[cfg(feature = "gles")]
+        let program = create_program("src/shaders/gles/vertex-shader-gles.glsl", "src/shaders/gles/fragment-shader-gles.glsl");
+
+        #[cfg(not(feature = "gles"))]
+        let program = create_program("src/shaders/gl/vertex-shader.glsl", "src/shaders/gl/fragment-shader.glsl");
 
         let model = create_uniform("M", &program, "texture shader");
         let projection = create_uniform("P", &program, "texture shader");
@@ -57,7 +62,12 @@ pub struct ColorShader {
 
 impl ColorShader {
     pub fn new() -> ColorShader {
-        let program = create_program("src/shaders/color-vertex.glsl", "src/shaders/color-fragment.glsl");
+
+        #[cfg(feature = "gles")]
+        let program = create_program("src/shaders/gles/color-vertex-gles.glsl", "src/shaders/gles/color-fragment-gles.glsl");
+
+        #[cfg(not(feature = "gles"))]
+        let program = create_program("src/shaders/gl/color-vertex.glsl", "src/shaders/gl/color-fragment.glsl");
 
         let model = create_uniform("M", &program, "color shader");
         let projection = create_uniform("P", &program, "color shader");

@@ -1,7 +1,7 @@
-#version 330 core
+#version 100
 
 /*
-src/shaders/color-fragment.glsl, 2017-07-17
+src/shaders/gles/color-fragment-gles.glsl, 2017-07-17
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -14,10 +14,10 @@ or
 MIT License
 */
 
-out vec4 color_out;
+precision mediump float;
 
 uniform vec3 color;
 
 void main() {
-    color_out = vec4(color,1.0);
+    gl_FragColor = vec4(color,1.0);
 }

@@ -1,7 +1,7 @@
 #version 330 core
 
 /*
-src/shaders/fragment-shader.glsl, 2017-07-14
+src/shaders/gl/fragment-shader.glsl, 2017-07-17
 
 Copyright (c) 2017 Juuso Tuononen
 

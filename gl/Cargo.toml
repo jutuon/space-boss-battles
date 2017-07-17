@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["Juuso Tuononen <jutuon@outlook.com>"]
 publish = false
 
+[features]
+gles = []
+
 [dependencies]
 cgmath = "0.14.1"
 

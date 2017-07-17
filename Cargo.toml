@@ -3,6 +3,9 @@ name = "space-boss-battles"
 version = "0.1.0"
 authors = ["Juuso Tuononen <jutuon@outlook.com>"]
 
+[features]
+gles = ["gl/gles"]
+
 [dependencies]
 gl = { path = "gl" }
 sdl2 = "0.30"

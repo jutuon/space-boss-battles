@@ -1,5 +1,5 @@
 /*
-gl/src/gl_wrapper/mod.rs, 2017-07-14
+gl/src/gl_wrapper/mod.rs, 2017-07-17
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -13,6 +13,10 @@ MIT License
 */
 
 pub mod gl_raw {
+    #[cfg(feature = "gles")]
+    pub use gl_es_generated::*;
+
+    #[cfg(not(feature = "gles"))]
     pub use gl_generated::*;
 }
 

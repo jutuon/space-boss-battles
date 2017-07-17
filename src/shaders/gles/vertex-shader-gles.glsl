@@ -1,7 +1,7 @@
-#version 330 core
+#version 100
 
 /*
-src/shaders/vertex-shader.glsl, 2017-07-14
+src/shaders/gles/vertex-shader-gles.glsl, 2017-07-17
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -14,16 +14,15 @@ or
 MIT License
 */
 
-layout (location = 0) in vec3 vertex;
-layout (location = 1) in vec2 texture_coordinates_attribute;
+attribute vec3 vertex;
+attribute vec2 texture_coordinates_attribute;
 
-out vec2 texture_coordinates;
+varying vec2 texture_coordinates;
 
 uniform mat4 M;
 uniform mat4 P;
 
 void main() {
-
     gl_Position = P * M * vec4(vertex, 1.0);
 
     texture_coordinates = vec2(texture_coordinates_attribute.x,-texture_coordinates_attribute.y);

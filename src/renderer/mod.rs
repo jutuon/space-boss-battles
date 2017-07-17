@@ -89,6 +89,15 @@ impl OpenGLRenderer {
     pub fn new(video_system: VideoSubsystem) -> OpenGLRenderer {
         let window = video_system.window("Space Boss Battles", 640,480).opengl().build().expect("window creation failed");
 
+
+        #[cfg(feature = "gles")]
+        {
+            let gl_attr = video_system.gl_attr();
+            gl_attr.set_context_profile(GLProfile::GLES);
+            gl_attr.set_context_version(2,0);
+        }
+
+        #[cfg(not(feature = "gles"))]
         {
             let gl_attr = video_system.gl_attr();
             gl_attr.set_context_profile(GLProfile::Core);
