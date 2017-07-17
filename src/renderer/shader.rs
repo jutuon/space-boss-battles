@@ -19,27 +19,27 @@ use std::ffi::CString;
 use gl::shader::*;
 use gl::uniform::*;
 
-use cgmath::{Matrix4, Vector4};
+use cgmath::{Matrix4, Vector3};
 
 pub struct TextureShader {
     program: Program,
-    projection_matrix_uniform: UniformMatrix4,
-    model_matrix_uniform: UniformMatrix4,
+    projection: UniformMatrix4,
+    model: UniformMatrix4,
 }
 
 impl TextureShader {
     pub fn new() -> TextureShader {
         let program = create_program("src/shaders/vertex-shader.glsl", "src/shaders/fragment-shader.glsl");
 
-        let model_matrix_uniform = UniformMatrix4::new(CString::new("M").unwrap(), &program).expect("uniform error");
-        let projection_matrix_uniform = UniformMatrix4::new(CString::new("P").unwrap(), &program).expect("uniform error");
+        let model = create_uniform("M", &program, "texture shader");
+        let projection = create_uniform("P", &program, "texture shader");
 
-        TextureShader { program, projection_matrix_uniform, model_matrix_uniform }
+        TextureShader { program, projection, model }
     }
 
     pub fn send_uniform_data(&mut self, model: &Matrix4<f32>, projection: &Matrix4<f32>) {
-        self.model_matrix_uniform.send(model);
-        self.projection_matrix_uniform.send(projection);
+        self.model.send(model);
+        self.projection.send(projection);
     }
 
     pub fn use_program(&mut self) {
@@ -49,13 +49,31 @@ impl TextureShader {
 
 pub struct ColorShader {
     program: Program,
+    projection: UniformMatrix4,
+    model: UniformMatrix4,
+    color: UniformVector3,
+
 }
 
 impl ColorShader {
     pub fn new() -> ColorShader {
         let program = create_program("src/shaders/color-vertex.glsl", "src/shaders/color-fragment.glsl");
 
-        ColorShader { program }
+        let model = create_uniform("M", &program, "color shader");
+        let projection = create_uniform("P", &program, "color shader");
+        let color = create_uniform("color", &program, "color shader");
+
+        ColorShader { program, projection, model, color }
+    }
+
+    pub fn send_uniform_data(&mut self, model: &Matrix4<f32>, projection: &Matrix4<f32>, color: &Vector3<f32>) {
+        self.model.send(model);
+        self.projection.send(projection);
+        self.color.send(color);
+    }
+
+    pub fn use_program(&mut self) {
+        self.program.use_program();
     }
 }
 
@@ -84,6 +102,22 @@ fn load_shader(shader_type: ShaderType, file_path: &str) -> Shader {
         Ok(shader) => shader,
         Err(message) => {
             println!("shader compile error\n{}", message);
+            panic!();
+        },
+    }
+}
+
+fn create_uniform<T: CreateUniform>(name: &str, program: &Program, program_name: &str) -> T {
+    let uniform_result = T::new(CString::new(name).unwrap(), &program);
+
+    handle_uniform_error(name, program_name, uniform_result)
+}
+
+fn handle_uniform_error<T>(name: &str, program_name: &str, uniform_result: Result<T, UniformError>) -> T {
+    match uniform_result {
+        Ok(uniform) => uniform,
+        Err(error) => {
+            println!("error: {:?}\n uniform name: {}\n program name: {}\n", error, name, program_name);
             panic!();
         },
     }

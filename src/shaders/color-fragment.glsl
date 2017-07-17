@@ -1,7 +1,7 @@
 #version 330 core
 
 /*
-src/shaders/color-fragment.glsl, 2017-07-15
+src/shaders/color-fragment.glsl, 2017-07-17
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -14,10 +14,10 @@ or
 MIT License
 */
 
-out vec4 color;
+out vec4 color_out;
 
-uniform vec3 color_uniform;
+uniform vec3 color;
 
 void main() {
-    color = vec4(color_uniform,1.0);
+    color_out = vec4(color,1.0);
 }
