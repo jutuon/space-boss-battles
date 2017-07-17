@@ -1,5 +1,5 @@
 /*
-src/logic.rs, 2017-07-15
+src/logic.rs, 2017-07-17
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -70,7 +70,7 @@ impl Player {
         }
         let current_time = PreciseTime::now();
 
-        if input.shoot() && self.laser_timer.to(current_time).num_milliseconds() >= 1000 {
+        if input.shoot() && self.laser_timer.to(current_time).num_milliseconds() >= 500 {
             self.lasers.push(Laser::new(self.model_matrix.w.x + 1.0, self.model_matrix.w.y));
             self.laser_timer = current_time;
         }
@@ -81,7 +81,7 @@ impl Player {
     }
 
     fn check_position(&mut self) {
-        let &Vector4{x: x, y: y, ..} = self.position();
+        let &Vector4{x, y, ..} = self.position();
 
         let width = 10.0;
 
@@ -172,19 +172,16 @@ impl Laser {
         model_matrix.w.x = x;
         model_matrix.w.y = y;
 
-        let speed = 0.05;
+        model_matrix.x.x = 0.3;
+        model_matrix.y.y = 0.1;
+
+        let speed = 0.1;
         let destroy = false;
         Laser { model_matrix, speed, destroy }
     }
 
     fn update(&mut self, input: &Input) {
         let speed = self.speed;
-
-        if input.up() {
-            self.position_mut().y += speed;
-        } else if input.down() {
-            self.position_mut().y -= speed;
-        }
 
         self.position_mut().x += speed;
 

@@ -71,16 +71,13 @@ impl Renderer for OpenGLRenderer {
 
         self.square.draw();
 
-/*
-        self.color_draw_program.use_program();
+        self.color_shader.use_program();
 
+        let color = Vector3::new(0.0,0.0,1.0);
         for laser in logic.get_player().get_lasers() {
-            self.projection_matrix_uniform.send(&projection_matrix);
-            self.model_matrix_uniform.send(laser.model_matrix());
-            self.rectangle.draw();
+            self.color_shader.send_uniform_data(laser.model_matrix(), &projection_matrix, &color);
+            self.square.draw();
         }
-*/
-
     }
 
     fn end(&mut self) {
