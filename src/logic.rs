@@ -48,7 +48,7 @@ pub struct Player {
 impl Player {
     fn new() -> Player {
         let model_matrix = Matrix4::identity();
-        let speed = 0.1;
+        let speed = 0.05;
         let lasers = vec![];
         let laser_timer = PreciseTime::now();
         Player { model_matrix, speed, lasers, laser_timer }
@@ -175,7 +175,7 @@ impl Laser {
         model_matrix.x.x = 0.3;
         model_matrix.y.y = 0.1;
 
-        let speed = 0.1;
+        let speed = 0.05;
         let destroy = false;
         Laser { model_matrix, speed, destroy }
     }
@@ -189,7 +189,7 @@ impl Laser {
     }
 
     fn check_position(&mut self) {
-        let &Vector4{x: x, y: y, ..} = self.position();
+        let &Vector4{x, y, ..} = self.position();
 
         let width = 10.0;
 

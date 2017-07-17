@@ -62,7 +62,7 @@ impl Renderer for OpenGLRenderer {
 
         self.textures[Textures::Player as usize].bind();
 
-        let size = 3.0;
+        let size = 1.5;
         let width = 4.0 * size;
         let height = 3.0 * size;
         let projection_matrix = cgmath::ortho::<f32>(-width, width, -height, height, 1.0, -1.0);
@@ -121,7 +121,7 @@ impl OpenGLRenderer {
 fn create_square() -> VertexArray {
     let mut square = VertexArray::new(6);
 
-    let size : f32 = 1.0;
+    let size : f32 = 0.5;
 
     let vertex_data: [f32; 18]  = [
                 size, -size, 0.0,
