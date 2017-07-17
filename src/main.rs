@@ -1,5 +1,5 @@
 /*
-src/main.rs, 2017-07-15
+src/main.rs, 2017-07-17
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -119,13 +119,13 @@ impl Game {
 
 pub struct FpsCounter {
     fps_count: u32,
-    update_time: PreciseTime,
+    update_time: Timer,
     frame_drop_count: u32,
 }
 
 impl FpsCounter {
     pub fn new() -> FpsCounter {
-        FpsCounter {fps_count: 0, update_time: PreciseTime::now(), frame_drop_count: 0}
+        FpsCounter {fps_count: 0, update_time: Timer::new(), frame_drop_count: 0}
     }
 
     pub fn frame(&mut self) {
@@ -145,12 +145,11 @@ impl FpsCounter {
     }
 
     pub fn update(&mut self, current_time: PreciseTime) {
-        if self.update_time.to(current_time).num_milliseconds() >= 1000 {
+        if self.update_time.check(current_time, 1000) {
             self.print();
 
             self.fps_count = 0;
             self.frame_drop_count = 0;
-            self.update_time = current_time;
         }
     }
 }
@@ -159,33 +158,34 @@ pub struct GameLoopTimer {
     logic_update_time_milliseconds: i64,
     drop_frame: bool,
     update_logic: bool,
-    update_time: PreciseTime,
+    update_timer: Timer,
 }
 
 impl GameLoopTimer {
     pub fn new(logic_update_time_milliseconds: i64) -> GameLoopTimer {
         let drop_frame = false;
         let update_logic = false;
-        let update_time = PreciseTime::now();
+        let update_timer = Timer::new();
 
-        GameLoopTimer {logic_update_time_milliseconds, drop_frame, update_logic, update_time}
+        GameLoopTimer {logic_update_time_milliseconds, drop_frame, update_logic, update_timer}
     }
 
     pub fn update(&mut self, current_time: PreciseTime) {
         self.update_logic = false;
         self.drop_frame = false;
 
-        let time = self.update_time.to(current_time).num_milliseconds();
+        let time = self.update_timer.milliseconds(current_time);
+
         if time == self.logic_update_time_milliseconds {
             self.update_logic = true;
             self.drop_frame = false;
 
-            self.update_time = current_time;
+            self.update_timer.reset(current_time);
         } else if time > self.logic_update_time_milliseconds {
             self.update_logic = true;
             self.drop_frame = true;
 
-            self.update_time = current_time;
+            self.update_timer.reset(current_time);
         }
     }
 
@@ -195,5 +195,32 @@ impl GameLoopTimer {
 
     pub fn update_logic(&self) -> bool {
         self.update_logic
+    }
+}
+
+pub struct Timer {
+    update_time: PreciseTime,
+}
+
+impl Timer {
+    pub fn new() -> Timer {
+        Timer {update_time: PreciseTime::now()}
+    }
+
+    pub fn check(&mut self, current_time: PreciseTime, timer_reset_milliseconds: i64) -> bool {
+        if self.milliseconds(current_time) >= timer_reset_milliseconds {
+            self.reset(current_time);
+            return true;
+        }
+
+        false
+    }
+
+    pub fn milliseconds(&self, current_time: PreciseTime) -> i64 {
+        self.update_time.to(current_time).num_milliseconds()
+    }
+
+    pub fn reset(&mut self, current_time: PreciseTime) {
+         self.update_time = current_time;
     }
 }

@@ -18,6 +18,7 @@ use cgmath::{Vector4, Matrix4};
 use input::Input;
 
 use time::PreciseTime;
+use Timer;
 
 pub struct Logic {
     player: Player,
@@ -42,7 +43,7 @@ pub struct Player {
     model_matrix: Matrix4<f32>,
     speed: f32,
     lasers: Vec<Laser>,
-    laser_timer: PreciseTime,
+    laser_timer: Timer,
 }
 
 impl Player {
@@ -50,7 +51,7 @@ impl Player {
         let model_matrix = Matrix4::identity();
         let speed = 0.05;
         let lasers = vec![];
-        let laser_timer = PreciseTime::now();
+        let laser_timer = Timer::new();
         Player { model_matrix, speed, lasers, laser_timer }
     }
 
@@ -68,11 +69,9 @@ impl Player {
         } else if input.right(){
             self.position_mut().x += speed;
         }
-        let current_time = PreciseTime::now();
 
-        if input.shoot() && self.laser_timer.to(current_time).num_milliseconds() >= 500 {
+        if input.shoot() && self.laser_timer.check(PreciseTime::now(), 500) {
             self.lasers.push(Laser::new(self.model_matrix.w.x + 1.0, self.model_matrix.w.y));
-            self.laser_timer = current_time;
         }
 
         self.check_position();
