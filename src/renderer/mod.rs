@@ -1,5 +1,5 @@
 /*
-src/renderer/mod.rs, 2017-07-17
+src/renderer/mod.rs, 2017-07-18
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -19,6 +19,7 @@ use gl::buffer::*;
 use gl::texture::*;
 
 use gl::gl_raw;
+use gl;
 
 use cgmath::{Vector3, Matrix4};
 use cgmath;
@@ -82,6 +83,10 @@ impl Renderer for OpenGLRenderer {
 
     fn end(&mut self) {
         self.window.gl_swap_window();
+
+        while let Err(error) = gl::GLError::get_error() {
+            println!("OpenGL error: {:?}", error);
+        }
     }
 }
 
@@ -121,6 +126,8 @@ impl OpenGLRenderer {
 
         let textures = Textures::load_all();
         let square = create_square();
+
+        println!("OpenGL version: {:?}", gl::get_version_string());
 
         OpenGLRenderer {video_system, window, context, texture_shader, color_shader, textures, square}
     }
