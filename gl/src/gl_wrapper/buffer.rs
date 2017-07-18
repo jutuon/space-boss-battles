@@ -1,5 +1,5 @@
 /*
-gl/src/gl_wrapper/buffer.rs, 2017-07-17
+gl/src/gl_wrapper/buffer.rs, 2017-07-18
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -20,13 +20,22 @@ use std::os::raw::c_void;
 use std::ptr;
 
 
+/// Send static data to GPU with Vertex Buffer Object
 struct VertexBufferStatic {
     id: GLuint,
-    vector_size: GLint,
+    attribute_component_count: GLint,
 }
 
 impl VertexBufferStatic {
-    unsafe fn new(data: &[f32], vector_size: GLint) -> VertexBufferStatic {
+    /// Sends static data to GPU.
+    ///
+    /// # Arguments
+    /// * `data` - Float data which is sent to GPU.
+    /// * `attribute_component_count` - Number of floats in one vertex attribute.
+    ///
+    /// # Safety
+    /// This function does not check if data length and `attribute_component_count` match.
+    unsafe fn new(data: &[f32], attribute_component_count: GLint) -> VertexBufferStatic {
         let mut id: GLuint = 0;
 
         gl_raw::GenBuffers(1, &mut id);
@@ -37,21 +46,27 @@ impl VertexBufferStatic {
 
         gl_raw::BufferData(gl_raw::ARRAY_BUFFER, size, data_ptr, gl_raw::STATIC_DRAW);
 
-        VertexBufferStatic {id, vector_size}
+        VertexBufferStatic {id, attribute_component_count}
     }
 
+    /// Set vertex attribute to match buffer data.
+    ///
+    /// # Arguments
+    /// * `attribute_index` - Index of vertex attribute.
     fn set_vertex_attributes(&mut self, attribute_index: GLuint) {
         unsafe {
             gl_raw::BindBuffer(gl_raw::ARRAY_BUFFER, self.id);
 
-            let stride = (self.vector_size * size_of::<f32>() as GLint) as GLsizei;
-            gl_raw::VertexAttribPointer(attribute_index, self.vector_size, gl_raw::FLOAT, gl_raw::FALSE, stride, ptr::null());
+            let stride = (self.attribute_component_count * size_of::<f32>() as GLint) as GLsizei;
+            gl_raw::VertexAttribPointer(attribute_index, self.attribute_component_count, gl_raw::FLOAT, gl_raw::FALSE, stride, ptr::null());
             gl_raw::EnableVertexAttribArray(attribute_index);
         }
     }
 }
 
 impl Drop for VertexBufferStatic {
+
+    /// Deletes OpenGL's buffer object.
     fn drop(&mut self) {
         unsafe {
             gl_raw::DeleteBuffers(1, &self.id);
@@ -59,6 +74,7 @@ impl Drop for VertexBufferStatic {
     }
 }
 
+/// Send multiple buffers of data to GPU
 #[cfg(not(feature = "gles"))]
 pub struct VertexArray {
     id: GLuint,
@@ -68,6 +84,8 @@ pub struct VertexArray {
 
 #[cfg(not(feature = "gles"))]
 impl VertexArray {
+
+    /// Creates new Vertex Array Object
     pub fn new(vertex_count: GLsizei) -> VertexArray {
         let mut id: GLuint = 0;
         let vertex_buffers = vec![];
@@ -78,19 +96,27 @@ impl VertexArray {
         }
     }
 
-    pub fn add_static_buffer(&mut self, data: &[f32], vector_size: GLint, attribute_index: GLuint) {
-        if data.len() / vector_size as usize != self.vertex_count as usize {
+    /// Adds new buffer to Vertex Array Object
+    ///
+    /// # Arguments
+    /// * `data` - Float data to send to the GPU.
+    /// * `attribute_component_count` -
+    /// * `attribute_index` -
+    ///
+    /// # Panics
+    pub fn add_static_buffer(&mut self, data: &[f32], attribute_component_count: GLint, attribute_index: GLuint) {
+        if data.len() / attribute_component_count as usize != self.vertex_count as usize {
             panic!("buffer size doesn't match with vertex array's vertex count");
         }
 
-        if data.len() % vector_size as usize != 0 {
+        if data.len() % attribute_component_count as usize != 0 {
             panic!("count of elements in data does not match vector size");
         }
 
         let mut buffer;
 
         unsafe {
-            buffer = VertexBufferStatic::new(data, vector_size);
+            buffer = VertexBufferStatic::new(data, attribute_component_count);
         }
 
         self.bind();

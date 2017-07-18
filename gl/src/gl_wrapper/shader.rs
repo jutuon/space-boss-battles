@@ -12,6 +12,8 @@ or
 MIT License
 */
 
+//! Compile shaders and link program from them.
+
 use super::gl_raw;
 use self::gl_raw::types::*;
 
@@ -20,7 +22,7 @@ use std::ptr;
 use std::error::Error;
 
 
-
+/// Type of shader
 #[derive(Debug)]
 pub enum ShaderType {
     Vertex,
@@ -28,6 +30,8 @@ pub enum ShaderType {
 }
 
 impl ShaderType {
+    /// Return shader as `GLenum`. This is useful when calling functions
+    /// from raw OpenGL bindings.
     fn as_gl_enum(self) -> GLenum {
         match self {
             ShaderType::Fragment => gl_raw::FRAGMENT_SHADER,
@@ -36,11 +40,13 @@ impl ShaderType {
     }
 }
 
+/// Compiled shader
 pub struct Shader {
     shader_id: GLuint,
 }
 
 impl Shader {
+    /// Compile shader. Returns compiled shader or error message.
     pub fn new(shader_type: ShaderType, shader_text: CString) -> Result<Shader, String> {
         let shader_type: GLenum = shader_type.as_gl_enum();
         let shader;
@@ -68,10 +74,13 @@ impl Shader {
         }
     }
 
+    /// OpenGL's identification number for shader object.
     fn id(&self) -> GLuint {
         self.shader_id
     }
 
+    /// Return compilation error log. Returns IntoStringError if error log from
+    /// OpenGL is not valid string.
     fn get_shader_log(shader: &Shader) -> Result<String, IntoStringError> {
         let mut log_length: GLint = 0;
 
@@ -89,6 +98,7 @@ impl Shader {
 }
 
 impl Drop for Shader {
+    /// Deletes OpenGL's shader object.
     fn drop(&mut self) {
         unsafe {
             gl_raw::DeleteShader(self.shader_id);
@@ -101,6 +111,7 @@ pub struct Program {
 }
 
 impl Drop for Program {
+    // Deletes OpenGL's program object.
     fn drop(&mut self) {
         unsafe {
             gl_raw::DeleteProgram(self.program_id);
@@ -109,6 +120,7 @@ impl Drop for Program {
 }
 
 impl Program {
+    /// Link new program from compiled shaders. Returns linked program or error message.
     pub fn new(shader1: Shader, shader2: Shader) -> Result<Program, String> {
         let program;
 
@@ -136,16 +148,20 @@ impl Program {
         }
     }
 
+    /// Enable program for next rendering function call.
     pub fn use_program(&self){
         unsafe {
             gl_raw::UseProgram(self.program_id);
         }
     }
 
+    /// OpenGL's identification number for program object.
     pub(crate) fn id(&self) -> GLuint {
         self.program_id
     }
 
+    /// Return linking error log. Returns IntoStringError if error log from
+    /// OpenGL is not valid string.
     fn get_program_log(program: &Program) -> Result<String, IntoStringError> {
         let mut log_length: GLint = 0;
 
@@ -162,6 +178,12 @@ impl Program {
     }
 }
 
+/// Creates specific size CString.
+///
+/// # Panics
+/// If function's internally created Vec<u8> buffer's
+/// length and argument len not match this function panics.
+/// This should never happen.
 fn create_string_buffer(len: usize) -> CString {
     let mut buffer: Vec<u8> = Vec::with_capacity(len);
 

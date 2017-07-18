@@ -1,5 +1,5 @@
 /*
-gl/src/gl_wrapper/texture.rs, 2017-07-14
+gl/src/gl_wrapper/texture.rs, 2017-07-18
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -12,16 +12,27 @@ or
 MIT License
 */
 
+//! Send textures to GPU.
+
 use super::gl_raw;
 use self::gl_raw::types::*;
 
 use std::os::raw::c_void;
 
+/// Texture with RGBA color
 pub struct TextureRGBA {
     id: GLuint,
 }
 
 impl TextureRGBA {
+    /// Send RGBA texture to GPU. This function will also set
+    /// * Texture wrap mode to repeat.
+    /// * Texture filtering to nearest.
+    /// * Generate mipmap from the texture.
+    ///
+    /// # Panics
+    /// If texture width and height does not match with data length
+    /// this function will panic.
     pub fn new(width: u32, height: u32, data: Vec<u8>) -> TextureRGBA {
         if width*height*4 != data.len() as u32 {
             panic!("image width and height does not match with data length");
@@ -49,6 +60,7 @@ impl TextureRGBA {
         texture
     }
 
+    /// Binds texture for rendering.
     pub fn bind(&mut self) {
         unsafe {
             gl_raw::BindTexture(gl_raw::TEXTURE_2D, self.id);
@@ -57,6 +69,7 @@ impl TextureRGBA {
 }
 
 impl Drop for TextureRGBA {
+    /// Deletes OpenGL texture object.
     fn drop(&mut self) {
         unsafe {
             gl_raw::DeleteTextures(1, &self.id);
