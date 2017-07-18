@@ -1,5 +1,5 @@
 /*
-src/renderer/shader.rs, 2017-07-17
+src/renderer/shader.rs, 2017-07-18
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -117,7 +117,7 @@ fn load_shader(shader_type: ShaderType, file_path: &str) -> Shader {
     }
 }
 
-fn create_uniform<T: CreateUniform>(name: &str, program: &Program, program_name: &str) -> T {
+fn create_uniform<T: Uniform>(name: &str, program: &Program, program_name: &str) -> T {
     let uniform_result = T::new(CString::new(name).unwrap(), &program);
 
     handle_uniform_error(name, program_name, uniform_result)
