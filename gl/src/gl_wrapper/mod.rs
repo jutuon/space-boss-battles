@@ -31,7 +31,7 @@ use gl_raw::types::*;
 use std::ffi::CStr;
 
 #[derive(Debug)]
-enum GLError {
+pub enum GLError {
     InvalidEnum,
     InvalidValue,
     InvalidOperation,
@@ -41,7 +41,7 @@ enum GLError {
 }
 
 impl GLError {
-    fn get_error(error: GLenum) -> Result<(),GLError> {
+    pub fn get_error() -> Result<(),GLError> {
         let error;
 
         unsafe {
@@ -65,7 +65,7 @@ impl GLError {
     }
 }
 
-fn get_version_string<'a>() -> &'a CStr {
+pub fn get_version_string<'a>() -> &'a CStr {
     unsafe {
         let ptr_to_str = gl_raw::GetString(gl_raw::VERSION) as *const i8;
         CStr::from_ptr(ptr_to_str)
