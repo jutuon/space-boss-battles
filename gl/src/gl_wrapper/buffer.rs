@@ -1,5 +1,5 @@
 /*
-gl/src/gl_wrapper/buffer.rs, 2017-07-18
+gl/src/gl_wrapper/buffer.rs, 2017-07-19
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -74,7 +74,14 @@ impl Drop for VertexBufferStatic {
     }
 }
 
-/// Send multiple buffers of data to GPU
+/// Send multiple buffers of data to GPU.
+///
+/// OpenGL 3.3 version of this struct is implemented
+/// with OpenGL's Vertex Array Object.
+///
+/// OpenGL ES 2.0 does not support Vertex Array Objects, so vertex
+/// attributes are set for every buffer
+/// when `draw` method is called if using OpenGL ES version of this struct.
 #[cfg(not(feature = "gles"))]
 pub struct VertexArray {
     id: GLuint,
@@ -82,10 +89,17 @@ pub struct VertexArray {
     vertex_count: GLsizei,
 }
 
-#[cfg(not(feature = "gles"))]
+#[cfg(feature = "gles")]
+pub struct VertexArray {
+    vertex_buffers: Vec<(VertexBufferStatic, GLuint)>,
+    vertex_count: GLsizei,
+}
+
+
 impl VertexArray {
 
     /// Creates new Vertex Array Object
+    #[cfg(not(feature = "gles"))]
     pub fn new(vertex_count: GLsizei) -> VertexArray {
         let mut id: GLuint = 0;
         let vertex_buffers = vec![];
@@ -96,43 +110,79 @@ impl VertexArray {
         }
     }
 
+    #[cfg(feature = "gles")]
+    pub fn new(vertex_count: GLsizei) -> VertexArray {
+        let vertex_buffers = vec![];
+        VertexArray {vertex_buffers, vertex_count}
+    }
+
     /// Adds new buffer to Vertex Array Object
     ///
     /// # Arguments
     /// * `data` - Float data to send to the GPU.
-    /// * `attribute_component_count` -
-    /// * `attribute_index` -
+    /// * `attribute_component_count` - Number of floats in one attribute.
+    /// * `attribute_index` - Index of vertex attribute.
     ///
     /// # Panics
+    /// * If buffer length doesn't match with `VertexArray`'s vertex count.
+    /// * If buffer length doesn't match with attribute_component_count.
     pub fn add_static_buffer(&mut self, data: &[f32], attribute_component_count: GLint, attribute_index: GLuint) {
         if data.len() / attribute_component_count as usize != self.vertex_count as usize {
-            panic!("buffer size doesn't match with vertex array's vertex count");
+            panic!("buffer length doesn't match with VertexArray's vertex count");
         }
 
         if data.len() % attribute_component_count as usize != 0 {
-            panic!("count of elements in data does not match vector size");
+            panic!("buffer length doesn't match with attribute_component_count");
         }
 
-        let mut buffer;
+        #[cfg(not(feature = "gles"))]
+        {
+            let mut buffer;
 
-        unsafe {
-            buffer = VertexBufferStatic::new(data, attribute_component_count);
+            unsafe {
+                buffer = VertexBufferStatic::new(data, attribute_component_count);
+            }
+
+            self.bind();
+            buffer.set_vertex_attributes(attribute_index);
+            self.vertex_buffers.push(buffer);
         }
 
-        self.bind();
+        #[cfg(feature = "gles")]
+        {
+            let buffer;
 
-        buffer.set_vertex_attributes(attribute_index);
-        self.vertex_buffers.push(buffer);
+            unsafe {
+                buffer = VertexBufferStatic::new(data, attribute_component_count);
+            }
+
+            self.vertex_buffers.push((buffer, attribute_index));
+        }
     }
 
+    /// Bind OpenGL's Vertex Array Object. This method
+    /// only exists for OpenGL 3.3 version of `VertexArray` struct.
+    #[cfg(not(feature = "gles"))]
     fn bind(&self) {
         unsafe {
             gl_raw::BindVertexArray(self.id);
         }
     }
 
+    /// Draw with buffers currently existing buffers in `VertexArray`. Remember to enable
+    /// correct shader `Program` with it's `use_program` method before calling this method.
     pub fn draw(&mut self) {
-        self.bind();
+        #[cfg(not(feature = "gles"))]
+        {
+            self.bind();
+        }
+
+        #[cfg(feature = "gles")]
+        {
+            for &mut (ref mut buffer, attribute_index) in &mut self.vertex_buffers {
+                buffer.set_vertex_attributes(attribute_index);
+            }
+        }
 
         unsafe {
             gl_raw::DrawArrays(gl_raw::TRIANGLES, 0, self.vertex_count);
@@ -142,54 +192,11 @@ impl VertexArray {
 
 #[cfg(not(feature = "gles"))]
 impl Drop for VertexArray {
+    /// Delete OpenGL's Vertex Array Object. This implementation of Drop trait
+    /// only exists for OpenGL 3.3 version of `VertexArray` struct.
     fn drop(&mut self) {
         unsafe {
-            gl_raw::DeleteBuffers(1, &self.id);
-        }
-    }
-}
-
-#[cfg(feature = "gles")]
-pub struct VertexArray {
-    vertex_buffers: Vec<(VertexBufferStatic, GLuint)>,
-    vertex_count: GLsizei,
-}
-
-#[cfg(feature = "gles")]
-impl VertexArray {
-    pub fn new(vertex_count: GLsizei) -> VertexArray {
-        let vertex_buffers = vec![];
-
-        unsafe {
-            VertexArray {vertex_buffers, vertex_count}
-        }
-    }
-
-    pub fn add_static_buffer(&mut self, data: &[f32], vector_size: GLint, attribute_index: GLuint) {
-        if data.len() / vector_size as usize != self.vertex_count as usize {
-            panic!("buffer size doesn't match with vertex array's vertex count");
-        }
-
-        if data.len() % vector_size as usize != 0 {
-            panic!("count of elements in data does not match vector size");
-        }
-
-        let mut buffer;
-
-        unsafe {
-            buffer = VertexBufferStatic::new(data, vector_size);
-        }
-
-        self.vertex_buffers.push((buffer, attribute_index));
-    }
-
-    pub fn draw(&mut self) {
-        for &mut (ref mut buffer, attribute_index) in &mut self.vertex_buffers {
-            buffer.set_vertex_attributes(attribute_index);
-        }
-
-        unsafe {
-            gl_raw::DrawArrays(gl_raw::TRIANGLES, 0, self.vertex_count);
+            gl_raw::DeleteVertexArrays(1, &self.id);
         }
     }
 }
