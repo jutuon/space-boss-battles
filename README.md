@@ -2,12 +2,13 @@
 
 Space Boss Battles is 2D arcade space shooter game. This version of the game is complete rewrite in Rust programming language. Originally game was written in CoolBasic programming language.
 
+This project is also my first proper project written in Rust and will also serve as coursework for programming project course.
 
 ## Features
 
 General features:
 
-- [ ] OpenGL 3.3 and OpenGL ES 2.0 support
+- [x] OpenGL 3.3 and OpenGL ES 2.0 support
 - [ ] Support for display aspect ratios of 4:3 and 16:9
 - [ ] Basic menu system for main menu and settings
 - [ ] 4 levels
@@ -15,7 +16,7 @@ General features:
 
 Platforms:
 
-- [ ] Linux
+- [x] Linux
 - [ ] Windows
 - [ ] Mac
 - [ ] Android
@@ -45,6 +46,19 @@ cd space-boss-battles
 
 ```
 cargo run --release
+```
+
+To run the game with OpenGL ES 2.0, build and run with this command
+```
+cargo run --release --features "gles"
+```
+
+## Documentation
+
+You can generate documentation and open it by running this command in
+root directory of the repository.
+```
+cargo doc --open
 ```
 
 
