@@ -72,7 +72,7 @@ or
 
 * MIT License, [LICENSE-MIT](https://github.com/jutuon/space-boss-battles/blob/master/LICENSE-MIT)
 
-You can choose which licence you use when you do something with this code.
+You can choose either one from licenses above when you do something with this code.
 
 Image and audio files are licensed under [Creative Commons Attribution 4.0 International License](https://creativecommons.org/licenses/by/4.0/).
 
