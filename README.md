@@ -78,4 +78,4 @@ Image and audio files are licensed under [Creative Commons Attribution 4.0 Inter
 
 ## Contributions
 
-Contributions will be licensed as stated in Licence section of this file.
+Contributions will be licensed as stated in License section of this file.
