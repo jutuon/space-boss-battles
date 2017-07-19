@@ -1,5 +1,5 @@
 /*
-gl/src/gl_wrapper/uniform.rs, 2017-07-18
+gl/src/gl_wrapper/uniform.rs, 2017-07-19
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -11,6 +11,8 @@ or
 
 MIT License
 */
+
+//! Send specific values to shader `Program`.
 
 use super::gl_raw;
 use self::gl_raw::types::*;

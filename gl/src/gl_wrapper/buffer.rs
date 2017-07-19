@@ -12,6 +12,8 @@ or
 MIT License
 */
 
+//! Send data to GPU.
+
 use super::gl_raw;
 use self::gl_raw::types::*;
 
