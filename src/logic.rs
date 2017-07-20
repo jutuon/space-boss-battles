@@ -1,5 +1,5 @@
 /*
-src/logic.rs, 2017-07-17
+src/logic.rs, 2017-07-20
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -13,7 +13,7 @@ MIT License
 */
 
 use cgmath::prelude::*;
-use cgmath::{Vector4, Matrix4};
+use cgmath::{Vector4, Matrix4, Rad, Vector2, BaseFloat, Point2};
 
 use input::Input;
 
@@ -40,7 +40,7 @@ impl Logic {
 }
 
 pub struct Player {
-    model_matrix: Matrix4<f32>,
+    data: Data<f32>,
     speed: f32,
     lasers: Vec<Laser>,
     laser_timer: Timer,
@@ -48,67 +48,54 @@ pub struct Player {
 
 impl Player {
     fn new() -> Player {
-        let model_matrix = Matrix4::identity();
+        let data = Data::new(0.0,0.0,1.0,1.0);
         let speed = 0.05;
         let lasers = vec![];
         let laser_timer = Timer::new();
-        Player { model_matrix, speed, lasers, laser_timer }
+        Player { data, speed, lasers, laser_timer }
     }
 
     fn update(&mut self, input: &Input) {
         let speed = self.speed;
 
+        let mut y_speed = 0.0;
         if input.up() {
-            self.position_mut().y += speed;
+            y_speed = speed;
         } else if input.down() {
-            self.position_mut().y -= speed;
+            y_speed = -speed;
         }
 
+        let mut x_speed = 0.0;
         if input.left() {
-            self.position_mut().x -= speed;
+            x_speed = -speed;
         } else if input.right(){
-            self.position_mut().x += speed;
+            x_speed = speed;
         }
 
-        if input.shoot() && self.laser_timer.check(PreciseTime::now(), 500) {
-            self.lasers.push(Laser::new(self.model_matrix.w.x + 1.0, self.model_matrix.w.y));
+        self.move_position(x_speed, y_speed);
+
+        if input.shoot() && self.laser_timer.check(PreciseTime::now(), 400) {
+            let laser = Laser::new(self.data().position.x + 1.0, self.data().position.y);
+            self.lasers.push(laser);
         }
 
-        self.check_position();
+        let width = 5.0;
+        let height = 4.0;
+        let area = Rectangle::new(-width, width, -height, height);
+        self.stay_at_area(&area);
 
-        self.clean_and_update_lasers(input);
-    }
-
-    fn check_position(&mut self) {
-        let &Vector4{x, y, ..} = self.position();
-
-        let width = 10.0;
-
-        if x > width {
-            self.position_mut().x = width;
-        } else if x < -width {
-            self.position_mut().x = -width;
-        }
-
-        let height = 8.0;
-
-        if y > height {
-            self.position_mut().y = height;
-        } else if y < -height {
-            self.position_mut().y = -height;
-        }
+        self.clean_and_update_lasers();
     }
 
     pub fn get_lasers(&self) -> &Vec<Laser> {
         &self.lasers
     }
 
-    fn clean_and_update_lasers(&mut self, input: &Input) {
-
+    fn clean_and_update_lasers(&mut self) {
         let mut remove = (false, 0);
 
         for (i, laser) in self.lasers.iter_mut().enumerate() {
-            laser.update(input);
+            laser.update();
 
             if laser.destroy() {
                 remove = (true, i);
@@ -122,114 +109,213 @@ impl Player {
 }
 
 
-pub trait GameObject<T> {
-    fn model_matrix(&self) -> &Matrix4<T>;
-    fn position_mut(&mut self) -> &mut Vector4<T>;
-    fn position(&self) -> &Vector4<T>;
-    fn x(&self) -> T;
-    fn y(&self) -> T;
-    fn z(&self) -> T;
-}
 
 
-impl GameObject<f32> for Player {
-    fn model_matrix(&self) -> &Matrix4<f32> {
-        &self.model_matrix
+
+impl GameObject for Player {}
+impl ModelMatrix for Player {}
+
+
+impl GameObjectData<f32> for Player {
+    fn data(&self) -> &Data<f32> {
+        &self.data
     }
-
-    fn position_mut(&mut self) -> &mut Vector4<f32> {
-        &mut self.model_matrix.w
-    }
-
-    fn position(&self) -> &Vector4<f32> {
-        &self.model_matrix.w
-    }
-
-    fn x(&self) -> f32 {
-        self.model_matrix.w.x
-    }
-
-    fn y(&self) -> f32 {
-        self.model_matrix.w.y
-    }
-
-    fn z(&self) -> f32 {
-        self.model_matrix.w.z
+    fn data_mut(&mut self) -> &mut Data<f32> {
+        &mut self.data
     }
 }
-
 
 pub struct Laser {
-    model_matrix: Matrix4<f32>,
+    data: Data<f32>,
     speed: f32,
     destroy: bool,
 }
 
 impl Laser {
     fn new(x: f32, y: f32) -> Laser {
-        let mut model_matrix = Matrix4::identity();
-        model_matrix.w.x = x;
-        model_matrix.w.y = y;
-
-        model_matrix.x.x = 0.3;
-        model_matrix.y.y = 0.1;
-
-        let speed = 0.05;
+        let data = Data::new(x, y, 0.3, 0.1);
+        let speed = 0.08;
         let destroy = false;
-        Laser { model_matrix, speed, destroy }
+        Laser { data, speed, destroy }
     }
 
-    fn update(&mut self, input: &Input) {
+    fn update(&mut self) {
         let speed = self.speed;
+        self.forward(speed);
 
-        self.position_mut().x += speed;
+        let width = 5.0;
+        let height = 4.0;
+        let area = Rectangle::new(-width, width, -height, height);
 
-        self.check_position();
-    }
-
-    fn check_position(&mut self) {
-        let &Vector4{x, y, ..} = self.position();
-
-        let width = 10.0;
-
-        if  x > width || x < -width {
-            self.destroy = true;
-        }
-
-        let height = 8.0;
-
-        if  y > height || y < -height {
+        if self.outside_allowed_area(&area) {
             self.destroy = true;
         }
     }
+}
 
-    pub fn destroy(&self) -> bool {
+impl CanDestroy for Laser {
+    fn destroy(&self) -> bool {
         self.destroy
     }
 }
 
-impl GameObject<f32> for Laser {
+impl GameObjectData<f32> for Laser {
+    fn data(&self) -> &Data<f32> {
+        &self.data
+    }
+    fn data_mut(&mut self) -> &mut Data<f32> {
+        &mut self.data
+    }
+}
+
+impl GameObject for Laser {}
+impl ModelMatrix for Laser {}
+
+
+
+
+
+pub trait ModelMatrix
+    where Self: GameObjectData<f32> {
     fn model_matrix(&self) -> &Matrix4<f32> {
-        &self.model_matrix
+        &self.data().model_matrix
+    }
+}
+
+pub trait CanDestroy {
+    fn destroy(&self) -> bool;
+}
+
+pub trait GameObjectData<T: BaseFloat> {
+    fn data(&self) -> &Data<T>;
+    fn data_mut(&mut self) -> &mut Data<T>;
+}
+
+pub trait GameObject
+    where Self: GameObjectData<f32> {
+
+    fn forward(&mut self, amount: f32) {
+        self.data_mut().position += self.data().direction * amount;
+
+        self.data_mut().update_model_matrix_position();
     }
 
-    fn position_mut(&mut self) -> &mut Vector4<f32> {
-        &mut self.model_matrix.w
+    fn turn(&mut self, angle: f32) {
+        self.data_mut().rotation += angle;
+
+        self.data_mut().update_rotation();
     }
 
-    fn position(&self) -> &Vector4<f32> {
-        &self.model_matrix.w
+    fn outside_allowed_area(&self, area: &Rectangle) -> bool {
+        area.outside(&self.data().position)
     }
 
-    fn x(&self) -> f32 {
-        self.model_matrix.w.x
+    fn stay_at_area(&mut self, area: &Rectangle) {
+        let x = self.data().position.x;
+
+        let mut position_changed = false;
+
+        if x < area.left_top_corner.x {
+            self.data_mut().position.x = area.left_top_corner.x;
+            position_changed = true;
+        } else if area.right_bottom_corner.x < x {
+            self.data_mut().position.x = area.right_bottom_corner.x;
+            position_changed = true;
+        }
+
+        let y = self.data().position.y;
+
+        if y < area.right_bottom_corner.y {
+            self.data_mut().position.y = area.right_bottom_corner.y;
+            position_changed = true;
+        } else if area.left_top_corner.y < y {
+            self.data_mut().position.y = area.left_top_corner.y;
+            position_changed = true;
+        }
+
+        if position_changed {
+            self.data_mut().update_model_matrix_position();
+        }
     }
 
-    fn y(&self) -> f32 {
-        self.model_matrix.w.y
+    fn move_position(&mut self, x: f32, y: f32) {
+        self.data_mut().position.x += x;
+        self.data_mut().position.y += y;
+
+        self.data_mut().update_model_matrix_position();
     }
 
-    fn z(&self) -> f32 {
-        self.model_matrix.w.z
+    fn set_position(&mut self, x: f32, y: f32) {
+        self.data_mut().position.x = x;
+        self.data_mut().position.y = y;
+
+        self.data_mut().update_model_matrix_position();
+    }
+}
+
+
+
+pub struct Rectangle {
+    pub left_top_corner: Point2<f32>,
+    pub right_bottom_corner: Point2<f32>,
+}
+
+impl Rectangle {
+    fn new (x_min: f32, x_max: f32, y_min: f32, y_max: f32) -> Rectangle {
+        Rectangle {
+            left_top_corner: Point2::new(x_min, y_max),
+            right_bottom_corner: Point2::new(x_max, y_min),
+        }
+    }
+
+    fn outside(&self, point: &Point2<f32>) -> bool {
+        if point.x < self.left_top_corner.x || self.right_bottom_corner.x < point.x {
+            return true;
+        }
+
+        if point.y < self.right_bottom_corner.y || self.left_top_corner.y < point.y {
+            return true;
+        }
+
+        false
+    }
+}
+
+pub struct Data<T: BaseFloat> {
+    pub model_matrix: Matrix4<T>,
+    pub position: Point2<T>,
+    pub direction: Vector2<T>,
+    pub width: T,
+    pub height: T,
+    pub rotation: T,
+}
+
+impl Data<f32> {
+    fn new(x: f32, y: f32, width: f32, height: f32) -> Data<f32> {
+        let model_matrix = Matrix4::identity();
+        let position = Point2::new(x, y);
+        let direction = Vector2::unit_x();
+        let rotation = 0.0;
+
+        let mut data = Data {model_matrix, position, direction, width, height, rotation};
+        data.update_rotation();
+
+        data
+    }
+
+    fn update_rotation(&mut self) {
+        let rotation_matrix = Matrix4::from_angle_z(Rad(self.rotation));
+
+        self.direction = (rotation_matrix * Vector4::unit_x()).truncate().truncate();
+
+        let scale_matrix = Matrix4::from_nonuniform_scale(self.width, self.height, 1.0);
+        self.model_matrix = rotation_matrix * scale_matrix;
+
+        self.update_model_matrix_position();
+    }
+
+    fn update_model_matrix_position(&mut self) {
+        self.model_matrix.w.x = self.position.x;
+        self.model_matrix.w.y = self.position.y;
     }
 }
