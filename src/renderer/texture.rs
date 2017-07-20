@@ -1,5 +1,5 @@
 /*
-src/renderer/texture.rs, 2017-07-17
+src/renderer/texture.rs, 2017-07-20
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -22,12 +22,14 @@ use image::{ImageDecoder, DecodingResult, ColorType};
 
 pub enum Textures {
     Player,
+    Enemy,
     TextureCount,
 }
 
 impl Textures {
     pub fn load_all() -> [TextureRGBA; Textures::TextureCount as usize] {
-        [Textures::load("game_files/images/player.png")]
+        [Textures::load("game_files/images/player.png"),
+        Textures::load("game_files/images/enemy1.png")]
     }
 
     fn load(file_path: &str) -> TextureRGBA {

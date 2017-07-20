@@ -50,7 +50,7 @@ pub trait GameObject
         area.outside(&self.data().position)
     }
 
-    fn stay_at_area(&mut self, area: &Rectangle) {
+    fn stay_at_area(&mut self, area: &Rectangle) -> bool {
         let x = self.data().position.x;
 
         let mut position_changed = false;
@@ -76,6 +76,8 @@ pub trait GameObject
         if position_changed {
             self.data_mut().update_model_matrix_position();
         }
+
+        position_changed
     }
 
     fn move_position(&mut self, x: f32, y: f32) {

@@ -60,23 +60,31 @@ impl Renderer for OpenGLRenderer {
     }
 
     fn render(&mut self, logic: &Logic) {
-        self.texture_shader.use_program();
-
-        self.textures[Textures::Player as usize].bind();
-
         let size = 1.5;
         let width = 4.0 * size;
         let height = 3.0 * size;
         let projection_matrix = cgmath::ortho::<f32>(-width, width, -height, height, 1.0, -1.0);
 
-        self.texture_shader.send_uniform_data(logic.get_player().model_matrix(), &projection_matrix);
+        self.texture_shader.use_program();
 
+        self.textures[Textures::Player as usize].bind();
+        self.texture_shader.send_uniform_data(logic.get_player().model_matrix(), &projection_matrix);
+        self.square.draw();
+
+        self.textures[Textures::Enemy as usize].bind();
+        self.texture_shader.send_uniform_data(logic.get_enemy().model_matrix(), &projection_matrix);
         self.square.draw();
 
         self.color_shader.use_program();
 
         let color = Vector3::new(0.0,0.0,1.0);
         for laser in logic.get_player().get_lasers() {
+            self.color_shader.send_uniform_data(laser.model_matrix(), &projection_matrix, &color);
+            self.square.draw();
+        }
+
+        let color = Vector3::new(1.0,0.0,0.0);
+        for laser in logic.get_enemy().get_lasers() {
             self.color_shader.send_uniform_data(laser.model_matrix(), &projection_matrix, &color);
             self.square.draw();
         }

@@ -21,22 +21,32 @@ use input::Input;
 use time::PreciseTime;
 use Timer;
 
+use std::f32::consts;
+
+
 pub struct Logic {
     player: Player,
+    enemy: Enemy,
 }
 
 impl Logic {
     pub fn new() -> Logic {
         let player = Player::new();
-        Logic { player }
+        let enemy = Enemy::new();
+        Logic { player, enemy }
     }
 
     pub fn update<T: Input>(&mut self, input: &T) {
         self.player.update(input);
+        self.enemy.update();
     }
 
     pub fn get_player(&self) -> &Player {
         &self.player
+    }
+
+    pub fn get_enemy(&self) -> &Enemy {
+        &self.enemy
     }
 }
 
@@ -45,6 +55,7 @@ pub struct Player {
     speed: f32,
     lasers: Vec<Laser>,
     laser_timer: Timer,
+    health: i32,
 }
 
 impl Player {
@@ -53,7 +64,8 @@ impl Player {
         let speed = 0.05;
         let lasers = vec![];
         let laser_timer = Timer::new();
-        Player { data, speed, lasers, laser_timer }
+        let health = 100;
+        Player { data, speed, lasers, laser_timer, health }
     }
 
     fn update(&mut self, input: &Input) {
@@ -127,6 +139,7 @@ pub struct Laser {
     data: Data<f32>,
     speed: f32,
     destroy: bool,
+    damage: u8,
 }
 
 impl Laser {
@@ -134,7 +147,8 @@ impl Laser {
         let data = Data::new(x, y, 0.3, 0.1);
         let speed = 0.08;
         let destroy = false;
-        Laser { data, speed, destroy }
+        let damage = 1;
+        Laser { data, speed, destroy, damage }
     }
 
     fn update(&mut self) {
@@ -148,6 +162,10 @@ impl Laser {
         if self.outside_allowed_area(&area) {
             self.destroy = true;
         }
+    }
+
+    fn get_damage(&self) -> u8 {
+        self.damage
     }
 }
 
@@ -168,3 +186,79 @@ impl GameObjectData<f32> for Laser {
 
 impl GameObject for Laser {}
 impl ModelMatrix for Laser {}
+
+
+pub struct Enemy {
+    data: Data<f32>,
+    speed: f32,
+    lasers: Vec<Laser>,
+    laser_timer: Timer,
+    health: i32,
+}
+
+impl Enemy {
+    fn new() -> Enemy {
+        let data = Data::new(3.0,0.0,1.0,1.0);
+        let speed = 0.05;
+        let lasers = vec![];
+        let laser_timer = Timer::new();
+        let health = 100;
+        Enemy { data, speed, lasers, laser_timer, health }
+    }
+
+    fn update(&mut self) {
+        let speed = self.speed;
+
+        self.move_position(0.0, speed);
+
+        let width = 5.0;
+        let height = 4.0;
+        let area = Rectangle::new(-width, width, -height, height);
+
+        if self.stay_at_area(&area) {
+            self.speed *= -1.0;
+        }
+
+        if self.laser_timer.check(PreciseTime::now(), 1000) {
+            let mut laser = Laser::new(self.data().position.x - 1.0, self.data().position.y);
+            laser.turn(consts::PI);
+            self.lasers.push(laser);
+        }
+
+        self.clean_and_update_lasers();
+    }
+
+    pub fn get_lasers(&self) -> &Vec<Laser> {
+        &self.lasers
+    }
+
+    fn clean_and_update_lasers(&mut self) {
+        let mut remove = (false, 0);
+
+        for (i, laser) in self.lasers.iter_mut().enumerate() {
+            laser.update();
+
+            if laser.destroy() {
+                remove = (true, i);
+            }
+        }
+
+        if let (true, i) = remove {
+            self.lasers.swap_remove(i);
+        }
+    }
+}
+
+
+impl GameObject for Enemy {}
+impl ModelMatrix for Enemy {}
+
+
+impl GameObjectData<f32> for Enemy {
+    fn data(&self) -> &Data<f32> {
+        &self.data
+    }
+    fn data_mut(&mut self) -> &mut Data<f32> {
+        &mut self.data
+    }
+}
