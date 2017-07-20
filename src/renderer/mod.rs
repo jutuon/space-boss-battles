@@ -31,8 +31,8 @@ use sdl2::VideoSubsystem;
 use sdl2::video::{Window};
 use sdl2::video::{GLProfile, GLContext};
 
-use logic::{ModelMatrix, Logic};
-
+use logic::{Logic};
+use logic::common::ModelMatrix;
 
 
 pub struct OpenGLRenderer {
