@@ -1,5 +1,5 @@
 /*
-src/logic/common.rs, 2017-07-20
+src/logic/common.rs, 2017-07-23
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -13,7 +13,7 @@ MIT License
 */
 
 use cgmath::prelude::*;
-use cgmath::{Vector4, Matrix4, Rad, Vector2, BaseFloat, Point2};
+use cgmath::{Vector4, Matrix4, Rad, Vector2, BaseFloat, Point2, MetricSpace};
 
 pub trait ModelMatrix
     where Self: GameObjectData<f32> {
@@ -93,6 +93,55 @@ pub trait GameObject
 
         self.data_mut().update_model_matrix_position();
     }
+
+    fn circle_collision<T: GameObjectData<f32>>(&self, game_object: &T) -> bool {
+        if !self.outer_square_collision(game_object) {
+            return false;
+        }
+
+        let distance = self.data().position.distance(game_object.data().position);
+
+        distance <= self.data().radius_inner + game_object.data().radius_inner
+    }
+/*
+    fn circle_point(&self, point: Point2<f32>) -> bool {
+        let a = self.data().position.x;
+        let b = self.data().position.y;
+
+        let r = self.data().width;
+
+        let x_min_a = point.x - a;
+        let y_min_b = point.y - b;
+
+        x_min_a * x_min_a + y_min_b * y_min_b <= r*r
+    }
+
+    fn axis_aligned_rectangle_collision<T: GameObjectData<f32>>(&self, game_object: &T) -> bool {
+        let x = self.data().position.x - game_object.data().position.x;
+        let y = self.data().position.y - game_object.data().position.y;
+
+        let objects_width_half = self.data().width/2.0 + game_object.data().width/2.0;
+        let objects_height_half = self.data().height/2.0 + game_object.data().height/2.0;
+
+        if x.abs() > objects_width_half || y.abs() > objects_height_half {
+            return false;
+        }
+
+        true
+    }
+*/
+    fn outer_square_collision<T: GameObjectData<f32>>(&self, game_object: &T) -> bool {
+        let x = self.data().position.x - game_object.data().position.x;
+        let y = self.data().position.y - game_object.data().position.y;
+
+        let objects_radius_sum = self.data().radius_outer + game_object.data().radius_outer;
+
+        if x.abs() > objects_radius_sum || y.abs() > objects_radius_sum {
+            return false;
+        }
+
+        true
+    }
 }
 
 pub struct Rectangle {
@@ -128,6 +177,8 @@ pub struct Data<T: BaseFloat> {
     pub width: T,
     pub height: T,
     pub rotation: T,
+    pub radius_outer: T,
+    pub radius_inner: T,
 }
 
 impl Data<f32> {
@@ -137,7 +188,13 @@ impl Data<f32> {
         let direction = Vector2::unit_x();
         let rotation = 0.0;
 
-        let mut data = Data {model_matrix, position, direction, width, height, rotation};
+        let x = width/2.0;
+        let y = height/2.0;
+        let radius_outer = f32::sqrt(x*x+y*y);
+
+        let radius_inner = f32::min(width, height)/2.0;
+
+        let mut data = Data {model_matrix, position, direction, width, height, rotation, radius_outer, radius_inner};
         data.update_rotation();
 
         data

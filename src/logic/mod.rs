@@ -1,5 +1,5 @@
 /*
-src/logic/mod.rs, 2017-07-20
+src/logic/mod.rs, 2017-07-23
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -37,8 +37,8 @@ impl Logic {
     }
 
     pub fn update<T: Input>(&mut self, input: &T) {
-        self.player.update(input);
-        self.enemy.update();
+        self.player.update(input, &mut self.enemy);
+        self.enemy.update(&mut self.player);
     }
 
     pub fn get_player(&self) -> &Player {
@@ -60,7 +60,7 @@ pub struct Player {
 
 impl Player {
     fn new() -> Player {
-        let data = Data::new(0.0,0.0,1.0,1.0);
+        let data = Data::new(0.0, 0.0, 1.0, 1.0);
         let speed = 0.05;
         let lasers = vec![];
         let laser_timer = Timer::new();
@@ -68,7 +68,7 @@ impl Player {
         Player { data, speed, lasers, laser_timer, health }
     }
 
-    fn update(&mut self, input: &Input) {
+    fn update(&mut self, input: &Input, enemy: &mut Enemy) {
         let speed = self.speed;
 
         let mut y_speed = 0.0;
@@ -97,14 +97,18 @@ impl Player {
         let area = Rectangle::new(-width, width, -height, height);
         self.stay_at_area(&area);
 
-        self.clean_and_update_lasers();
+        self.clean_and_update_lasers(enemy);
+
+        if self.circle_collision(enemy) {
+            self.update_health(-1);
+        }
     }
 
     pub fn get_lasers(&self) -> &Vec<Laser> {
         &self.lasers
     }
 
-    fn clean_and_update_lasers(&mut self) {
+    fn clean_and_update_lasers(&mut self, enemy: &mut Enemy) {
         let mut remove = (false, 0);
 
         for (i, laser) in self.lasers.iter_mut().enumerate() {
@@ -112,12 +116,25 @@ impl Player {
 
             if laser.destroy() {
                 remove = (true, i);
+            } else if enemy.circle_collision(laser) {
+                remove = (true, i);
+                enemy.update_health(-laser.get_damage());
             }
         }
 
         if let (true, i) = remove {
             self.lasers.swap_remove(i);
         }
+    }
+
+    pub fn update_health(&mut self, amount: i32) {
+        self.health += amount;
+
+        if self.health < 0 {
+            self.health = 0;
+        }
+
+        println!("player health: {}", self.health);
     }
 }
 
@@ -139,7 +156,7 @@ pub struct Laser {
     data: Data<f32>,
     speed: f32,
     destroy: bool,
-    damage: u8,
+    damage: i32,
 }
 
 impl Laser {
@@ -164,7 +181,7 @@ impl Laser {
         }
     }
 
-    fn get_damage(&self) -> u8 {
+    fn get_damage(&self) -> i32 {
         self.damage
     }
 }
@@ -198,7 +215,8 @@ pub struct Enemy {
 
 impl Enemy {
     fn new() -> Enemy {
-        let data = Data::new(3.0,0.0,1.0,1.0);
+        let data = Data::new(3.0, 0.0, 1.0, 1.0);
+
         let speed = 0.05;
         let lasers = vec![];
         let laser_timer = Timer::new();
@@ -206,7 +224,7 @@ impl Enemy {
         Enemy { data, speed, lasers, laser_timer, health }
     }
 
-    fn update(&mut self) {
+    fn update(&mut self, player: &mut Player) {
         let speed = self.speed;
 
         self.move_position(0.0, speed);
@@ -220,19 +238,23 @@ impl Enemy {
         }
 
         if self.laser_timer.check(PreciseTime::now(), 1000) {
-            let mut laser = Laser::new(self.data().position.x - 1.0, self.data().position.y);
-            laser.turn(consts::PI);
-            self.lasers.push(laser);
+            self.create_laser(consts::PI);
+            if (self.health < 25) {
+                self.create_laser(consts::PI * 0.9);
+                self.create_laser(consts::PI * 1.1);
+            } else if (self.health < 50) {
+                self.create_laser(consts::PI * 0.9);
+            }
         }
 
-        self.clean_and_update_lasers();
+        self.clean_and_update_lasers(player);
     }
 
     pub fn get_lasers(&self) -> &Vec<Laser> {
         &self.lasers
     }
 
-    fn clean_and_update_lasers(&mut self) {
+    fn clean_and_update_lasers(&mut self, player: &mut Player) {
         let mut remove = (false, 0);
 
         for (i, laser) in self.lasers.iter_mut().enumerate() {
@@ -240,12 +262,31 @@ impl Enemy {
 
             if laser.destroy() {
                 remove = (true, i);
+            } else if player.circle_collision(laser) {
+                remove = (true, i);
+                player.update_health(-laser.get_damage());
             }
         }
 
         if let (true, i) = remove {
             self.lasers.swap_remove(i);
         }
+    }
+
+    fn create_laser(&mut self, rotation: f32) {
+        let mut laser = Laser::new(self.data().position.x - 1.0, self.data().position.y);
+        laser.turn(rotation);
+        self.lasers.push(laser);
+    }
+
+    pub fn update_health(&mut self, amount: i32) {
+        self.health += amount;
+
+        if self.health < 0 {
+            self.health = 0;
+        }
+
+        println!("enemy health: {}", self.health);
     }
 }
 
