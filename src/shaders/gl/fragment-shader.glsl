@@ -1,7 +1,7 @@
 #version 330 core
 
 /*
-src/shaders/gl/fragment-shader.glsl, 2017-07-17
+src/shaders/gl/fragment-shader.glsl, 2017-07-23
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -20,7 +20,9 @@ out vec4 color;
 uniform sampler2D texture_sampler;
 
 void main() {
-    color = vec4(1.0,0.0,0.0,1.0);
     color = texture(texture_sampler, texture_coordinates);
 
+    if (color.a < 0.5) {
+        discard;
+    }
 }
