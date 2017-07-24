@@ -1,5 +1,5 @@
 /*
-src/logic/mod.rs, 2017-07-23
+src/logic/mod.rs, 2017-07-24
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -27,18 +27,21 @@ use std::f32::consts;
 pub struct Logic {
     player: Player,
     enemy: Enemy,
+    moving_background: MovingBackground,
 }
 
 impl Logic {
     pub fn new() -> Logic {
         let player = Player::new();
         let enemy = Enemy::new();
-        Logic { player, enemy }
+        let moving_background = MovingBackground::new();
+        Logic { player, enemy, moving_background }
     }
 
     pub fn update<T: Input>(&mut self, input: &T) {
         self.player.update(input, &mut self.enemy);
         self.enemy.update(&mut self.player);
+        self.moving_background.update();
     }
 
     pub fn get_player(&self) -> &Player {
@@ -47,6 +50,10 @@ impl Logic {
 
     pub fn get_enemy(&self) -> &Enemy {
         &self.enemy
+    }
+
+    pub fn get_moving_background(&self) -> &MovingBackground {
+        &self.moving_background
     }
 }
 
@@ -239,10 +246,10 @@ impl Enemy {
 
         if self.laser_timer.check(PreciseTime::now(), 1000) {
             self.create_laser(consts::PI);
-            if (self.health < 25) {
+            if self.health < 25 {
                 self.create_laser(consts::PI * 0.9);
                 self.create_laser(consts::PI * 1.1);
-            } else if (self.health < 50) {
+            } else if self.health < 50 {
                 self.create_laser(consts::PI * 0.9);
             }
         }
@@ -301,5 +308,75 @@ impl GameObjectData<f32> for Enemy {
     }
     fn data_mut(&mut self) -> &mut Data<f32> {
         &mut self.data
+    }
+}
+
+
+pub struct Background {
+    data: Data<f32>,
+    x_limit: f32,
+    x_reset_position: f32,
+    speed: f32,
+}
+
+impl Background {
+    fn new(i: f32, side_length: f32) -> Background {
+        let data = Data::new(i*side_length, 0.0, side_length, side_length);
+        let x_limit = -2.0*side_length;
+        let x_reset_position = 2.0*side_length;
+        let speed = -0.04;
+
+        Background { data, x_limit, x_reset_position, speed }
+    }
+
+    fn update(&mut self) {
+        let speed = self.speed;
+        self.move_position(speed, 0.0);
+
+        if self.data().position.x <= self.x_limit {
+            self.data_mut().position.x = self.x_reset_position;
+        }
+    }
+}
+
+
+impl GameObject for Background {}
+impl ModelMatrix for Background {}
+
+
+impl GameObjectData<f32> for Background {
+    fn data(&self) -> &Data<f32> {
+        &self.data
+    }
+    fn data_mut(&mut self) -> &mut Data<f32> {
+        &mut self.data
+    }
+}
+
+pub struct MovingBackground {
+    backgrounds: [Background; 4],
+}
+
+impl MovingBackground {
+    fn new() -> MovingBackground {
+        let size = 9.0;
+        let backgrounds = [
+            Background::new(-1.0, size),
+            Background::new(0.0, size),
+            Background::new(1.0, size),
+            Background::new(2.0, size),
+        ];
+
+        MovingBackground { backgrounds }
+    }
+
+    fn update(&mut self) {
+       for background in &mut self.backgrounds {
+           background.update();
+       }
+    }
+
+    pub fn get_backgrounds(&self) -> &[Background; 4] {
+        &self.backgrounds
     }
 }
