@@ -1,5 +1,5 @@
 /*
-gl/src/gl_wrapper/texture.rs, 2017-07-18
+gl/src/gl_wrapper/texture.rs, 2017-07-24
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -19,23 +19,24 @@ use self::gl_raw::types::*;
 
 use std::os::raw::c_void;
 
-/// Texture with RGBA color
-pub struct TextureRGBA {
+/// Texture with RGB or RGBA color
+pub struct Texture {
     id: GLuint,
 }
 
-impl TextureRGBA {
-    /// Send RGBA texture to GPU. This function will also set
-    /// * Texture wrap mode to repeat.
-    /// * Texture filtering to nearest.
+impl Texture {
+    /// Send RGB or RGBA texture to GPU. This function will also
+    /// * Set Texture wrap mode to repeat.
+    /// * Set Texture filtering to nearest.
     /// * Generate mipmap from the texture.
     ///
     /// # Panics
-    /// If texture width and height does not match with data length
+    /// If texture width, height and color type does not match with data length
     /// this function will panic.
-    pub fn new(width: u32, height: u32, data: Vec<u8>) -> TextureRGBA {
-        if width*height*4 != data.len() as u32 {
-            panic!("image width and height does not match with data length");
+    pub fn new(width: u32, height: u32, data: Vec<u8>, rgba: bool) -> Texture {
+        if (rgba && width*height*4 != data.len() as u32) ||
+           (!rgba && width*height*3 != data.len() as u32) {
+            panic!("texture width, height and color type does not match with data length");
         }
 
         let mut id: GLuint = 0;
@@ -44,7 +45,7 @@ impl TextureRGBA {
             gl_raw::GenTextures(1, &mut id);
         }
 
-        let mut texture = TextureRGBA {id};
+        let mut texture = Texture {id};
         texture.bind();
 
         unsafe {
@@ -53,7 +54,12 @@ impl TextureRGBA {
             gl_raw::TexParameteri(gl_raw::TEXTURE_2D, gl_raw::TEXTURE_MIN_FILTER, gl_raw::NEAREST as GLint);
             gl_raw::TexParameteri(gl_raw::TEXTURE_2D, gl_raw::TEXTURE_MAG_FILTER, gl_raw::NEAREST as GLint);
 
-            gl_raw::TexImage2D(gl_raw::TEXTURE_2D, 0, gl_raw::RGBA as GLint, width as GLsizei, height as GLsizei, 0, gl_raw::RGBA, gl_raw::UNSIGNED_BYTE, data.as_ptr() as *const c_void);
+            if rgba {
+                gl_raw::TexImage2D(gl_raw::TEXTURE_2D, 0, gl_raw::RGBA as GLint, width as GLsizei, height as GLsizei, 0, gl_raw::RGBA, gl_raw::UNSIGNED_BYTE, data.as_ptr() as *const c_void);
+            } else {
+                gl_raw::TexImage2D(gl_raw::TEXTURE_2D, 0, gl_raw::RGB as GLint, width as GLsizei, height as GLsizei, 0, gl_raw::RGB, gl_raw::UNSIGNED_BYTE, data.as_ptr() as *const c_void);
+            }
+
             gl_raw::GenerateMipmap(gl_raw::TEXTURE_2D);
         }
 
@@ -68,7 +74,7 @@ impl TextureRGBA {
     }
 }
 
-impl Drop for TextureRGBA {
+impl Drop for Texture {
     /// Deletes OpenGL texture object.
     fn drop(&mut self) {
         unsafe {

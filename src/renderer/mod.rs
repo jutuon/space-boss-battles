@@ -1,5 +1,5 @@
 /*
-src/renderer/mod.rs, 2017-07-20
+src/renderer/mod.rs, 2017-07-24
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -21,7 +21,7 @@ use gl::texture::*;
 use gl::gl_raw;
 use gl;
 
-use cgmath::{Vector3, Matrix4};
+use cgmath::{Vector3};
 use cgmath;
 
 use renderer::texture::Textures;
@@ -39,7 +39,7 @@ pub struct OpenGLRenderer {
     video_system: VideoSubsystem,
     window: Window,
     context: GLContext,
-    textures: [TextureRGBA; Textures::TextureCount as usize],
+    textures: [Texture; Textures::TextureCount as usize],
     texture_shader: TextureShader,
     color_shader: ColorShader,
     square: VertexArray,
@@ -66,6 +66,12 @@ impl Renderer for OpenGLRenderer {
         let projection_matrix = cgmath::ortho::<f32>(-width, width, -height, height, 1.0, -1.0);
 
         self.texture_shader.use_program();
+
+        self.textures[Textures::Background as usize].bind();
+        for background in logic.get_moving_background().get_backgrounds() {
+            self.texture_shader.send_uniform_data(background.model_matrix(), &projection_matrix);
+            self.square.draw();
+        }
 
         self.textures[Textures::Player as usize].bind();
         self.texture_shader.send_uniform_data(logic.get_player().model_matrix(), &projection_matrix);
