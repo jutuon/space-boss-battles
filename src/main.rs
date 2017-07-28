@@ -1,5 +1,5 @@
 /*
-src/main.rs, 2017-07-17
+src/main.rs, 2017-07-28
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -31,7 +31,8 @@ use sdl2::keyboard::Keycode;
 use renderer::Renderer;
 use logic::Logic;
 
-use input::{Input, InputKeyboard};
+use input::{InputKeyboard};
+use gui::{GUI, GUILayer, GUIEvent};
 
 use time::PreciseTime;
 
@@ -66,6 +67,7 @@ pub struct Game {
     input: InputKeyboard,
     fps_counter: FpsCounter,
     timer: GameLoopTimer,
+    gui: GUI,
 }
 
 impl Game {
@@ -76,7 +78,9 @@ impl Game {
         let fps_counter = FpsCounter::new();
         let timer = GameLoopTimer::new(16);
 
-        Game {game_logic, quit, input, fps_counter, timer}
+        let gui = GUI::new();
+
+        Game {game_logic, quit, input, fps_counter, timer, gui}
     }
 
     pub fn quit(&self) -> bool {
@@ -101,7 +105,13 @@ impl Game {
         self.fps_counter.frame();
 
         renderer.start();
-        renderer.render(&self.game_logic);
+
+        if self.gui.render_game() {
+            renderer.render(&self.game_logic);
+        }
+
+        renderer.render_gui(&self.gui);
+
         renderer.end();
     }
 
@@ -112,7 +122,17 @@ impl Game {
         self.timer.update(current_time);
 
         if self.timer.update_logic() {
-            self.game_logic.update(&self.input);
+            if self.gui.update_game() {
+                self.game_logic.update(&self.input);
+            }
+
+            match self.gui.handle_event(&mut self.input) {
+                None => (),
+                Some(GUIEvent::Exit) => self.quit = true,
+                _ => (),
+            }
+
+            self.input.reset_keyhits();
         }
     }
 }

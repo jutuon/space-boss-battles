@@ -1,5 +1,5 @@
 /*
-src/renderer/mod.rs, 2017-07-24
+src/renderer/mod.rs, 2017-07-28
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -21,7 +21,7 @@ use gl::texture::*;
 use gl::gl_raw;
 use gl;
 
-use cgmath::{Vector3};
+use cgmath::{Vector3, Matrix4};
 use cgmath;
 
 use renderer::texture::Textures;
@@ -34,6 +34,7 @@ use sdl2::video::{GLProfile, GLContext};
 use logic::{Logic};
 use logic::common::ModelMatrix;
 
+use gui::{GUI, GUILayer};
 
 pub struct OpenGLRenderer {
     video_system: VideoSubsystem,
@@ -43,11 +44,13 @@ pub struct OpenGLRenderer {
     texture_shader: TextureShader,
     color_shader: ColorShader,
     square: VertexArray,
+    projection_matrix: Matrix4<f32>,
 }
 
 pub trait Renderer {
     fn start(&mut self);
     fn render(&mut self, &Logic);
+    fn render_gui(&mut self, &GUI);
     fn end(&mut self);
 }
 
@@ -60,38 +63,45 @@ impl Renderer for OpenGLRenderer {
     }
 
     fn render(&mut self, logic: &Logic) {
-        let size = 1.5;
-        let width = 4.0 * size;
-        let height = 3.0 * size;
-        let projection_matrix = cgmath::ortho::<f32>(-width, width, -height, height, 1.0, -1.0);
-
         self.texture_shader.use_program();
 
         self.textures[Textures::Background as usize].bind();
         for background in logic.get_moving_background().get_backgrounds() {
-            self.texture_shader.send_uniform_data(background.model_matrix(), &projection_matrix);
+            self.texture_shader.send_uniform_data(background.model_matrix(), &self.projection_matrix);
             self.square.draw();
         }
 
         self.textures[Textures::Player as usize].bind();
-        self.texture_shader.send_uniform_data(logic.get_player().model_matrix(), &projection_matrix);
+        self.texture_shader.send_uniform_data(logic.get_player().model_matrix(), &self.projection_matrix);
         self.square.draw();
 
         self.textures[Textures::Enemy as usize].bind();
-        self.texture_shader.send_uniform_data(logic.get_enemy().model_matrix(), &projection_matrix);
+        self.texture_shader.send_uniform_data(logic.get_enemy().model_matrix(), &self.projection_matrix);
         self.square.draw();
 
         self.color_shader.use_program();
 
         let color = Vector3::new(0.0,0.0,1.0);
         for laser in logic.get_player().get_lasers() {
-            self.color_shader.send_uniform_data(laser.model_matrix(), &projection_matrix, &color);
+            self.color_shader.send_uniform_data(laser.model_matrix(), &self.projection_matrix, &color);
             self.square.draw();
         }
 
         let color = Vector3::new(1.0,0.0,0.0);
         for laser in logic.get_enemy().get_lasers() {
-            self.color_shader.send_uniform_data(laser.model_matrix(), &projection_matrix, &color);
+            self.color_shader.send_uniform_data(laser.model_matrix(), &self.projection_matrix, &color);
+            self.square.draw();
+        }
+    }
+
+    fn render_gui(&mut self, gui: &GUI) {
+
+        let buttons = gui.components();
+
+        self.color_shader.use_program();
+
+        for button in buttons {
+            self.color_shader.send_uniform_data(button.model_matrix(), &self.projection_matrix, button.color());
             self.square.draw();
         }
     }
@@ -144,7 +154,13 @@ impl OpenGLRenderer {
 
         println!("OpenGL version: {:?}", gl::get_version_string());
 
-        OpenGLRenderer {video_system, window, context, texture_shader, color_shader, textures, square}
+        let size = 1.5;
+        let width = 4.0 * size;
+        let height = 3.0 * size;
+        let projection_matrix = cgmath::ortho::<f32>(-width, width, -height, height, 1.0, -1.0);
+
+
+        OpenGLRenderer {video_system, window, context, texture_shader, color_shader, textures, square, projection_matrix}
     }
 
 }
