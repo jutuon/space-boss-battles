@@ -1,5 +1,5 @@
 /*
-src/main.rs, 2017-07-28
+src/main.rs, 2017-07-29
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -132,7 +132,7 @@ impl Game {
                 _ => (),
             }
 
-            self.input.reset_keyhits();
+            self.input.reset_key_hits();
         }
     }
 }

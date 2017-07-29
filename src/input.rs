@@ -1,5 +1,5 @@
 /*
-src/input.rs, 2017-07-29
+src/input.rs, 2017-07-30
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -24,13 +24,13 @@ pub struct InputKeyboard {
     right: bool,
     shoot: bool,
 
-    keyhit_left: bool,
-    keyhit_right: bool,
-    keyhit_enter: bool,
-    keyhit_back: bool,
+    key_hit_left: bool,
+    key_hit_right: bool,
+    key_hit_enter: bool,
+    key_hit_back: bool,
 
-    keyhit_up_timer: KeyhitTimer,
-    keyhit_down_timer: KeyhitTimer,
+    key_hit_up_timer: KeyHitTimer,
+    key_hit_down_timer: KeyHitTimer,
 }
 
 impl InputKeyboard {
@@ -42,41 +42,41 @@ impl InputKeyboard {
             right: false,
             shoot: false,
 
-            keyhit_left: false,
-            keyhit_right: false,
-            keyhit_enter: false,
-            keyhit_back: false,
+            key_hit_left: false,
+            key_hit_right: false,
+            key_hit_enter: false,
+            key_hit_back: false,
 
-            keyhit_up_timer: KeyhitTimer::new(Keycode::Up),
-            keyhit_down_timer: KeyhitTimer::new(Keycode::Down),
+            key_hit_up_timer: KeyHitTimer::new(Keycode::Up),
+            key_hit_down_timer: KeyHitTimer::new(Keycode::Down),
         }
     }
 
-    pub fn reset_keyhits(&mut self) {
+    pub fn reset_key_hits(&mut self) {
         let value = false;
-        self.keyhit_left = value;
-        self.keyhit_right = value;
-        self.keyhit_enter = value;
-        self.keyhit_back = value;
+        self.key_hit_left = value;
+        self.key_hit_right = value;
+        self.key_hit_enter = value;
+        self.key_hit_back = value;
 
-        self.keyhit_up_timer.reset();
-        self.keyhit_down_timer.reset();
+        self.key_hit_up_timer.reset();
+        self.key_hit_down_timer.reset();
     }
 
     pub fn update_key_up(&mut self, key: Keycode) {
         self.update_keys(key, false);
-        self.update_keyhit(key, true);
+        self.update_key_hit(key, true);
 
-        self.keyhit_up_timer.event_key_up(key);
-        self.keyhit_down_timer.event_key_up(key);
+        self.key_hit_up_timer.event_key_up(key);
+        self.key_hit_down_timer.event_key_up(key);
     }
 
     pub fn update_key_down(&mut self, key: Keycode) {
         self.update_keys(key, true);
 
         let current_time = PreciseTime::now();
-        self.keyhit_up_timer.event_key_down(key, current_time);
-        self.keyhit_down_timer.event_key_down(key, current_time);
+        self.key_hit_up_timer.event_key_down(key, current_time);
+        self.key_hit_down_timer.event_key_down(key, current_time);
     }
 
     fn update_keys(&mut self, key: Keycode, value: bool) {
@@ -90,12 +90,12 @@ impl InputKeyboard {
         }
     }
 
-    fn update_keyhit(&mut self, key: Keycode, value: bool) {
+    fn update_key_hit(&mut self, key: Keycode, value: bool) {
         match key {
-            Keycode::Left       => self.keyhit_left = value,
-            Keycode::Right      => self.keyhit_right = value,
-            Keycode::Return     => self.keyhit_enter = value,
-            Keycode::Backspace  => self.keyhit_back = value,
+            Keycode::Left       => self.key_hit_left = value,
+            Keycode::Right      => self.key_hit_right = value,
+            Keycode::Return     => self.key_hit_enter = value,
+            Keycode::Backspace  => self.key_hit_back = value,
             _ => (),
         }
     }
@@ -114,12 +114,12 @@ pub trait Input {
     fn right(&self) -> bool;
     fn shoot(&self) -> bool;
 
-    fn keyhit_up(&mut self) -> bool;
-    fn keyhit_down(&mut self) -> bool;
-    fn keyhit_left(&mut self) -> bool;
-    fn keyhit_right(&mut self) -> bool;
-    fn keyhit_enter(&mut self) -> bool;
-    fn keyhit_back(&mut self) -> bool;
+    fn key_hit_up(&mut self) -> bool;
+    fn key_hit_down(&mut self) -> bool;
+    fn key_hit_left(&mut self) -> bool;
+    fn key_hit_right(&mut self) -> bool;
+    fn key_hit_enter(&mut self) -> bool;
+    fn key_hit_back(&mut self) -> bool;
 }
 
 impl Input for InputKeyboard {
@@ -129,33 +129,33 @@ impl Input for InputKeyboard {
     fn right(&self) -> bool { self.right }
     fn shoot(&self) -> bool { self.shoot }
 
-    fn keyhit_up(&mut self) -> bool     { self.keyhit_up_timer.return_and_reset()    }
-    fn keyhit_down(&mut self) -> bool   { self.keyhit_down_timer.return_and_reset()  }
-    fn keyhit_left(&mut self) -> bool   { return_and_reset(&mut self.keyhit_left)  }
-    fn keyhit_right(&mut self) -> bool  { return_and_reset(&mut self.keyhit_right) }
-    fn keyhit_enter(&mut self) -> bool  { return_and_reset(&mut self.keyhit_enter) }
-    fn keyhit_back(&mut self) -> bool   { return_and_reset(&mut self.keyhit_back) }
+    fn key_hit_up(&mut self) -> bool     { self.key_hit_up_timer.return_and_reset()    }
+    fn key_hit_down(&mut self) -> bool   { self.key_hit_down_timer.return_and_reset()  }
+    fn key_hit_left(&mut self) -> bool   { return_and_reset(&mut self.key_hit_left)  }
+    fn key_hit_right(&mut self) -> bool  { return_and_reset(&mut self.key_hit_right) }
+    fn key_hit_enter(&mut self) -> bool  { return_and_reset(&mut self.key_hit_enter) }
+    fn key_hit_back(&mut self) -> bool   { return_and_reset(&mut self.key_hit_back) }
 }
 
-enum KeyhitState {
+enum KeyHitState {
     NormalMode,
     ScrollMode,
 }
 
-struct KeyhitTimer {
+struct KeyHitTimer {
     timer: Timer,
-    state: Option<KeyhitState>,
+    state: Option<KeyHitState>,
     key: Keycode,
-    keyhit: bool,
+    key_hit: bool,
 }
 
-impl KeyhitTimer {
-    fn new(key: Keycode) -> KeyhitTimer {
-        KeyhitTimer {
+impl KeyHitTimer {
+    fn new(key: Keycode) -> KeyHitTimer {
+        KeyHitTimer {
             timer: Timer::new(),
             state: None,
             key: key,
-            keyhit: false,
+            key_hit: false,
         }
     }
 
@@ -166,18 +166,18 @@ impl KeyhitTimer {
 
         match self.state {
             None => {
-                self.state = Some(KeyhitState::NormalMode);
+                self.state = Some(KeyHitState::NormalMode);
                 self.timer.reset(current_time);
             },
-            Some(KeyhitState::NormalMode) => {
+            Some(KeyHitState::NormalMode) => {
                 if self.timer.check(current_time, 400) {
-                    self.state = Some(KeyhitState::ScrollMode);
-                    self.keyhit = true;
+                    self.state = Some(KeyHitState::ScrollMode);
+                    self.key_hit = true;
                 }
             },
-            Some(KeyhitState::ScrollMode) => {
+            Some(KeyHitState::ScrollMode) => {
                 if self.timer.check(current_time, 400) {
-                    self.keyhit = true;
+                    self.key_hit = true;
                 }
             }
         }
@@ -189,19 +189,19 @@ impl KeyhitTimer {
         }
 
         match self.state {
-            Some(KeyhitState::NormalMode) => {
-                self.keyhit = true;
+            Some(KeyHitState::NormalMode) => {
+                self.key_hit = true;
             },
             _ => {
-                self.keyhit = false;
+                self.key_hit = false;
                 self.state = None;
             },
         }
     }
 
     fn return_and_reset(&mut self) -> bool {
-        if self.keyhit {
-            self.keyhit = false;
+        if self.key_hit {
+            self.key_hit = false;
             true
         } else {
             false
@@ -209,6 +209,6 @@ impl KeyhitTimer {
     }
 
     fn reset(&mut self) {
-        self.keyhit = false;
+        self.key_hit = false;
     }
 }

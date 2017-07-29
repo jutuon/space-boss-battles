@@ -1,5 +1,5 @@
 /*
-src/gui/mod.rs, 2017-07-28
+src/gui/mod.rs, 2017-07-29
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -85,7 +85,7 @@ impl GUILayer for GUI {
             GUIState::MainMenu => self.main_menu.handle_event(input),
             GUIState::PauseMenu => self.pause_menu.handle_event(input),
             GUIState::Game => {
-                if input.keyhit_back() {
+                if input.key_hit_back() {
                     Some(GUIEvent::ChangeState(GUIState::PauseMenu))
                 } else {
                     None
@@ -142,13 +142,13 @@ impl GUILayer for MainMenu {
     }
 
     fn handle_event<T: Input>(&mut self, input: &mut T) -> Option<GUIEvent> {
-        if input.keyhit_up() {
+        if input.key_hit_up() {
             self.buttons.selection_up();
             None
-        } else if input.keyhit_down() {
+        } else if input.key_hit_down() {
             self.buttons.selection_down();
             None
-        } else if input.keyhit_enter() {
+        } else if input.key_hit_enter() {
             let i = self.buttons.get_selection_index();
             match i {
                 0 => Some(GUIEvent::ChangeState(GUIState::Game)),
@@ -186,13 +186,13 @@ impl GUILayer for PauseMenu {
 
     fn handle_event<T: Input>(&mut self, input: &mut T) -> Option<GUIEvent> {
 
-        if input.keyhit_up() {
+        if input.key_hit_up() {
             self.buttons.selection_up();
             None
-        } else if input.keyhit_down() {
+        } else if input.key_hit_down() {
             self.buttons.selection_down();
             None
-        } else if input.keyhit_enter() {
+        } else if input.key_hit_enter() {
             let i = self.buttons.get_selection_index();
             match i {
                 0 => Some(GUIEvent::ChangeState(GUIState::Game)),
