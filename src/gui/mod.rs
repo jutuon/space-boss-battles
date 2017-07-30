@@ -1,5 +1,5 @@
 /*
-src/gui/mod.rs, 2017-07-29
+src/gui/mod.rs, 2017-07-30
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -134,6 +134,14 @@ impl MainMenu {
 
         MainMenu {buttons}
     }
+
+    fn event_from_index(&mut self, i: usize) -> Option<GUIEvent> {
+        match i {
+                0 => Some(GUIEvent::ChangeState(GUIState::Game)),
+                2 => Some(GUIEvent::Exit),
+                _ => None,
+            }
+    }
 }
 
 impl GUILayer for MainMenu {
@@ -150,11 +158,15 @@ impl GUILayer for MainMenu {
             None
         } else if input.key_hit_enter() {
             let i = self.buttons.get_selection_index();
-            match i {
-                0 => Some(GUIEvent::ChangeState(GUIState::Game)),
-                2 => Some(GUIEvent::Exit),
-                _ => None,
+            self.event_from_index(i)
+        } else if input.mouse_button_hit() {
+            match self.buttons.get_collision_index(input.mouse_location()) {
+                Some(i) => self.event_from_index(i),
+                None => None,
             }
+        } else if input.mouse_motion() {
+            self.buttons.update_selection(input.mouse_location());
+            None
         } else {
             None
         }
@@ -177,6 +189,16 @@ impl PauseMenu {
         PauseMenu {buttons}
     }
 
+    fn event_from_index(&mut self, i: usize) -> Option<GUIEvent> {
+        match i {
+                0 => Some(GUIEvent::ChangeState(GUIState::Game)),
+                1 => {
+                    self.buttons.selection_up();
+                    Some(GUIEvent::ChangeState(GUIState::MainMenu))
+                },
+                _ => None,
+        }
+    }
 }
 
 impl GUILayer for PauseMenu {
@@ -185,7 +207,6 @@ impl GUILayer for PauseMenu {
     }
 
     fn handle_event<T: Input>(&mut self, input: &mut T) -> Option<GUIEvent> {
-
         if input.key_hit_up() {
             self.buttons.selection_up();
             None
@@ -194,14 +215,15 @@ impl GUILayer for PauseMenu {
             None
         } else if input.key_hit_enter() {
             let i = self.buttons.get_selection_index();
-            match i {
-                0 => Some(GUIEvent::ChangeState(GUIState::Game)),
-                1 => {
-                    self.buttons.selection_up();
-                    Some(GUIEvent::ChangeState(GUIState::MainMenu))
-                },
-                _ => None,
+            self.event_from_index(i)
+        } else if input.mouse_button_hit() {
+            match self.buttons.get_collision_index(input.mouse_location()) {
+                Some(i) => self.event_from_index(i),
+                None => None,
             }
+        } else if input.mouse_motion() {
+            self.buttons.update_selection(input.mouse_location());
+            None
         } else {
             None
         }

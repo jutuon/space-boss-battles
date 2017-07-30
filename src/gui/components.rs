@@ -1,5 +1,5 @@
 /*
-src/gui/components.rs, 2017-07-28
+src/gui/components.rs, 2017-07-30
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -96,10 +96,6 @@ impl GUIButton {
         button
     }
 
-    fn collision(&self, point: &Point2<f32>) -> bool {
-        self.rectangle.axis_aligned_rectangle_and_point_collision(point)
-    }
-
     pub fn model_matrix(&self) -> &Matrix4<f32> {
         &self.rectangle.model_matrix()
     }
@@ -108,6 +104,16 @@ impl GUIButton {
         &self.rectangle.color()
     }
 
+}
+
+pub trait GUICollision {
+    fn collision(&self, point: &Point2<f32>) -> bool;
+}
+
+impl GUICollision for GUIButton {
+    fn collision(&self, point: &Point2<f32>) -> bool {
+        self.rectangle.axis_aligned_rectangle_and_point_collision(point)
+    }
 }
 
 pub trait SetGUIComponentState {
@@ -135,7 +141,7 @@ pub struct GUIGroup<T: SetGUIComponentState> {
     selected: usize,
 }
 
-impl <T: SetGUIComponentState> GUIGroup<T> {
+impl <T: SetGUIComponentState + GUICollision> GUIGroup<T> {
     pub fn new(mut first_component: T) -> GUIGroup<T> {
         let mut vec = Vec::new();
         first_component.set_state(GUIComponentState::Selected);
@@ -188,6 +194,32 @@ impl <T: SetGUIComponentState> GUIGroup<T> {
 
     pub fn get_components(&self) -> &[T] {
         self.components.as_slice()
+    }
+
+    pub fn get_collision_index(&self, point: &Point2<f32>) -> Option<usize> {
+        for (i, button) in self.components.iter().enumerate() {
+            if button.collision(point) {
+                return Some(i);
+            }
+        };
+
+        None
+    }
+
+    pub fn update_selection(&mut self, point: &Point2<f32>) {
+        let mut index = None;
+        for (i, button) in self.components.iter().enumerate() {
+            if button.collision(point) {
+                index = Some(i);
+                break;
+            }
+        }
+
+        if let Some(i) = index {
+            self.components[self.selected].set_state(GUIComponentState::Normal);
+            self.selected = i;
+            self.components[self.selected].set_state(GUIComponentState::Selected);
+        }
     }
 }
 

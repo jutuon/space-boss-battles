@@ -14,6 +14,8 @@ MIT License
 
 use sdl2::keyboard::Keycode;
 
+use cgmath::Point2;
+
 use Timer;
 use time::PreciseTime;
 
@@ -31,6 +33,10 @@ pub struct InputKeyboard {
 
     key_hit_up_timer: KeyHitTimer,
     key_hit_down_timer: KeyHitTimer,
+
+    mouse_motion: bool,
+    mouse_button_hit: bool,
+    mouse_location: Point2<f32>
 }
 
 impl InputKeyboard {
@@ -49,6 +55,10 @@ impl InputKeyboard {
 
             key_hit_up_timer: KeyHitTimer::new(Keycode::Up),
             key_hit_down_timer: KeyHitTimer::new(Keycode::Down),
+
+            mouse_motion: true,
+            mouse_button_hit: true,
+            mouse_location: Point2::new(0.0, 0.0),
         }
     }
 
@@ -61,6 +71,8 @@ impl InputKeyboard {
 
         self.key_hit_up_timer.reset();
         self.key_hit_down_timer.reset();
+
+        self.mouse_button_hit = false;
     }
 
     pub fn update_key_up(&mut self, key: Keycode) {
@@ -99,6 +111,16 @@ impl InputKeyboard {
             _ => (),
         }
     }
+
+    pub fn update_mouse_motion(&mut self, point: Point2<f32>) {
+        self.mouse_motion = true;
+        self.mouse_location = point;
+    }
+
+    pub fn update_mouse_button_up(&mut self, point: Point2<f32>) {
+        self.mouse_button_hit = true;
+        self.mouse_location = point;
+    }
 }
 
 fn return_and_reset(value: &mut bool) -> bool {
@@ -120,6 +142,10 @@ pub trait Input {
     fn key_hit_right(&mut self) -> bool;
     fn key_hit_enter(&mut self) -> bool;
     fn key_hit_back(&mut self) -> bool;
+
+    fn mouse_button_hit(&mut self) -> bool;
+    fn mouse_motion(&mut self) -> bool;
+    fn mouse_location(&self) -> &Point2<f32>;
 }
 
 impl Input for InputKeyboard {
@@ -135,6 +161,10 @@ impl Input for InputKeyboard {
     fn key_hit_right(&mut self) -> bool  { return_and_reset(&mut self.key_hit_right) }
     fn key_hit_enter(&mut self) -> bool  { return_and_reset(&mut self.key_hit_enter) }
     fn key_hit_back(&mut self) -> bool   { return_and_reset(&mut self.key_hit_back) }
+
+    fn mouse_button_hit(&mut self) -> bool      { return_and_reset(&mut self.mouse_button_hit) }
+    fn mouse_motion(&mut self) -> bool          { return_and_reset(&mut self.mouse_motion) }
+    fn mouse_location(&self) -> &Point2<f32>    { &self.mouse_location }
 }
 
 enum KeyHitState {

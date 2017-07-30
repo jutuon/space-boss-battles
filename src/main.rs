@@ -1,5 +1,5 @@
 /*
-src/main.rs, 2017-07-29
+src/main.rs, 2017-07-30
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -51,7 +51,7 @@ fn main() {
         }
 
         for event in event_pump.poll_iter() {
-            game.handle_event(event);
+            game.handle_event(event, &renderer);
         }
 
         game.update();
@@ -87,11 +87,13 @@ impl Game {
         self.quit
     }
 
-    pub fn handle_event(&mut self, event: Event) {
+    pub fn handle_event<T: Renderer>(&mut self, event: Event, renderer: &T) {
         match event {
                 Event::Quit {..} | Event::KeyDown {keycode: Some(Keycode::Escape), ..} => self.quit = true,
                 Event::KeyDown {keycode: Some(key), ..} => self.input.update_key_down(key),
                 Event::KeyUp {keycode: Some(key), ..} => self.input.update_key_up(key),
+                Event::MouseMotion { x, y, ..} => self.input.update_mouse_motion(renderer.screen_coordinates_to_world_coordinates(x, y)),
+                Event::MouseButtonUp { x, y, ..} =>  self.input.update_mouse_button_up(renderer.screen_coordinates_to_world_coordinates(x, y)),
                 _ => (),
         }
     }

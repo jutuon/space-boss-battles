@@ -21,8 +21,9 @@ use gl::texture::*;
 use gl::gl_raw;
 use gl;
 
-use cgmath::{Vector3, Matrix4};
+use cgmath::{Vector3, Matrix4, Point2, Vector4};
 use cgmath;
+use cgmath::prelude::*;
 
 use renderer::texture::Textures;
 use renderer::shader::*;
@@ -45,6 +46,7 @@ pub struct OpenGLRenderer {
     color_shader: ColorShader,
     square: VertexArray,
     projection_matrix: Matrix4<f32>,
+    inverse_projection_matrix: Matrix4<f32>,
 }
 
 pub trait Renderer {
@@ -52,6 +54,7 @@ pub trait Renderer {
     fn render(&mut self, &Logic);
     fn render_gui(&mut self, &GUI);
     fn end(&mut self);
+    fn screen_coordinates_to_world_coordinates(&self, x: i32, y: i32) -> Point2<f32>;
 }
 
 impl Renderer for OpenGLRenderer {
@@ -113,6 +116,17 @@ impl Renderer for OpenGLRenderer {
             println!("OpenGL error: {:?}", error);
         }
     }
+
+    fn screen_coordinates_to_world_coordinates(&self, x: i32, y: i32) -> Point2<f32> {
+        let width = 640/2;
+        let height = 480/2;
+        let x: f32 = (x - width) as f32 / width as f32;
+        let y: f32 = (y - height) as f32 / -height as f32;
+
+        let vector = self.inverse_projection_matrix * Vector4::new(x, y, 0.0, 1.0);
+
+        Point2::new(vector.x,vector.y)
+    }
 }
 
 impl OpenGLRenderer {
@@ -159,8 +173,16 @@ impl OpenGLRenderer {
         let height = 3.0 * size;
         let projection_matrix = cgmath::ortho::<f32>(-width, width, -height, height, 1.0, -1.0);
 
+        let inverse_projection_matrix;
+        match projection_matrix.inverse_transform() {
+            Some(matrix) => inverse_projection_matrix = matrix,
+            None => {
+                println!("Calculating inverse projection matrix failed");
+                inverse_projection_matrix = Matrix4::identity();
+            }
+        };
 
-        OpenGLRenderer {video_system, window, context, texture_shader, color_shader, textures, square, projection_matrix}
+        OpenGLRenderer {video_system, window, context, texture_shader, color_shader, textures, square, projection_matrix, inverse_projection_matrix}
     }
 
 }
