@@ -1,5 +1,5 @@
 /*
-src/main.rs, 2017-07-30
+src/main.rs, 2017-07-31
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -25,13 +25,14 @@ mod logic;
 mod renderer;
 mod input;
 
-use sdl2::event::Event;
+use sdl2::event::{Event, EventType};
 use sdl2::keyboard::Keycode;
+use sdl2::GameControllerSubsystem;
 
 use renderer::Renderer;
 use logic::Logic;
 
-use input::{InputKeyboard};
+use input::{InputManager};
 use gui::{GUI, GUILayer, GUIEvent};
 
 use time::PreciseTime;
@@ -43,7 +44,9 @@ fn main() {
     let video = sdl_context.video().expect("video subsystem init fail");
 
     let mut renderer = renderer::OpenGLRenderer::new(video);
-    let mut game = Game::new();
+
+    let game_controller_subsystem = sdl_context.game_controller().expect("game controller subsystem init failed");
+    let mut game = Game::new(game_controller_subsystem);
 
     loop {
         if game.quit() {
@@ -64,17 +67,17 @@ fn main() {
 pub struct Game {
     game_logic: Logic,
     quit: bool,
-    input: InputKeyboard,
+    input: InputManager,
     fps_counter: FpsCounter,
     timer: GameLoopTimer,
     gui: GUI,
 }
 
 impl Game {
-    pub fn new() -> Game {
+    pub fn new(controller_subsystem: GameControllerSubsystem) -> Game {
         let game_logic = Logic::new();
         let quit = false;
-        let input = InputKeyboard::new();
+        let input = InputManager::new(controller_subsystem);
         let fps_counter = FpsCounter::new();
         let timer = GameLoopTimer::new(16);
 
@@ -94,6 +97,11 @@ impl Game {
                 Event::KeyUp {keycode: Some(key), ..} => self.input.update_key_up(key),
                 Event::MouseMotion { x, y, ..} => self.input.update_mouse_motion(renderer.screen_coordinates_to_world_coordinates(x, y)),
                 Event::MouseButtonUp { x, y, ..} =>  self.input.update_mouse_button_up(renderer.screen_coordinates_to_world_coordinates(x, y)),
+                Event::ControllerDeviceAdded { which, ..} => self.input.add_game_controller(which as u32),
+                Event::ControllerDeviceRemoved { which, ..} => self.input.remove_game_controller(which),
+                Event::ControllerAxisMotion { axis, value, ..} => self.input.game_controller_axis_motion(axis, value),
+                Event::ControllerButtonDown { button, ..} => self.input.game_controller_button_down(button),
+                Event::ControllerButtonUp { button, ..} => self.input.game_controller_button_up(button),
                 _ => (),
         }
     }
