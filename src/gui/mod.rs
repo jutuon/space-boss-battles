@@ -1,5 +1,5 @@
 /*
-src/gui/mod.rs, 2017-07-30
+src/gui/mod.rs, 2017-08-02
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -33,7 +33,7 @@ pub enum GUIState {
 
 
 pub trait GUILayer {
-    fn components(&self) -> &[GUIButton];
+    fn components(&self) -> (&[GUIButton], &[GUIText]);
     fn handle_event<T: Input>(&mut self, input: &mut T) -> Option<GUIEvent>;
 }
 
@@ -72,11 +72,11 @@ impl GUI {
 }
 
 impl GUILayer for GUI {
-    fn components(&self) -> &[GUIButton] {
+    fn components(&self) -> (&[GUIButton], &[GUIText]) {
         match self.state {
             GUIState::MainMenu => self.main_menu.components(),
             GUIState::PauseMenu => self.pause_menu.components(),
-            _ => &[],
+            _ => (&[], &[]),
         }
     }
 
@@ -120,6 +120,7 @@ impl GUILayer for GUI {
 
 pub struct MainMenu {
      buttons: GUIGroup<GUIButton>,
+     texts: [GUIText; 1],
 }
 
 
@@ -128,11 +129,15 @@ impl MainMenu {
         let width = 5.0;
         let height = 1.0;
 
-        let buttons = GUIGroup::new(GUIButton::new(0.0, 1.0, width, height))
-            .add(GUIButton::new(0.0, -1.0, width, height))
-            .add(GUIButton::new(0.0, -3.0, width, height));
+        let buttons = GUIGroup::new(GUIButton::new(0.0, 1.0, width, height, "Start Game"))
+            .add(GUIButton::new(0.0, -1.0, width, height, "Settings"))
+            .add(GUIButton::new(0.0, -3.0, width, height, "Exit"));
 
-        MainMenu {buttons}
+        let texts = [
+            GUIText::new(0.0, 3.0, "Space Boss Battles"),
+        ];
+
+        MainMenu {buttons, texts}
     }
 
     fn event_from_index(&mut self, i: usize) -> Option<GUIEvent> {
@@ -145,8 +150,8 @@ impl MainMenu {
 }
 
 impl GUILayer for MainMenu {
-    fn components(&self) -> &[GUIButton] {
-        self.buttons.get_components()
+    fn components(&self) -> (&[GUIButton], &[GUIText]) {
+        (self.buttons.get_components(), &self.texts)
     }
 
     fn handle_event<T: Input>(&mut self, input: &mut T) -> Option<GUIEvent> {
@@ -176,6 +181,7 @@ impl GUILayer for MainMenu {
 
 pub struct PauseMenu {
     buttons: GUIGroup<GUIButton>,
+    texts: [GUIText; 1],
 }
 
 impl PauseMenu {
@@ -183,10 +189,12 @@ impl PauseMenu {
         let width = 5.0;
         let height = 1.0;
 
-        let buttons = GUIGroup::new(GUIButton::new(0.0, 1.0, width, height))
-            .add(GUIButton::new(0.0, -1.0, width, height));
+        let buttons = GUIGroup::new(GUIButton::new(0.0, 1.0, width, height, "Continue"))
+            .add(GUIButton::new(0.0, -1.0, width, height, "Main Menu"));
 
-        PauseMenu {buttons}
+        let texts = [GUIText::new(0.0, 3.0, "Game Paused")];
+
+        PauseMenu {buttons, texts}
     }
 
     fn event_from_index(&mut self, i: usize) -> Option<GUIEvent> {
@@ -202,8 +210,8 @@ impl PauseMenu {
 }
 
 impl GUILayer for PauseMenu {
-    fn components(&self) -> &[GUIButton] {
-        self.buttons.get_components()
+    fn components(&self) -> (&[GUIButton], &[GUIText]) {
+        (self.buttons.get_components(), &self.texts)
     }
 
     fn handle_event<T: Input>(&mut self, input: &mut T) -> Option<GUIEvent> {

@@ -1,5 +1,5 @@
 /*
-src/renderer/shader.rs, 2017-07-18
+src/renderer/shader.rs, 2017-08-02
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -51,6 +51,41 @@ impl TextureShader {
         self.program.use_program();
     }
 }
+
+pub struct TilemapShader {
+    program: Program,
+    projection: UniformMatrix4,
+    model: UniformMatrix4,
+    tile_position_change_x_y_and_size: UniformVector3,
+}
+
+impl TilemapShader {
+    pub fn new() -> TilemapShader {
+
+        #[cfg(feature = "gles")]
+        let program = create_program("src/shaders/gles/vertex-shader-tilemap-gles.glsl", "src/shaders/gles/fragment-shader-tilemap-gles.glsl");
+
+        #[cfg(not(feature = "gles"))]
+        let program = create_program("src/shaders/gl/vertex-shader-tilemap.glsl", "src/shaders/gl/fragment-shader-tilemap.glsl");
+
+        let model = create_uniform("M", &program, "tilemap shader");
+        let projection = create_uniform("P", &program, "tilemap shader");
+        let tile_position_change_x_y_and_size = create_uniform("tile_info", &program, "tilemap shader");
+
+        TilemapShader { program, projection, model, tile_position_change_x_y_and_size }
+    }
+
+    pub fn send_uniform_data(&mut self, model: &Matrix4<f32>, projection: &Matrix4<f32>, tile_position_change_x_y_and_size: &Vector3<f32>) {
+        self.model.send(model);
+        self.projection.send(projection);
+        self.tile_position_change_x_y_and_size.send(tile_position_change_x_y_and_size);
+    }
+
+    pub fn use_program(&mut self) {
+        self.program.use_program();
+    }
+}
+
 
 pub struct ColorShader {
     program: Program,

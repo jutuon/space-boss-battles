@@ -1,5 +1,5 @@
 /*
-src/gui/components.rs, 2017-07-30
+src/gui/components.rs, 2017-08-04
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -82,13 +82,15 @@ impl GUIRectangle<f32> {
 pub struct GUIButton {
     rectangle: GUIRectangle<f32>,
     state: GUIComponentState,
+    text: GUIText,
 }
 
 impl GUIButton {
-    pub fn new(x: f32, y: f32, width: f32, height: f32) -> GUIButton {
+    pub fn new(x: f32, y: f32, width: f32, height: f32, text: &str) -> GUIButton {
         let mut button = GUIButton {
             rectangle: GUIRectangle::new(x, y, width, height),
-            state: GUIComponentState::Normal
+            state: GUIComponentState::Normal,
+            text: GUIText::new(x, y, text),
         };
 
         button.set_state(GUIComponentState::Normal);
@@ -104,6 +106,9 @@ impl GUIButton {
         &self.rectangle.color()
     }
 
+    pub fn get_text(&self) -> &GUIText {
+        &self.text
+    }
 }
 
 pub trait GUICollision {
@@ -223,4 +228,149 @@ impl <T: SetGUIComponentState + GUICollision> GUIGroup<T> {
     }
 }
 
+
+pub struct Tile {
+    rectangle: GUIRectangle<f32>,
+    tile_info: Vector3<f32>,
+}
+
+impl Tile {
+    pub fn new(index: (u32, u32), gui_rectangle: GUIRectangle<f32>) -> Tile {
+        let tile_size = 1.0/16.0;
+        let x_movement = tile_size * index.0 as f32;
+        let y_movement = 1.0 - tile_size * (index.1 + 1) as f32;
+
+        Tile {
+            rectangle: gui_rectangle,
+            tile_info: Vector3::new(x_movement, y_movement, tile_size),
+        }
+    }
+
+    pub fn get_rectangle(&self) -> &GUIRectangle<f32> {
+        &self.rectangle
+    }
+
+    pub fn get_tile_info(&self) -> &Vector3<f32> {
+        &self.tile_info
+    }
+}
+
+
+fn tilemap_index_from_char(c: char) -> (u32, u32) {
+    match c {
+        '0' => (0,0),
+        '1' => (1,0),
+        '2' => (2,0),
+        '3' => (3,0),
+        '4' => (4,0),
+        '5' => (5,0),
+        '6' => (6,0),
+        '7' => (7,0),
+        '8' => (8,0),
+        '9' => (9,0),
+        'A' => (10,0),
+        'B' => (11,0),
+        'C' => (12,0),
+        'D' => (13,0),
+        'E' => (14,0),
+        'F' => (15,0),
+
+        'G' => (0,1),
+        'H' => (1,1),
+        'I' => (2,1),
+        'J' => (3,1),
+        'K' => (4,1),
+        'L' => (5,1),
+        'M' => (6, 1),
+        'N' => (7, 1),
+        'O' => (8, 1),
+        'P' => (9, 1),
+        'Q' => (10,1),
+        'R' => (11,1),
+        'S' => (12,1),
+        'T' => (13,1),
+        'U' => (14,1),
+        'V' => (15,1),
+
+        'W' => (0,2),
+        'X' => (1,2),
+        'Y' => (2,2),
+        'Z' => (3,2),
+        ' ' => (4,2),
+        'a' => (5, 2),
+        'b' => (6, 2),
+        'c' => (7, 2),
+        'd' => (8, 2),
+        'e' => (9,2),
+        'f' => (10,2),
+        'g' => (11,2),
+        'h' => (12,2),
+        'i' => (13,2),
+        'j' => (14,2),
+        'k' => (15, 2),
+
+        'l' => (0, 3),
+        'm' => (1, 3),
+        'n' => (2, 3),
+        'o' => (3, 3),
+        'p' => (4, 3),
+        'q' => (5, 3),
+        'r' => (6, 3),
+        's' => (7, 3),
+        't' => (8, 3),
+        'u' => (9, 3),
+        'v' => (10,3),
+        'w' => (11,3),
+        'x' => (12,3),
+        'y' => (13,3),
+        'z' => (14,3),
+
+        _ => tilemap_index_from_char(' '),
+
+    }
+}
+
+
+pub struct GUIText {
+    tiles: Vec<Tile>,
+    x: f32,
+    y: f32,
+    size: f32,
+}
+
+impl GUIText {
+    pub fn new(x: f32, y: f32, text: &str) -> GUIText {
+        let mut gui_text = GUIText {
+            tiles: Vec::new(),
+            x: x,
+            y: y,
+            size: 0.57,
+        };
+
+        gui_text.change_text(text);
+
+        gui_text
+    }
+
+    pub fn change_text(&mut self, text: &str) {
+        self.tiles.clear();
+
+        let text_len = text.len() as f32;
+
+        let size = self.size - 0.17;
+        let mut x = self.x - (text_len/2.0) * size;
+
+        for c in text.chars() {
+            let rectangle = GUIRectangle::new(x, self.y, self.size, self.size);
+
+            self.tiles.push(Tile::new(tilemap_index_from_char(c), rectangle));
+
+            x += size;
+        }
+    }
+
+    pub fn get_tiles(&self) -> &Vec<Tile> {
+        &self.tiles
+    }
+}
 

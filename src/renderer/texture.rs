@@ -1,5 +1,5 @@
 /*
-src/renderer/texture.rs, 2017-07-24
+src/renderer/texture.rs, 2017-08-01
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -24,6 +24,7 @@ pub enum Textures {
     Player,
     Enemy,
     Background,
+    Font,
     TextureCount,
 }
 
@@ -33,6 +34,7 @@ impl Textures {
             Textures::load("game_files/images/player.png"),
             Textures::load("game_files/images/enemy1.png"),
             Textures::load("game_files/images/background.png"),
+            Textures::load("game_files/images/tilemap-font.png"),
         ]
     }
 

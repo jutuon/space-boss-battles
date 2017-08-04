@@ -1,5 +1,5 @@
 /*
-src/renderer/mod.rs, 2017-07-28
+src/renderer/mod.rs, 2017-08-01
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -44,6 +44,7 @@ pub struct OpenGLRenderer {
     textures: [Texture; Textures::TextureCount as usize],
     texture_shader: TextureShader,
     color_shader: ColorShader,
+    tilemap_shader: TilemapShader,
     square: VertexArray,
     projection_matrix: Matrix4<f32>,
     inverse_projection_matrix: Matrix4<f32>,
@@ -99,13 +100,30 @@ impl Renderer for OpenGLRenderer {
 
     fn render_gui(&mut self, gui: &GUI) {
 
-        let buttons = gui.components();
+        let (buttons, texts) = gui.components();
 
         self.color_shader.use_program();
 
         for button in buttons {
             self.color_shader.send_uniform_data(button.model_matrix(), &self.projection_matrix, button.color());
             self.square.draw();
+        }
+
+        self.tilemap_shader.use_program();
+        self.textures[Textures::Font as usize].bind();
+
+        for text in texts {
+            for tile in text.get_tiles() {
+                self.tilemap_shader.send_uniform_data(tile.get_rectangle().model_matrix(), &self.projection_matrix, tile.get_tile_info());
+                self.square.draw();
+            }
+        }
+
+        for button in buttons {
+            for tile in button.get_text().get_tiles() {
+                self.tilemap_shader.send_uniform_data(tile.get_rectangle().model_matrix(), &self.projection_matrix, tile.get_tile_info());
+                self.square.draw();
+            }
         }
     }
 
@@ -155,6 +173,7 @@ impl OpenGLRenderer {
 
         let texture_shader = TextureShader::new();
         let color_shader = ColorShader::new();
+        let tilemap_shader = TilemapShader::new();
 
         //video_system.gl_set_swap_interval(0);
 
@@ -182,7 +201,7 @@ impl OpenGLRenderer {
             }
         };
 
-        OpenGLRenderer {video_system, window, context, texture_shader, color_shader, textures, square, projection_matrix, inverse_projection_matrix}
+        OpenGLRenderer {video_system, window, context, texture_shader, color_shader, tilemap_shader, textures, square, projection_matrix, inverse_projection_matrix}
     }
 
 }
