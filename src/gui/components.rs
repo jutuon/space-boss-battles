@@ -1,5 +1,5 @@
 /*
-src/gui/components.rs, 2017-08-04
+src/gui/components.rs, 2017-08-05
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -140,6 +140,37 @@ impl SetGUIComponentState for GUIButton {
     }
 }
 
+pub struct GUIGroupBuilder<T: SetGUIComponentState> {
+    components: Vec<T>,
+}
+
+impl <T: SetGUIComponentState> GUIGroupBuilder<T> {
+    pub fn new() -> GUIGroupBuilder<T> {
+        let mut vec = Vec::new();
+
+        GUIGroupBuilder {
+            components: vec,
+        }
+    }
+
+    pub fn add(&mut self, gui_component: T) {
+        self.components.push(gui_component);
+
+    }
+
+    pub fn create_gui_group(mut self) -> GUIGroup<T> {
+        if self.components.len() == 0 {
+            panic!("GUIGroup can't be empty.");
+        }
+
+        self.components[0].set_state(GUIComponentState::Selected);
+
+        GUIGroup {
+            components: self.components,
+            selected: 0,
+        }
+    }
+}
 
 pub struct GUIGroup<T: SetGUIComponentState> {
     components: Vec<T>,
