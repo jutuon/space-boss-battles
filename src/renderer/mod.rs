@@ -1,5 +1,5 @@
 /*
-src/renderer/mod.rs, 2017-08-01
+src/renderer/mod.rs, 2017-08-05
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -35,7 +35,7 @@ use sdl2::video::{GLProfile, GLContext};
 use logic::{Logic};
 use logic::common::ModelMatrix;
 
-use gui::{GUI, GUILayer};
+use gui::{GUI, GUILayerComponents};
 
 pub struct OpenGLRenderer {
     video_system: VideoSubsystem,

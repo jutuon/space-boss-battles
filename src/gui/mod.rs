@@ -1,5 +1,5 @@
 /*
-src/gui/mod.rs, 2017-08-02
+src/gui/mod.rs, 2017-08-05
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -31,10 +31,8 @@ pub enum GUIState {
     Game,
 }
 
-
-pub trait GUILayer {
+pub trait GUILayerComponents {
     fn components(&self) -> (&[GUIButton], &[GUIText]);
-    fn handle_event<T: Input>(&mut self, input: &mut T) -> Option<GUIEvent>;
 }
 
 
@@ -69,18 +67,8 @@ impl GUI {
     pub fn update_game(&self) -> bool {
         self.update_game
     }
-}
 
-impl GUILayer for GUI {
-    fn components(&self) -> (&[GUIButton], &[GUIText]) {
-        match self.state {
-            GUIState::MainMenu => self.main_menu.components(),
-            GUIState::PauseMenu => self.pause_menu.components(),
-            _ => (&[], &[]),
-        }
-    }
-
-    fn handle_event<T: Input>(&mut self, input: &mut T) -> Option<GUIEvent> {
+    pub fn handle_event<T: Input>(&mut self, input: &mut T) -> Option<GUIEvent> {
         let event = match self.state {
             GUIState::MainMenu => self.main_menu.handle_event(input),
             GUIState::PauseMenu => self.pause_menu.handle_event(input),
@@ -117,12 +105,57 @@ impl GUILayer for GUI {
     }
 }
 
+impl GUILayerComponents for GUI {
+    fn components(&self) -> (&[GUIButton], &[GUIText]) {
+        match self.state {
+            GUIState::MainMenu => self.main_menu.components(),
+            GUIState::PauseMenu => self.pause_menu.components(),
+            _ => (&[], &[]),
+        }
+    }
+}
+
+
+
+pub trait GUIBasicLayer {
+    fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton>;
+
+    fn event_from_index(&mut self, i: usize) -> Option<GUIEvent>;
+}
+
+pub trait GUILayerEventHandler
+    where Self: GUIBasicLayer {
+
+    fn handle_event<T: Input>(&mut self, input: &mut T) -> Option<GUIEvent> {
+        if input.key_hit_up() {
+            self.get_buttons_mut().selection_up();
+            None
+        } else if input.key_hit_down() {
+            self.get_buttons_mut().selection_down();
+            None
+        } else if input.key_hit_enter() {
+            let i = self.get_buttons_mut().get_selection_index();
+            self.event_from_index(i)
+        } else if input.mouse_button_hit() {
+            match self.get_buttons_mut().get_collision_index(input.mouse_location()) {
+                Some(i) => self.event_from_index(i),
+                None => None,
+            }
+        } else if input.mouse_motion() {
+            self.get_buttons_mut().update_selection(input.mouse_location());
+            None
+        } else {
+            None
+        }
+    }
+}
+
+
 
 pub struct MainMenu {
      buttons: GUIGroup<GUIButton>,
      texts: [GUIText; 1],
 }
-
 
 impl MainMenu {
     fn new() -> MainMenu {
@@ -140,43 +173,27 @@ impl MainMenu {
         MainMenu {buttons, texts}
     }
 
-    fn event_from_index(&mut self, i: usize) -> Option<GUIEvent> {
-        match i {
-                0 => Some(GUIEvent::ChangeState(GUIState::Game)),
-                2 => Some(GUIEvent::Exit),
-                _ => None,
-            }
-    }
 }
 
-impl GUILayer for MainMenu {
+impl GUILayerComponents for MainMenu {
     fn components(&self) -> (&[GUIButton], &[GUIText]) {
         (self.buttons.get_components(), &self.texts)
     }
+}
 
-    fn handle_event<T: Input>(&mut self, input: &mut T) -> Option<GUIEvent> {
-        if input.key_hit_up() {
-            self.buttons.selection_up();
-            None
-        } else if input.key_hit_down() {
-            self.buttons.selection_down();
-            None
-        } else if input.key_hit_enter() {
-            let i = self.buttons.get_selection_index();
-            self.event_from_index(i)
-        } else if input.mouse_button_hit() {
-            match self.buttons.get_collision_index(input.mouse_location()) {
-                Some(i) => self.event_from_index(i),
-                None => None,
-            }
-        } else if input.mouse_motion() {
-            self.buttons.update_selection(input.mouse_location());
-            None
-        } else {
-            None
+impl GUIBasicLayer for MainMenu {
+    fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton> { &mut self.buttons }
+
+    fn event_from_index(&mut self, i: usize) -> Option<GUIEvent> {
+        match i {
+            0 => Some(GUIEvent::ChangeState(GUIState::Game)),
+            2 => Some(GUIEvent::Exit),
+            _ => None,
         }
     }
 }
+
+impl GUILayerEventHandler for MainMenu {}
 
 
 pub struct PauseMenu {
@@ -196,44 +213,27 @@ impl PauseMenu {
 
         PauseMenu {buttons, texts}
     }
-
-    fn event_from_index(&mut self, i: usize) -> Option<GUIEvent> {
-        match i {
-                0 => Some(GUIEvent::ChangeState(GUIState::Game)),
-                1 => {
-                    self.buttons.selection_up();
-                    Some(GUIEvent::ChangeState(GUIState::MainMenu))
-                },
-                _ => None,
-        }
-    }
 }
 
-impl GUILayer for PauseMenu {
+impl GUILayerComponents for PauseMenu {
     fn components(&self) -> (&[GUIButton], &[GUIText]) {
         (self.buttons.get_components(), &self.texts)
     }
+}
 
-    fn handle_event<T: Input>(&mut self, input: &mut T) -> Option<GUIEvent> {
-        if input.key_hit_up() {
-            self.buttons.selection_up();
-            None
-        } else if input.key_hit_down() {
-            self.buttons.selection_down();
-            None
-        } else if input.key_hit_enter() {
-            let i = self.buttons.get_selection_index();
-            self.event_from_index(i)
-        } else if input.mouse_button_hit() {
-            match self.buttons.get_collision_index(input.mouse_location()) {
-                Some(i) => self.event_from_index(i),
-                None => None,
-            }
-        } else if input.mouse_motion() {
-            self.buttons.update_selection(input.mouse_location());
-            None
-        } else {
-            None
+impl GUIBasicLayer for PauseMenu {
+    fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton> { &mut self.buttons }
+
+    fn event_from_index(&mut self, i: usize) -> Option<GUIEvent> {
+        match i {
+            0 => Some(GUIEvent::ChangeState(GUIState::Game)),
+            1 => {
+                self.buttons.selection_up();
+                Some(GUIEvent::ChangeState(GUIState::MainMenu))
+            },
+            _ => None,
         }
     }
 }
+
+impl GUILayerEventHandler for PauseMenu {}

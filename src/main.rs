@@ -25,7 +25,7 @@ mod logic;
 mod renderer;
 mod input;
 
-use sdl2::event::{Event, EventType};
+use sdl2::event::{Event};
 use sdl2::keyboard::Keycode;
 use sdl2::GameControllerSubsystem;
 
@@ -33,7 +33,7 @@ use renderer::Renderer;
 use logic::Logic;
 
 use input::{InputManager};
-use gui::{GUI, GUILayer, GUIEvent};
+use gui::{GUI, GUIEvent};
 
 use time::PreciseTime;
 
