@@ -367,6 +367,7 @@ pub struct GUIText {
     x: f32,
     y: f32,
     size: f32,
+    width: f32,
 }
 
 impl GUIText {
@@ -376,6 +377,7 @@ impl GUIText {
             x: x,
             y: y,
             size: 0.57,
+            width: 0.0,
         };
 
         gui_text.change_text(text);
@@ -389,7 +391,8 @@ impl GUIText {
         let text_len = text.len() as f32;
 
         let size = self.size - 0.17;
-        let mut x = self.x - (text_len/2.0) * size;
+        self.width = text_len * size;
+        let mut x = self.x - self.width/2.0;
 
         for c in text.chars() {
             let rectangle = GUIRectangle::new(x, self.y, self.size, self.size);
@@ -403,5 +406,46 @@ impl GUIText {
     pub fn get_tiles(&self) -> &Vec<Tile> {
         &self.tiles
     }
+
+    pub fn get_width(&self) -> f32 {
+        self.width
+    }
 }
 
+pub struct GUIFpsCounter {
+    fps_text: GUIText,
+    fps_count_text: GUIText,
+    show_fps: bool,
+}
+
+impl GUIFpsCounter {
+    pub fn new(x: f32, y:f32) -> GUIFpsCounter {
+        let fps_text = GUIText::new(x, y, "FPS ");
+        let fps_count_text = GUIText::new(x + fps_text.get_width(), y, "0");
+
+        let show_fps = false;
+
+        GUIFpsCounter {
+            fps_text,
+            fps_count_text,
+            show_fps,
+        }
+    }
+
+    pub fn update_fps_count(&mut self, fps_count: u32) {
+        let text = fps_count.to_string();
+        self.fps_count_text.change_text(&text);
+    }
+
+    pub fn texts(&self) -> [&GUIText; 2] {
+        [&self.fps_text, &self.fps_count_text]
+    }
+
+    pub fn show_fps(&self) -> bool {
+        self.show_fps
+    }
+
+    pub fn set_show_fps(&mut self, value: bool) {
+        self.show_fps = value;
+    }
+}

@@ -29,7 +29,7 @@ use renderer::texture::Textures;
 use renderer::shader::*;
 
 use sdl2::VideoSubsystem;
-use sdl2::video::{Window};
+use sdl2::video::{Window, FullscreenType, DisplayMode};
 use sdl2::video::{GLProfile, GLContext};
 
 use logic::{Logic};
@@ -48,6 +48,9 @@ pub struct OpenGLRenderer {
     square: VertexArray,
     projection_matrix: Matrix4<f32>,
     inverse_projection_matrix: Matrix4<f32>,
+    screen_width: i32,
+    screen_height: i32,
+    half_screen_width_world_coordinates: f32,
 }
 
 pub trait Renderer {
@@ -56,6 +59,9 @@ pub trait Renderer {
     fn render_gui(&mut self, &GUI);
     fn end(&mut self);
     fn screen_coordinates_to_world_coordinates(&self, x: i32, y: i32) -> Point2<f32>;
+    fn full_screen(&mut self, value: bool);
+    fn v_sync(&mut self, value: bool);
+    fn half_screen_width_world_coordinates(&self) -> f32;
 }
 
 impl Renderer for OpenGLRenderer {
@@ -125,6 +131,15 @@ impl Renderer for OpenGLRenderer {
                 self.square.draw();
             }
         }
+
+        if gui.get_gui_fps_counter().show_fps() {
+            for text in gui.get_gui_fps_counter().texts().into_iter() {
+                for tile in text.get_tiles() {
+                    self.tilemap_shader.send_uniform_data(tile.get_rectangle().model_matrix(), &self.projection_matrix, tile.get_tile_info());
+                    self.square.draw();
+                }
+            }
+        }
     }
 
     fn end(&mut self) {
@@ -136,8 +151,8 @@ impl Renderer for OpenGLRenderer {
     }
 
     fn screen_coordinates_to_world_coordinates(&self, x: i32, y: i32) -> Point2<f32> {
-        let width = 640/2;
-        let height = 480/2;
+        let width = self.screen_width/2;
+        let height = self.screen_height/2;
         let x: f32 = (x - width) as f32 / width as f32;
         let y: f32 = (y - height) as f32 / -height as f32;
 
@@ -145,12 +160,43 @@ impl Renderer for OpenGLRenderer {
 
         Point2::new(vector.x,vector.y)
     }
+
+    fn full_screen(&mut self, value: bool) {
+        let setting;
+
+        if value {
+            setting = FullscreenType::Desktop;
+        } else {
+            setting = FullscreenType::Off;
+        }
+
+        if let Err(message) = self.window.set_fullscreen(setting) {
+            println!("Error, couldn't change fullscreen setting: {}", message);
+        } else {
+            self.update_screen_size();
+            self.update_projection_matrix();
+        }
+    }
+
+    fn v_sync(&mut self, value: bool) {
+        if value {
+            self.video_system.gl_set_swap_interval(1);
+        } else {
+            self.video_system.gl_set_swap_interval(0);
+        }
+    }
+
+    fn half_screen_width_world_coordinates(&self) -> f32 {
+        self.half_screen_width_world_coordinates
+    }
 }
 
 impl OpenGLRenderer {
     pub fn new(video_system: VideoSubsystem) -> OpenGLRenderer {
-        let window = video_system.window("Space Boss Battles", 640,480).opengl().build().expect("window creation failed");
+        let screen_width = 640;
+        let screen_height = 480;
 
+        let window = video_system.window("Space Boss Battles", screen_width as u32, screen_height as u32).opengl().build().expect("window creation failed");
 
         #[cfg(feature = "gles")]
         {
@@ -175,10 +221,7 @@ impl OpenGLRenderer {
         let color_shader = ColorShader::new();
         let tilemap_shader = TilemapShader::new();
 
-        //video_system.gl_set_swap_interval(0);
-
         unsafe {
-            gl_raw::Viewport(0,0,640,480);
             gl_raw::ClearColor(0.0,0.0,0.0,1.0);
         }
 
@@ -187,23 +230,51 @@ impl OpenGLRenderer {
 
         println!("OpenGL version: {:?}", gl::get_version_string());
 
-        let size = 1.5;
-        let width = 4.0 * size;
-        let height = 3.0 * size;
-        let projection_matrix = cgmath::ortho::<f32>(-width, width, -height, height, 1.0, -1.0);
+        let projection_matrix = Matrix4::identity();
+        let inverse_projection_matrix = Matrix4::identity();
+        let half_screen_width_world_coordinates = 1.0;
 
-        let inverse_projection_matrix;
-        match projection_matrix.inverse_transform() {
-            Some(matrix) => inverse_projection_matrix = matrix,
-            None => {
-                println!("Calculating inverse projection matrix failed");
-                inverse_projection_matrix = Matrix4::identity();
-            }
-        };
+        let mut renderer = OpenGLRenderer {video_system, window, context, texture_shader, color_shader, tilemap_shader, textures, square, projection_matrix, inverse_projection_matrix, screen_width, screen_height, half_screen_width_world_coordinates};
+        renderer.update_screen_size();
+        renderer.update_projection_matrix();
 
-        OpenGLRenderer {video_system, window, context, texture_shader, color_shader, tilemap_shader, textures, square, projection_matrix, inverse_projection_matrix}
+        renderer
     }
 
+    fn update_projection_matrix(&mut self) {
+        let size = 4.5;
+        self.half_screen_width_world_coordinates = (self.screen_width as f32 /self.screen_height as f32) * size;
+        let height = 1.0 * size;
+        self.projection_matrix = cgmath::ortho::<f32>(-self.half_screen_width_world_coordinates, self.half_screen_width_world_coordinates, -height, height, 1.0, -1.0);
+
+        match self.projection_matrix.inverse_transform() {
+            Some(matrix) => self.inverse_projection_matrix = matrix,
+            None => {
+                println!("Calculating inverse projection matrix failed");
+                self.inverse_projection_matrix = Matrix4::identity();
+            }
+        };
+    }
+
+    fn update_screen_size(&mut self) {
+        let mut width = 640;
+        let mut height = 480;
+
+        match self.window.display_mode() {
+            Ok(display_mode) => {
+                width = display_mode.w;
+                height = display_mode.h;
+            },
+            Err(message) => println!("couldn't get display mode info: {}", message),
+        }
+
+        unsafe {
+            gl_raw::Viewport(0,0,width,height);
+        }
+
+        self.screen_width = width;
+        self.screen_height = height;
+    }
 }
 
 fn create_square() -> VertexArray {

@@ -18,7 +18,7 @@ pub mod settings;
 use gui::components::*;
 
 use input::Input;
-use gui::settings::{ Settings, SettingType, Setting};
+use gui::settings::{ Settings, SettingType, SettingEvent, Setting};
 
 
 #[derive(Copy, Clone)]
@@ -48,6 +48,7 @@ pub struct GUI {
     state: GUIState,
     render_game: bool,
     update_game: bool,
+    fps_counter: GUIFpsCounter,
 }
 
 
@@ -60,6 +61,7 @@ impl GUI {
             state: GUIState::MainMenu,
             render_game: false,
             update_game: false,
+            fps_counter: GUIFpsCounter::new(-5.0, 3.5),
         }
     }
 
@@ -111,10 +113,19 @@ impl GUI {
                 self.update_game = false;
                 self.state = state;
             },
+            Some(GUIEvent::ChangeSetting(SettingType::Boolean(SettingEvent::ShowFpsCounter, value))) => self.fps_counter.set_show_fps(value),
             _ => (),
         };
 
         event
+    }
+
+    pub fn update_fps_counter(&mut self, count: u32) {
+        self.fps_counter.update_fps_count(count);
+    }
+
+    pub fn get_gui_fps_counter(&self) -> &GUIFpsCounter {
+        &self.fps_counter
     }
 }
 

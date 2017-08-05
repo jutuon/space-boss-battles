@@ -35,7 +35,7 @@ impl Settings {
         let settings = vec![
             SettingContainer::new("Full screen", SettingType::Boolean(SettingEvent::FullScreen, false)),
             SettingContainer::new("FPS counter", SettingType::Boolean(SettingEvent::ShowFpsCounter, false)),
-            SettingContainer::new("VSync", SettingType::Boolean(SettingEvent::VSync, false)),
+            SettingContainer::new("VSync", SettingType::Boolean(SettingEvent::VSync, true)),
         ];
 
         Settings {
