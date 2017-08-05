@@ -1,5 +1,5 @@
 /*
-gl/src/gl_wrapper/mod.rs, 2017-07-19
+gl/src/gl_wrapper/mod.rs, 2017-08-05
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -31,6 +31,7 @@ pub mod texture;
 
 use gl_raw::types::*;
 
+use std::os::raw::c_char;
 use std::ffi::CStr;
 
 /// OpenGL error types
@@ -73,7 +74,7 @@ impl GLError {
 /// Return OpenGL version string.
 pub fn get_version_string<'a>() -> &'a CStr {
     unsafe {
-        let ptr_to_str = gl_raw::GetString(gl_raw::VERSION) as *const i8;
+        let ptr_to_str = gl_raw::GetString(gl_raw::VERSION) as *const c_char;
         CStr::from_ptr(ptr_to_str)
     }
 }
