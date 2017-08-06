@@ -126,7 +126,11 @@ fn create_program(vertex_shader_path: &str, fragment_shader_path: &str) -> Progr
     let vertex_shader = load_shader(ShaderType::Vertex, vertex_shader_path);
     let fragment_shader = load_shader(ShaderType::Fragment, fragment_shader_path);
 
-    match Program::new(vertex_shader, fragment_shader) {
+    let mut vertex_attributes = VertexAttributeIndexBinder::new();
+    vertex_attributes.add_attribute(0, "vertex");
+    vertex_attributes.add_attribute(1, "texture_coordinates_attribute");
+
+    match Program::new(vertex_shader, fragment_shader, vertex_attributes) {
         Ok(program) => program,
         Err(message) => {
             println!("program creation error:\n{}", message);

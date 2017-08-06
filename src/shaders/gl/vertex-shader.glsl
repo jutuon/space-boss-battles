@@ -1,7 +1,7 @@
 #version 330 core
 
 /*
-src/shaders/gl/vertex-shader.glsl, 2017-07-17
+src/shaders/gl/vertex-shader.glsl, 2017-08-06
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -14,8 +14,8 @@ or
 MIT License
 */
 
-layout (location = 0) in vec3 vertex;
-layout (location = 1) in vec2 texture_coordinates_attribute;
+in vec3 vertex;
+in vec2 texture_coordinates_attribute;
 
 out vec2 texture_coordinates;
 

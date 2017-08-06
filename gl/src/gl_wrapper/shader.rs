@@ -1,5 +1,5 @@
 /*
-gl/src/gl_wrapper/shader.rs, 2017-07-14
+gl/src/gl_wrapper/shader.rs, 2017-08-06
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -121,7 +121,8 @@ impl Drop for Program {
 
 impl Program {
     /// Link new program from compiled shaders. Returns linked program or error message.
-    pub fn new(shader1: Shader, shader2: Shader) -> Result<Program, String> {
+    /// Before linking the program, the vertex attribute indexes will be set with given VertexAttributeIndexBinder.
+    pub fn new(shader1: Shader, shader2: Shader, attributes: VertexAttributeIndexBinder) -> Result<Program, String> {
         let program;
 
         unsafe {
@@ -129,6 +130,8 @@ impl Program {
 
             gl_raw::AttachShader(program.id(), shader1.id());
             gl_raw::AttachShader(program.id(), shader2.id());
+
+            attributes.bind_attribute_locations(&program);
             gl_raw::LinkProgram(program.id());
         }
 
@@ -177,6 +180,40 @@ impl Program {
         }
     }
 }
+
+/// Bind shader's vertex attribute variable to have a specific index.
+pub struct VertexAttributeIndexBinder {
+    names: Vec<(GLuint,CString)>,
+}
+
+impl VertexAttributeIndexBinder {
+    // Create new VertexAttributeBinder
+    pub fn new() -> VertexAttributeIndexBinder {
+        VertexAttributeIndexBinder {
+            names: Vec::new(),
+        }
+    }
+
+    /// Adds attribute variable to be binded with index
+    ///
+    /// # Panics
+    /// If argument `variable_name` is not valid `CString`.
+    pub fn add_attribute(&mut self, index: GLuint, variable_name: &str) {
+        let c_string = CString::new(variable_name).unwrap();
+
+        self.names.push((index,c_string));
+    }
+
+    /// Bind all added index and variable name pairs with OpenGL's BindAttribLocation function
+    fn bind_attribute_locations(self, program: &Program) {
+        for (index, c_str) in self.names {
+            unsafe {
+                gl_raw::BindAttribLocation(program.id(), index, c_str.as_ptr());
+            }
+        }
+    }
+}
+
 
 /// Creates specific size CString.
 ///

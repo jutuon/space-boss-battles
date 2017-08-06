@@ -1,7 +1,7 @@
 #version 330 core
 
 /*
-src/shaders/gl/color-vertex.glsl, 2017-07-17
+src/shaders/gl/color-vertex.glsl, 2017-08-06
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -14,7 +14,7 @@ or
 MIT License
 */
 
-layout (location = 0) in vec3 vertex;
+in vec3 vertex;
 
 uniform mat4 M;
 uniform mat4 P;
