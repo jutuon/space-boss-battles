@@ -1,5 +1,5 @@
 /*
-src/renderer/texture.rs, 2017-08-01
+src/renderer/texture.rs, 2017-08-06
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -44,7 +44,7 @@ impl Textures {
 
         let (width, height) = img.dimensions().expect("img dimensions fail");
 
-        let mut rgba;
+        let rgba;
         match img.colortype().expect("img color type fail") {
             ColorType::RGBA(_) => rgba = true,
             ColorType::RGB(_) => rgba = false,

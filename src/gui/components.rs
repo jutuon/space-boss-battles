@@ -17,7 +17,6 @@ use cgmath::prelude::*;
 
 
 pub enum GUIComponentState {
-    MouseOver,
     Selected,
     Normal,
 }
@@ -81,7 +80,6 @@ impl GUIRectangle<f32> {
 
 pub struct GUIButton {
     rectangle: GUIRectangle<f32>,
-    state: GUIComponentState,
     text: GUIText,
 }
 
@@ -89,7 +87,6 @@ impl GUIButton {
     pub fn new(x: f32, y: f32, width: f32, height: f32, text: &str) -> GUIButton {
         let mut button = GUIButton {
             rectangle: GUIRectangle::new(x, y, width, height),
-            state: GUIComponentState::Normal,
             text: GUIText::new(x, y, text),
         };
 
@@ -127,14 +124,12 @@ pub trait SetGUIComponentState {
 
 impl SetGUIComponentState for GUIButton {
     fn set_state(&mut self, state: GUIComponentState) {
-        let color_mouse_over = Vector3::new(0.0,0.5,0.0);
         let color_selected = Vector3::new(0.0,0.0,1.0);
         let color_normal = Vector3::new(0.0,0.0,0.4);
 
         match state {
             GUIComponentState::Normal => self.rectangle.set_color(color_normal),
             GUIComponentState::Selected => self.rectangle.set_color(color_selected),
-            GUIComponentState::MouseOver => self.rectangle.set_color(color_mouse_over),
         }
 
     }
@@ -146,10 +141,8 @@ pub struct GUIGroupBuilder<T: SetGUIComponentState> {
 
 impl <T: SetGUIComponentState> GUIGroupBuilder<T> {
     pub fn new() -> GUIGroupBuilder<T> {
-        let mut vec = Vec::new();
-
         GUIGroupBuilder {
-            components: vec,
+            components: Vec::new(),
         }
     }
 

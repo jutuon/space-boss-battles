@@ -17,7 +17,7 @@ pub mod components;
 use gui::components::*;
 
 use input::Input;
-use settings::{ Settings, SettingType, SettingEvent, Setting};
+use settings::{ Settings, SettingType, Setting};
 
 
 #[derive(Copy, Clone)]
@@ -63,10 +63,6 @@ impl GUI {
             update_game: false,
             fps_counter: GUIFpsCounter::new(-5.0, 3.5),
         }
-    }
-
-    pub fn get_state(&self) -> &GUIState {
-        &self.state
     }
 
     pub fn render_game(&self) -> bool {

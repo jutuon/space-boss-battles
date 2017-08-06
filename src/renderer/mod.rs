@@ -1,5 +1,5 @@
 /*
-src/renderer/mod.rs, 2017-08-05
+src/renderer/mod.rs, 2017-08-06
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -29,7 +29,7 @@ use renderer::texture::Textures;
 use renderer::shader::*;
 
 use sdl2::VideoSubsystem;
-use sdl2::video::{Window, FullscreenType, DisplayMode};
+use sdl2::video::{Window, FullscreenType};
 use sdl2::video::{GLProfile, GLContext};
 
 use logic::{Logic};

@@ -1,5 +1,5 @@
 /*
-src/gui/settings.rs, 2017-08-06
+src/settings.rs, 2017-08-06
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -81,21 +81,21 @@ impl Settings {
 
         let mut settings_text = String::new();
 
-        writeln!(settings_text,"# Settings file for Space Boss Battles\n\n[Settings]");
+        settings_text.push_str("# Settings file for Space Boss Battles\n\n[Settings]\n");
 
         for setting in &self.settings {
             match setting.get_value() {
                 SettingType::Boolean(_, value) => {
-                    writeln!(settings_text, "{}={}", setting.get_name(), value);
-                    ()
+                    writeln!(settings_text, "{}={}", setting.get_name(), value).unwrap();
                 }
             }
         }
 
-        writeln!(settings_text,"\n[GameControllerMappings]\n# https://wiki.libsdl.org/SDL_GameControllerAddMapping\n");
+        settings_text.push_str("\n[GameControllerMappings]\n# https://wiki.libsdl.org/SDL_GameControllerAddMapping\n\n");
 
         for mapping in &self.controller_mappings {
-            writeln!(settings_text, "{}", mapping);
+            settings_text.push_str(mapping);
+            settings_text.push('\n');
         }
 
         let mut file = match File::create("settings.txt") {
