@@ -18,7 +18,7 @@ use sdl2::controller::{GameController, Button, Axis};
 
 use cgmath::Point2;
 
-use gui::settings::Settings;
+use settings::Settings;
 
 use Timer;
 use time::PreciseTime;

@@ -13,12 +13,11 @@ MIT License
 */
 
 pub mod components;
-pub mod settings;
 
 use gui::components::*;
 
 use input::Input;
-use gui::settings::{ Settings, SettingType, SettingEvent, Setting};
+use settings::{ Settings, SettingType, SettingEvent, Setting};
 
 
 #[derive(Copy, Clone)]

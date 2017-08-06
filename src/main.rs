@@ -24,6 +24,7 @@ mod gui;
 mod logic;
 mod renderer;
 mod input;
+mod settings;
 
 use sdl2::event::{Event};
 use sdl2::keyboard::Keycode;
@@ -34,7 +35,7 @@ use logic::Logic;
 
 use input::{InputManager};
 use gui::{GUI, GUIEvent};
-use gui::settings::{Settings};
+use settings::{Settings};
 
 use time::PreciseTime;
 
