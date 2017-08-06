@@ -34,24 +34,46 @@ use logic::Logic;
 
 use input::{InputManager};
 use gui::{GUI, GUIEvent};
-use gui::settings::{SettingType, SettingEvent};
+use gui::settings::{Settings};
 
 use time::PreciseTime;
 
+use std::env;
+
+pub const COMMAND_LINE_HELP_TEXT: &str = "
+Space Boss Battles command line options:
+--help|-h         - show this text
+--fps             - print fps to standard output
+--joystick-events - print joystick events to standard output
+";
+
 fn main() {
+    if check_help_option() {
+        println!("{}", COMMAND_LINE_HELP_TEXT);
+        return;
+    }
+
     let sdl_context = sdl2::init().expect("sdl2 init failed");
     let mut event_pump = sdl_context.event_pump().expect("failed to get handle to sdl2 event_pump");
 
     let video = sdl_context.video().expect("video subsystem init fail");
 
-    let mut renderer = renderer::OpenGLRenderer::new(video);
+    let renderer = renderer::OpenGLRenderer::new(video);
 
     let game_controller_subsystem = sdl_context.game_controller().expect("game controller subsystem init failed");
     let joystick_subsystem = sdl_context.joystick().expect("joystick subsystem init failed");
     let mut game = Game::new(game_controller_subsystem, renderer, joystick_subsystem);
 
+    for event in event_pump.poll_iter() {
+        match event {
+            Event::Quit{..} | Event::JoyDeviceAdded{..} => game.handle_event(event),
+            _ => (),
+        }
+    }
+
     loop {
         if game.quit() {
+            game.save_settings();
             break;
         }
 
@@ -66,6 +88,18 @@ fn main() {
 
 }
 
+fn check_help_option() -> bool {
+    let args = env::args();
+
+    for arg in args.skip(1) {
+        if arg == "--help" || arg == "-h" {
+            return true;
+        }
+    }
+
+    false
+}
+
 pub struct Game {
     game_logic: Logic,
     quit: bool,
@@ -74,20 +108,26 @@ pub struct Game {
     timer: GameLoopTimer,
     gui: GUI,
     renderer: OpenGLRenderer,
+    settings: Settings,
 }
 
 impl Game {
-    pub fn new(controller_subsystem: GameControllerSubsystem, renderer: OpenGLRenderer, joystick_subsystem: JoystickSubsystem) -> Game {
+    pub fn new(mut controller_subsystem: GameControllerSubsystem, mut renderer: OpenGLRenderer, joystick_subsystem: JoystickSubsystem) -> Game {
         let game_logic = Logic::new();
         let quit = false;
+
+        let settings = Settings::new(&mut controller_subsystem);
+
         let input = InputManager::new(controller_subsystem, joystick_subsystem);
         let fps_counter = FpsCounter::new();
         let timer = GameLoopTimer::new(16);
 
-        let mut gui = GUI::new();
+        let mut gui = GUI::new(&settings);
         gui.update_component_positions(renderer.half_screen_width_world_coordinates());
 
-        Game {game_logic, quit, input, fps_counter, timer, gui, renderer}
+        settings.apply_current_settings(&mut renderer, &mut gui);
+
+        Game {game_logic, quit, input, fps_counter, timer, gui, renderer, settings}
     }
 
     pub fn quit(&self) -> bool {
@@ -101,19 +141,22 @@ impl Game {
                 Event::KeyUp {keycode: Some(key), ..} => self.input.update_key_up(key),
                 Event::MouseMotion { x, y, ..} => self.input.update_mouse_motion(self.renderer.screen_coordinates_to_world_coordinates(x, y)),
                 Event::MouseButtonUp { x, y, ..} =>  self.input.update_mouse_button_up(self.renderer.screen_coordinates_to_world_coordinates(x, y)),
-                Event::ControllerDeviceAdded { which, ..} => self.input.add_game_controller(which as u32),
                 Event::ControllerDeviceRemoved { which, ..} => self.input.remove_game_controller(which),
                 Event::ControllerAxisMotion { axis, value, ..} => self.input.game_controller_axis_motion(axis, value),
                 Event::ControllerButtonDown { button, ..} => self.input.game_controller_button_down(button),
                 Event::ControllerButtonUp { button, ..} => self.input.game_controller_button_up(button),
-                Event::JoyDeviceAdded { which, ..} => self.input.add_joystick(which as u32),
+                Event::JoyDeviceAdded { which, ..} => self.input.add_joystick(which as u32, &mut self.settings),
+                _ => (),
+        }
 
+        if self.settings.print_joystick_events() {
+            match event {
                 Event::JoyAxisMotion { value, axis_idx, .. } => println!("JoyAxisMotion, value: {}, axis_idx: {},", value, axis_idx),
                 Event::JoyBallMotion { ball_idx, xrel, yrel, .. } => println!("JoyBallMotion, ball_idx: {}, xrel: {}, yrel: {}", ball_idx, xrel, yrel),
                 Event::JoyHatMotion { hat_idx, state, .. } => println!("JoyHatMotion, hat_idx: {}, state as number: {}, state: {:?}", hat_idx, state as u32, state),
                 Event::JoyButtonDown { button_idx, .. } => println!("JoyButtonDown, button_idx: {}", button_idx),
-
                 _ => (),
+            }
         }
     }
 
@@ -139,7 +182,7 @@ impl Game {
     pub fn update(&mut self) {
         let current_time = PreciseTime::now();
 
-        let (fps_updated, fps_count) = self.fps_counter.update(current_time);
+        let (fps_updated, fps_count) = self.fps_counter.update(current_time, self.settings.print_fps_count());
 
         if fps_updated && self.gui.get_gui_fps_counter().show_fps() {
             self.gui.update_fps_counter(fps_count);
@@ -152,24 +195,21 @@ impl Game {
                 self.game_logic.update(&self.input);
             }
 
-            match self.gui.handle_event(&mut self.input) {
+            match self.gui.handle_event(&mut self.input, &mut self.settings) {
                 None => (),
                 Some(GUIEvent::Exit) => self.quit = true,
-                Some(GUIEvent::ChangeSetting(SettingType::Boolean(event, value))) => {
-                    match event {
-                        SettingEvent::FullScreen => {
-                            self.renderer.full_screen(value);
-                            self.gui.update_component_positions(self.renderer.half_screen_width_world_coordinates());
-                        },
-                        SettingEvent::VSync => self.renderer.v_sync(value),
-                        _ => (),
-                    };
+                Some(GUIEvent::ChangeSetting(setting)) => {
+                    self.settings.apply_setting(setting, &mut self.renderer, &mut self.gui);
                 }
                 _ => (),
             }
 
             self.input.reset_key_hits();
         }
+    }
+
+    pub fn save_settings(&self) {
+        self.settings.save();
     }
 }
 
@@ -200,9 +240,12 @@ impl FpsCounter {
         }
     }
 
-    pub fn update(&mut self, current_time: PreciseTime) -> (bool, u32) {
+    pub fn update(&mut self, current_time: PreciseTime, print_fps: bool) -> (bool, u32) {
         if self.update_time.check(current_time, 1000) {
-            self.print();
+            if print_fps {
+                self.print();
+            }
+
             let return_value = (true, self.fps_count);
 
             self.fps_count = 0;

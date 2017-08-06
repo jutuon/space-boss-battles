@@ -18,6 +18,8 @@ use sdl2::controller::{GameController, Button, Axis};
 
 use cgmath::Point2;
 
+use gui::settings::Settings;
+
 use Timer;
 use time::PreciseTime;
 
@@ -134,7 +136,7 @@ impl InputManager {
         self.mouse_location = point;
     }
 
-    pub fn add_game_controller(&mut self, id: u32) {
+    fn add_game_controller(&mut self, id: u32) {
         if self.game_controller_subsystem.is_game_controller(id) {
             match self.game_controller_subsystem.open(id) {
                 Ok(controller) => {
@@ -146,7 +148,7 @@ impl InputManager {
         }
     }
 
-    pub fn add_joystick(&mut self, id: u32) {
+    pub fn add_joystick(&mut self, id: u32, settings: &mut Settings) {
         if !self.game_controller_subsystem.is_game_controller(id) {
             let joystick_name;
             match self.joystick_subsystem.name_for_index(id) {
@@ -174,10 +176,13 @@ impl InputManager {
             match self.game_controller_subsystem.add_mapping(&joystick_guid) {
                 Ok(_) => {
                     println!("default game controller mapping loaded for joystick with id {}", id);
-                    self.add_game_controller(id)
+                    settings.add_game_controller_mapping(joystick_guid);
+                    self.add_game_controller(id);
                 },
                 Err(error) => println!("error: {}", error),
             }
+        } else {
+            self.add_game_controller(id);
         }
     }
 

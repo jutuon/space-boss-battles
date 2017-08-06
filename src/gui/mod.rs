@@ -25,6 +25,7 @@ use gui::settings::{ Settings, SettingType, SettingEvent, Setting};
 pub enum GUIEvent {
     ChangeState(GUIState),
     ChangeSetting(SettingType),
+    SettingsUpdate(usize),
     Exit,
 }
 
@@ -53,11 +54,11 @@ pub struct GUI {
 
 
 impl GUI {
-    pub fn new() -> GUI {
+    pub fn new(settings: &Settings) -> GUI {
         GUI {
             main_menu: MainMenu::new(),
             pause_menu: PauseMenu::new(),
-            settings_menu: SettingsMenu::new(),
+            settings_menu: SettingsMenu::new(settings),
             state: GUIState::MainMenu,
             render_game: false,
             update_game: false,
@@ -77,7 +78,7 @@ impl GUI {
         self.update_game
     }
 
-    pub fn handle_event<T: Input>(&mut self, input: &mut T) -> Option<GUIEvent> {
+    pub fn handle_event<T: Input>(&mut self, input: &mut T, settings: &mut Settings) -> Option<GUIEvent> {
         let event = match self.state {
             GUIState::MainMenu => self.main_menu.handle_event(input),
             GUIState::PauseMenu => self.pause_menu.handle_event(input),
@@ -88,7 +89,15 @@ impl GUI {
                     None
                 }
             },
-            GUIState::SettingsMenu => self.settings_menu.handle_event(input),
+            GUIState::SettingsMenu => {
+                let mut event = self.settings_menu.handle_event(input);
+                if let Some(GUIEvent::SettingsUpdate(i)) = event {
+                    event = settings.event_from_index(i);
+                    self.settings_menu.update_settings_status_texts(settings);
+                }
+
+                event
+            },
         };
 
         match event {
@@ -113,7 +122,6 @@ impl GUI {
                 self.update_game = false;
                 self.state = state;
             },
-            Some(GUIEvent::ChangeSetting(SettingType::Boolean(SettingEvent::ShowFpsCounter, value))) => self.fps_counter.set_show_fps(value),
             _ => (),
         };
 
@@ -126,6 +134,10 @@ impl GUI {
 
     pub fn get_gui_fps_counter(&self) -> &GUIFpsCounter {
         &self.fps_counter
+    }
+
+    pub fn set_show_fps_counter(&mut self, value: bool) {
+        self.fps_counter.set_show_fps(value);
     }
 
     pub fn update_component_positions(&mut self, screen_width: f32) {
@@ -272,13 +284,10 @@ impl GUILayerEventHandler for PauseMenu {}
 pub struct SettingsMenu {
      buttons: GUIGroup<GUIButton>,
      texts: Vec<GUIText>,
-     settings: Settings,
 }
 
 impl SettingsMenu {
-    fn new() -> SettingsMenu {
-        let settings = Settings::new();
-
+    fn new(settings: &Settings) -> SettingsMenu {
         let width = 5.0;
         let height = 1.0;
 
@@ -293,9 +302,8 @@ impl SettingsMenu {
             gui_group_builder.add(GUIButton::new(x_button, y, width, height, setting.get_name()));
 
             let text = match setting.get_value() {
-                SettingType::Boolean(_, value) if value => "Enabled",
-                SettingType::Boolean(_, value) if !value => "Disabled",
-                _ => "Unknown",
+                SettingType::Boolean(_, true) => "Enabled",
+                SettingType::Boolean(_, false) => "Disabled",
             };
 
             texts.push(GUIText::new(x_text, y, text));
@@ -310,11 +318,11 @@ impl SettingsMenu {
         y -= 0.50;
         let buttons = buttons.add(GUIButton::new(x_button, y, width, height, "Main Menu"));
 
-        SettingsMenu {buttons, texts, settings}
+        SettingsMenu {buttons, texts}
     }
 
-    fn update_settings_status_texts(&mut self) {
-        for (setting, text) in self.settings.get_settings().iter().zip(self.texts.iter_mut()) {
+    fn update_settings_status_texts(&mut self, settings: &Settings) {
+        for (setting, text) in settings.get_settings().iter().zip(self.texts.iter_mut()) {
 
             let new_text = match setting.get_value() {
                 SettingType::Boolean(_, true) => "Enabled",
@@ -340,10 +348,7 @@ impl GUIBasicLayer for SettingsMenu {
         if i == self.buttons.get_components().len() - 1 {
             Some(GUIEvent::ChangeState(GUIState::MainMenu))
         } else {
-            let event = self.settings.event_from_index(i);
-            self.update_settings_status_texts();
-
-            event
+            Some(GUIEvent::SettingsUpdate(i))
         }
     }
 }
