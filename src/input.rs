@@ -1,5 +1,5 @@
 /*
-src/input.rs, 2017-07-31
+src/input.rs, 2017-08-06
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -13,7 +13,7 @@ MIT License
 */
 
 use sdl2::keyboard::Keycode;
-use sdl2::GameControllerSubsystem;
+use sdl2::{GameControllerSubsystem, JoystickSubsystem};
 use sdl2::controller::{GameController, Button, Axis};
 
 use cgmath::Point2;
@@ -42,10 +42,12 @@ pub struct InputManager {
 
     game_controller_subsystem: GameControllerSubsystem,
     game_controllers: Vec<GameController>,
+
+    joystick_subsystem: JoystickSubsystem,
 }
 
 impl InputManager {
-    pub fn new(game_controller_subsystem: GameControllerSubsystem) -> InputManager {
+    pub fn new(game_controller_subsystem: GameControllerSubsystem, joystick_subsystem: JoystickSubsystem) -> InputManager {
         InputManager {
             up: false,
             down: false,
@@ -67,6 +69,8 @@ impl InputManager {
 
             game_controller_subsystem: game_controller_subsystem,
             game_controllers: Vec::new(),
+
+            joystick_subsystem: joystick_subsystem,
         }
     }
 
@@ -133,8 +137,46 @@ impl InputManager {
     pub fn add_game_controller(&mut self, id: u32) {
         if self.game_controller_subsystem.is_game_controller(id) {
             match self.game_controller_subsystem.open(id) {
-                Ok(controller) => self.game_controllers.push(controller),
+                Ok(controller) => {
+                    self.game_controllers.push(controller);
+                    println!("game controller with id {} added", id);
+                },
                 Err(integer_or_sdl_error) => println!("game controller error: {}", integer_or_sdl_error),
+            }
+        }
+    }
+
+    pub fn add_joystick(&mut self, id: u32) {
+        if !self.game_controller_subsystem.is_game_controller(id) {
+            let joystick_name;
+            match self.joystick_subsystem.name_for_index(id) {
+                Ok(name) => joystick_name = name,
+                Err(error) => {
+                    println!("error: {}", error);
+                    return;
+                }
+            }
+
+            let mut joystick_guid;
+            match self.joystick_subsystem.device_guid(id) {
+                Ok(guid) => joystick_guid = guid.to_string(),
+                Err(error) => {
+                    println!("error: {}", error);
+                    return;
+                }
+            }
+
+            // https://wiki.libsdl.org/SDL_GameControllerAddMapping
+            joystick_guid.push(',');
+            joystick_guid.push_str(&joystick_name);
+            joystick_guid.push_str(", a:b2, b:b1, y:b0, x:b3, start:b9, guide:b12, back:b8, dpup:h0.1, dpleft:h0.8, dpdown:h0.4, dpright:h0.2, leftshoulder:b6, rightshoulder:b7, leftstick:b10, rightstick:b11, leftx:a0, lefty:a1, rightx:a3, righty:a2, lefttrigger:b4, righttrigger:b5");
+
+            match self.game_controller_subsystem.add_mapping(&joystick_guid) {
+                Ok(_) => {
+                    println!("default game controller mapping loaded for joystick with id {}", id);
+                    self.add_game_controller(id)
+                },
+                Err(error) => println!("error: {}", error),
             }
         }
     }
@@ -152,6 +194,8 @@ impl InputManager {
         if let Some(i) = index {
             self.game_controllers.swap_remove(i);
         }
+
+        println!("game controller with id {} removed", id);
     }
 
     pub fn game_controller_button_up(&mut self, button: Button) {

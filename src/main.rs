@@ -1,5 +1,5 @@
 /*
-src/main.rs, 2017-07-31
+src/main.rs, 2017-08-06
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -27,7 +27,7 @@ mod input;
 
 use sdl2::event::{Event};
 use sdl2::keyboard::Keycode;
-use sdl2::GameControllerSubsystem;
+use sdl2::{GameControllerSubsystem, JoystickSubsystem};
 
 use renderer::{Renderer, OpenGLRenderer};
 use logic::Logic;
@@ -47,7 +47,8 @@ fn main() {
     let mut renderer = renderer::OpenGLRenderer::new(video);
 
     let game_controller_subsystem = sdl_context.game_controller().expect("game controller subsystem init failed");
-    let mut game = Game::new(game_controller_subsystem, renderer);
+    let joystick_subsystem = sdl_context.joystick().expect("joystick subsystem init failed");
+    let mut game = Game::new(game_controller_subsystem, renderer, joystick_subsystem);
 
     loop {
         if game.quit() {
@@ -76,10 +77,10 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new(controller_subsystem: GameControllerSubsystem, renderer: OpenGLRenderer) -> Game {
+    pub fn new(controller_subsystem: GameControllerSubsystem, renderer: OpenGLRenderer, joystick_subsystem: JoystickSubsystem) -> Game {
         let game_logic = Logic::new();
         let quit = false;
-        let input = InputManager::new(controller_subsystem);
+        let input = InputManager::new(controller_subsystem, joystick_subsystem);
         let fps_counter = FpsCounter::new();
         let timer = GameLoopTimer::new(16);
 
@@ -104,6 +105,13 @@ impl Game {
                 Event::ControllerAxisMotion { axis, value, ..} => self.input.game_controller_axis_motion(axis, value),
                 Event::ControllerButtonDown { button, ..} => self.input.game_controller_button_down(button),
                 Event::ControllerButtonUp { button, ..} => self.input.game_controller_button_up(button),
+                Event::JoyDeviceAdded { which, ..} => self.input.add_joystick(which as u32),
+
+                Event::JoyAxisMotion { value, axis_idx, .. } => println!("JoyAxisMotion, value: {}, axis_idx: {},", value, axis_idx),
+                Event::JoyBallMotion { ball_idx, xrel, yrel, .. } => println!("JoyBallMotion, ball_idx: {}, xrel: {}, yrel: {}", ball_idx, xrel, yrel),
+                Event::JoyHatMotion { hat_idx, state, .. } => println!("JoyHatMotion, hat_idx: {}, state as number: {}, state: {:?}", hat_idx, state as u32, state),
+                Event::JoyButtonDown { button_idx, .. } => println!("JoyButtonDown, button_idx: {}", button_idx),
+
                 _ => (),
         }
     }
