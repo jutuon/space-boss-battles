@@ -1,5 +1,5 @@
 /*
-src/gui/mod.rs, 2017-08-05
+src/gui/mod.rs, 2017-08-06
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -126,6 +126,10 @@ impl GUI {
 
     pub fn get_gui_fps_counter(&self) -> &GUIFpsCounter {
         &self.fps_counter
+    }
+
+    pub fn update_component_positions(&mut self, screen_width: f32) {
+        self.fps_counter.update_position_x(-screen_width);
     }
 }
 

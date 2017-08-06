@@ -84,7 +84,8 @@ impl Game {
         let fps_counter = FpsCounter::new();
         let timer = GameLoopTimer::new(16);
 
-        let gui = GUI::new();
+        let mut gui = GUI::new();
+        gui.update_component_positions(renderer.half_screen_width_world_coordinates());
 
         Game {game_logic, quit, input, fps_counter, timer, gui, renderer}
     }
@@ -156,7 +157,10 @@ impl Game {
                 Some(GUIEvent::Exit) => self.quit = true,
                 Some(GUIEvent::ChangeSetting(SettingType::Boolean(event, value))) => {
                     match event {
-                        SettingEvent::FullScreen => self.renderer.full_screen(value),
+                        SettingEvent::FullScreen => {
+                            self.renderer.full_screen(value);
+                            self.gui.update_component_positions(self.renderer.half_screen_width_world_coordinates());
+                        },
                         SettingEvent::VSync => self.renderer.v_sync(value),
                         _ => (),
                     };
