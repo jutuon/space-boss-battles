@@ -1,5 +1,5 @@
 /*
-src/logic/common.rs, 2017-07-23
+src/logic/common.rs, 2017-08-07
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -14,13 +14,6 @@ MIT License
 
 use cgmath::prelude::*;
 use cgmath::{Vector4, Matrix4, Rad, Vector2, BaseFloat, Point2, MetricSpace};
-
-pub trait ModelMatrix
-    where Self: GameObjectData<f32> {
-    fn model_matrix(&self) -> &Matrix4<f32> {
-        &self.data().model_matrix
-    }
-}
 
 pub trait CanDestroy {
     fn destroy(&self) -> bool;

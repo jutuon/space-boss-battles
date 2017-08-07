@@ -1,5 +1,5 @@
 /*
-src/logic/mod.rs, 2017-07-24
+src/logic/mod.rs, 2017-08-07
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -23,6 +23,19 @@ use Timer;
 
 use std::f32::consts;
 
+
+use renderer::ModelMatrix;
+use cgmath::Matrix4;
+
+macro_rules! impl_model_matrix {
+    ( $x:ty ) => {
+        impl ModelMatrix for $x {
+            fn model_matrix(&self) -> &Matrix4<f32> {
+                &self.data().model_matrix
+            }
+        }
+    }
+}
 
 pub struct Logic {
     player: Player,
@@ -147,7 +160,7 @@ impl Player {
 
 
 impl GameObject for Player {}
-impl ModelMatrix for Player {}
+impl_model_matrix!(Player);
 
 
 impl GameObjectData<f32> for Player {
@@ -209,7 +222,7 @@ impl GameObjectData<f32> for Laser {
 }
 
 impl GameObject for Laser {}
-impl ModelMatrix for Laser {}
+impl_model_matrix!(Laser);
 
 
 pub struct Enemy {
@@ -299,7 +312,7 @@ impl Enemy {
 
 
 impl GameObject for Enemy {}
-impl ModelMatrix for Enemy {}
+impl_model_matrix!(Enemy);
 
 
 impl GameObjectData<f32> for Enemy {
@@ -341,7 +354,7 @@ impl Background {
 
 
 impl GameObject for Background {}
-impl ModelMatrix for Background {}
+impl_model_matrix!(Background);
 
 
 impl GameObjectData<f32> for Background {

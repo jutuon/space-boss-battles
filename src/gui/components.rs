@@ -1,5 +1,5 @@
 /*
-src/gui/components.rs, 2017-08-06
+src/gui/components.rs, 2017-08-07
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -15,6 +15,42 @@ MIT License
 use cgmath::{Matrix4, Point2, Vector3};
 use cgmath::prelude::*;
 
+use renderer::{ModelMatrix, Color, TileLocationInfo};
+
+macro_rules! impl_model_matrix {
+    ( $x:ty ) => {
+        impl ModelMatrix for $x {
+            fn model_matrix(&self) -> &Matrix4<f32> {
+                &self.model_matrix
+            }
+        }
+    };
+    ( $x:ty, $location:ident ) => {
+        impl ModelMatrix for $x {
+            fn model_matrix(&self) -> &Matrix4<f32> {
+                &self.$location.model_matrix()
+            }
+        }
+    };
+}
+
+macro_rules! impl_color {
+    ( $x:ty ) => {
+        impl Color for $x {
+            fn color(&self) -> &Vector3<f32> {
+                &self.color
+            }
+        }
+    }
+}
+
+pub trait GUICollision {
+    fn collision(&self, point: &Point2<f32>) -> bool;
+}
+
+pub trait SetGUIComponentState {
+    fn set_state(&mut self, state: GUIComponentState);
+}
 
 pub enum GUIComponentState {
     Selected,
@@ -26,7 +62,6 @@ pub struct GUIRectangle<T> {
     position: Point2<T>,
     width: T,
     height: T,
-    color: Vector3<T>,
 }
 
 impl GUIRectangle<f32> {
@@ -34,9 +69,7 @@ impl GUIRectangle<f32> {
         let model_matrix = Matrix4::identity();
         let position = Point2::new(x, y);
 
-        let color = Vector3::zero();
-
-        let mut rectangle = GUIRectangle { model_matrix, position, width, height, color };
+        let mut rectangle = GUIRectangle { model_matrix, position, width, height};
         rectangle.update_model_matrix();
 
         rectangle
@@ -62,11 +95,7 @@ impl GUIRectangle<f32> {
 
         true
     }
-
-    pub fn model_matrix(&self) -> &Matrix4<f32> {
-        &self.model_matrix
-    }
-
+/*
     pub fn color(&self) -> &Vector3<f32> {
         &self.color
     }
@@ -74,13 +103,16 @@ impl GUIRectangle<f32> {
     pub fn set_color(&mut self, color: Vector3<f32>) {
         self.color = color;
     }
-
-
+    */
 }
+
+impl_model_matrix!(GUIRectangle<f32>);
+
 
 pub struct GUIButton {
     rectangle: GUIRectangle<f32>,
     text: GUIText,
+    color: Vector3<f32>,
 }
 
 impl GUIButton {
@@ -88,6 +120,7 @@ impl GUIButton {
         let mut button = GUIButton {
             rectangle: GUIRectangle::new(x, y, width, height),
             text: GUIText::new(x, y, text),
+            color: Vector3::zero(),
         };
 
         button.set_state(GUIComponentState::Normal);
@@ -95,31 +128,19 @@ impl GUIButton {
         button
     }
 
-    pub fn model_matrix(&self) -> &Matrix4<f32> {
-        &self.rectangle.model_matrix()
-    }
-
-    pub fn color(&self) -> &Vector3<f32> {
-        &self.rectangle.color()
-    }
-
     pub fn get_text(&self) -> &GUIText {
         &self.text
     }
 }
 
-pub trait GUICollision {
-    fn collision(&self, point: &Point2<f32>) -> bool;
-}
+impl_model_matrix!(GUIButton, rectangle);
+impl_color!(GUIButton);
+
 
 impl GUICollision for GUIButton {
     fn collision(&self, point: &Point2<f32>) -> bool {
         self.rectangle.axis_aligned_rectangle_and_point_collision(point)
     }
-}
-
-pub trait SetGUIComponentState {
-    fn set_state(&mut self, state: GUIComponentState);
 }
 
 impl SetGUIComponentState for GUIButton {
@@ -128,8 +149,8 @@ impl SetGUIComponentState for GUIButton {
         let color_normal = Vector3::new(0.0,0.0,0.4);
 
         match state {
-            GUIComponentState::Normal => self.rectangle.set_color(color_normal),
-            GUIComponentState::Selected => self.rectangle.set_color(color_selected),
+            GUIComponentState::Normal => self.color = color_normal,
+            GUIComponentState::Selected => self.color = color_selected,
         }
 
     }
@@ -270,19 +291,18 @@ impl Tile {
         }
     }
 
-    pub fn get_rectangle(&self) -> &GUIRectangle<f32> {
-        &self.rectangle
-    }
-
-    pub fn get_tile_info(&self) -> &Vector3<f32> {
-        &self.tile_info
-    }
-
     pub fn set_gui_rectangle(&mut self, gui_rectangle: GUIRectangle<f32>) {
         self.rectangle = gui_rectangle;
     }
 }
 
+impl_model_matrix!(Tile, rectangle);
+
+impl TileLocationInfo for Tile {
+    fn tile_info(&self) -> &Vector3<f32> {
+        &self.tile_info
+    }
+}
 
 fn tilemap_index_from_char(c: char) -> (u32, u32) {
     match c {

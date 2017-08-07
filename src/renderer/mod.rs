@@ -29,14 +29,24 @@ use renderer::texture::Textures;
 use renderer::shader::*;
 
 use sdl2::VideoSubsystem;
-use sdl2::video::{Window, FullscreenType};
-use sdl2::video::{GLProfile, GLContext};
+use sdl2::video::{Window, FullscreenType, GLProfile, GLContext};
 
 use logic::{Logic};
-use logic::common::ModelMatrix;
 
 use gui::{GUI, GUILayerComponents};
 use gui::components::*;
+
+pub trait ModelMatrix {
+    fn model_matrix(&self) -> &Matrix4<f32>;
+}
+
+pub trait Color {
+    fn color(&self) -> &Vector3<f32>;
+}
+
+pub trait TileLocationInfo {
+    fn tile_info(&self) -> &Vector3<f32>;
+}
 
 pub struct OpenGLRenderer {
     video_system: VideoSubsystem,
@@ -78,25 +88,25 @@ impl Renderer for OpenGLRenderer {
 
         self.textures[Textures::Background as usize].bind();
         for background in logic.get_moving_background().get_backgrounds() {
-            self.draw_rectangle_with_texture(background.model_matrix());
+            self.draw_rectangle_with_texture(background);
         }
 
         self.textures[Textures::Player as usize].bind();
-        self.draw_rectangle_with_texture(logic.get_player().model_matrix());
+        self.draw_rectangle_with_texture(logic.get_player());
 
         self.textures[Textures::Enemy as usize].bind();
-        self.draw_rectangle_with_texture(logic.get_enemy().model_matrix());
+        self.draw_rectangle_with_texture(logic.get_enemy());
 
         self.color_shader.use_program();
 
         let color = Vector3::new(0.0,0.0,1.0);
         for laser in logic.get_player().get_lasers() {
-            self.draw_color_rectangle(laser.model_matrix(), &color);
+            self.draw_color_rectangle_with_color(laser, &color);
         }
 
         let color = Vector3::new(1.0,0.0,0.0);
         for laser in logic.get_enemy().get_lasers() {
-            self.draw_color_rectangle(laser.model_matrix(), &color);
+            self.draw_color_rectangle_with_color(laser, &color);
         }
     }
 
@@ -107,7 +117,7 @@ impl Renderer for OpenGLRenderer {
         self.color_shader.use_program();
 
         for button in components.buttons() {
-            self.draw_color_rectangle(button.model_matrix(), button.color());
+            self.draw_color_rectangle(button);
         }
 
         self.tilemap_shader.use_program();
@@ -268,18 +278,23 @@ impl OpenGLRenderer {
         }
     }
 
-    fn draw_tile(&mut self, tile: &Tile) {
-        self.tilemap_shader.send_uniform_data(tile.get_rectangle().model_matrix(), &self.projection_matrix, tile.get_tile_info());
+    fn draw_tile<T: ModelMatrix + TileLocationInfo>(&mut self, tile: &T) {
+        self.tilemap_shader.send_uniform_data(tile.model_matrix(), &self.projection_matrix, tile.tile_info());
         self.square.draw();
     }
 
-    fn draw_color_rectangle(&mut self, model_matrix: &Matrix4<f32>, color: &Vector3<f32>) {
-        self.color_shader.send_uniform_data(model_matrix, &self.projection_matrix, color);
+    fn draw_color_rectangle<T: ModelMatrix + Color>(&mut self, object: &T) {
+        self.color_shader.send_uniform_data(object.model_matrix(), &self.projection_matrix, object.color());
         self.square.draw();
     }
 
-    fn draw_rectangle_with_texture(&mut self, model_matrix: &Matrix4<f32>) {
-        self.texture_shader.send_uniform_data(model_matrix, &self.projection_matrix);
+    fn draw_color_rectangle_with_color<T: ModelMatrix>(&mut self, object: &T, color: &Vector3<f32>) {
+        self.color_shader.send_uniform_data(object.model_matrix(), &self.projection_matrix, color);
+        self.square.draw();
+    }
+
+    fn draw_rectangle_with_texture<T: ModelMatrix>(&mut self, object: &T) {
+        self.texture_shader.send_uniform_data(object.model_matrix(), &self.projection_matrix);
         self.square.draw();
     }
 }
