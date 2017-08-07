@@ -1,5 +1,5 @@
 /*
-src/settings.rs, 2017-08-06
+src/settings.rs, 2017-08-07
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -22,6 +22,7 @@ use sdl2::GameControllerSubsystem;
 
 use renderer::Renderer;
 use gui::GUI;
+use gui::components::GUIUpdatePosition;
 
 #[derive(Copy, Clone, Debug)]
 pub enum SettingEvent {
@@ -239,7 +240,7 @@ impl Settings {
                 SettingType::Boolean(event, value) => match event {
                     SettingEvent::FullScreen => {
                         renderer.full_screen(value);
-                        gui.update_component_positions(renderer.half_screen_width_world_coordinates());
+                        gui.update_position_from_half_screen_width(renderer.half_screen_width_world_coordinates());
                     },
                     SettingEvent::ShowFpsCounter => gui.set_show_fps_counter(value),
                     SettingEvent::VSync => renderer.v_sync(value),

@@ -168,10 +168,12 @@ impl GUI {
     pub fn set_show_fps_counter(&mut self, value: bool) {
         self.fps_counter.set_show_fps(value);
     }
+}
 
-    pub fn update_component_positions(&mut self, half_screen_width: f32) {
-        self.fps_counter.update_position_x(-half_screen_width);
-        self.game_status.update_position_from_half_screen_width(half_screen_width);
+impl GUIUpdatePosition for GUI {
+    fn update_position_from_half_screen_width(&mut self, width: f32) {
+        self.fps_counter.update_position_from_half_screen_width(width);
+        self.game_status.update_position_from_half_screen_width(width);
     }
 }
 
@@ -324,10 +326,12 @@ impl GameStatus {
 
         GameStatus {texts}
     }
+}
 
+impl GUIUpdatePosition for GameStatus {
     fn update_position_from_half_screen_width(&mut self, width: f32) {
-        self.texts[0].update_position_x(-width);
-        self.texts[1].update_position_x(width);
+        self.texts[0].update_position_from_half_screen_width(width);
+        self.texts[1].update_position_from_half_screen_width(width);
     }
 }
 

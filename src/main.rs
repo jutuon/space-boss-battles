@@ -35,6 +35,8 @@ use logic::Logic;
 
 use input::{InputManager};
 use gui::{GUI, GUIEvent};
+use gui::components::GUIUpdatePosition;
+
 use settings::{Settings};
 
 use time::PreciseTime;
@@ -124,7 +126,7 @@ impl Game {
         let timer = GameLoopTimer::new(16);
 
         let mut gui = GUI::new(&settings);
-        gui.update_component_positions(renderer.half_screen_width_world_coordinates());
+        gui.update_position_from_half_screen_width(renderer.half_screen_width_world_coordinates());
 
         settings.apply_current_settings(&mut renderer, &mut gui);
 

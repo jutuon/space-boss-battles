@@ -95,15 +95,6 @@ impl GUIRectangle<f32> {
 
         true
     }
-/*
-    pub fn color(&self) -> &Vector3<f32> {
-        &self.color
-    }
-
-    pub fn set_color(&mut self, color: Vector3<f32>) {
-        self.color = color;
-    }
-    */
 }
 
 impl_model_matrix!(GUIRectangle<f32>);
@@ -378,6 +369,7 @@ fn tilemap_index_from_char(c: char) -> (u32, u32) {
     }
 }
 
+#[derive(Copy, Clone)]
 pub enum GUIComponentAlignment {
     Left,
     Right,
@@ -389,8 +381,8 @@ pub struct GUIText {
     tiles: Vec<Tile>,
     x: f32,
     y: f32,
-    size: f32,
-    rendering_distance: f32,
+    font_size: f32,
+    space_between_tiles: f32,
     width: f32,
     alignment: GUIComponentAlignment,
 }
@@ -405,8 +397,8 @@ impl GUIText {
             tiles: Vec::new(),
             x: x,
             y: y,
-            size: 0.57,
-            rendering_distance: 1.0,
+            font_size: 0.57,
+            space_between_tiles: 1.0,
             width: 0.0,
             alignment,
         };
@@ -421,29 +413,17 @@ impl GUIText {
 
         let text_len = text.len() as f32;
 
-        self.rendering_distance = self.size - 0.17;
-        self.width = text_len * self.rendering_distance;
+        self.space_between_tiles = self.font_size - 0.17;
+        self.width = text_len * self.space_between_tiles;
 
-        let mut x;
-
-        match self.alignment {
-            GUIComponentAlignment::Left => {
-                x = self.x;
-                x += self.size/2.0;
-            },
-            GUIComponentAlignment::Center => x = self.x - self.width/2.0,
-            GUIComponentAlignment::Right => {
-                x = self.x - self.width;
-                x -= self.size/2.0;
-            },
-        }
+        let mut x = self.calculate_component_position(self.x);
 
         for c in text.chars() {
-            let rectangle = GUIRectangle::new(x, self.y, self.size, self.size);
+            let rectangle = GUIRectangle::new(x, self.y, self.font_size, self.font_size);
 
             self.tiles.push(Tile::new(tilemap_index_from_char(c), rectangle));
 
-            x += self.rendering_distance;
+            x += self.space_between_tiles;
         }
     }
 
@@ -455,32 +435,50 @@ impl GUIText {
         self.width
     }
 
-    pub fn update_position_x(&mut self, x: f32) {
+
+}
+
+impl SetGUIComponentPosition for GUIText {
+    fn width(&self) -> f32 { self.width }
+    fn alignment(&self) -> GUIComponentAlignment {self.alignment}
+
+    fn set_x(&mut self, x: f32) {
         self.x = x;
 
-        let mut x;
-
-        match self.alignment {
-            GUIComponentAlignment::Left => {
-                x = self.x;
-                x += self.size/2.0;
-            },
-            GUIComponentAlignment::Center => x = self.x - self.width/2.0,
-            GUIComponentAlignment::Right => {
-                x = self.x - self.width;
-                x -= self.size/2.0;
-            },
-        }
+        let mut x = x;
 
         for tile in &mut self.tiles {
-            let rectangle = GUIRectangle::new(x, self.y, self.size, self.size);
+            let rectangle = GUIRectangle::new(x, self.y, self.font_size, self.font_size);
             tile.set_gui_rectangle(rectangle);
 
-            x += self.rendering_distance;
+            x += self.space_between_tiles;
         }
+    }
+
+    fn calculate_component_position(&self, new_x: f32) -> f32 {
+        let x;
+
+        let margin = 0.1;
+
+        match self.alignment {
+            GUIComponentAlignment::Left   => x = new_x + self.space_between_tiles/2.0 + margin,
+            GUIComponentAlignment::Center => x = new_x - self.width/2.0,
+            GUIComponentAlignment::Right  => x = new_x - self.width + self.space_between_tiles/2.0 - margin,
+        };
+
+        x
     }
 }
 
+impl GUIUpdatePosition for GUIText {
+    fn update_position_from_half_screen_width(&mut self, width: f32) {
+        match self.alignment() {
+            GUIComponentAlignment::Left => self.update_component_position(-width),
+            GUIComponentAlignment::Right => self.update_component_position(width),
+            _ => (),
+        }
+    }
+}
 pub struct GUIFpsCounter {
     fps_text: GUIText,
     fps_count_text: GUIText,
@@ -517,9 +515,45 @@ impl GUIFpsCounter {
     pub fn set_show_fps(&mut self, value: bool) {
         self.show_fps = value;
     }
+}
 
-    pub fn update_position_x(&mut self, x: f32) {
-        self.fps_text.update_position_x(x);
-        self.fps_count_text.update_position_x(x + self.fps_text.get_width());
+pub trait GUIUpdatePosition {
+    fn update_position_from_half_screen_width(&mut self, width: f32);
+}
+
+impl GUIUpdatePosition for GUIFpsCounter {
+    fn update_position_from_half_screen_width(&mut self, width: f32) {
+        self.fps_text.update_position_from_half_screen_width(width);
+        self.fps_count_text.update_position_from_half_screen_width(width - self.fps_text.get_width());
+    }
+}
+
+
+pub trait SetGUIComponentPosition {
+    fn width(&self) -> f32;
+    fn set_x(&mut self, x: f32);
+    fn alignment(&self) -> GUIComponentAlignment;
+
+    fn calculate_component_position(&self, new_x: f32) -> f32 {
+        let mut x = new_x;
+
+        let half_width = self.width()/2.0;
+
+        match self.alignment() {
+            GUIComponentAlignment::Left => {
+                x += half_width;
+            },
+            GUIComponentAlignment::Right => {
+                x -= half_width;
+            },
+            _  => (),
+        };
+
+        x
+    }
+
+    fn update_component_position(&mut self, new_x: f32) {
+        let x = self.calculate_component_position(new_x);
+        self.set_x(x);
     }
 }
