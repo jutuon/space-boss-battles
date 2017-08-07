@@ -1,5 +1,5 @@
 /*
-src/gui/mod.rs, 2017-08-06
+src/gui/mod.rs, 2017-08-07
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -36,8 +36,40 @@ pub enum GUIState {
     SettingsMenu,
 }
 
+pub struct GUIComponentReferences<'a> {
+    buttons: &'a [GUIButton],
+    texts: &'a [GUIText],
+}
+
+impl <'a> GUIComponentReferences<'a> {
+    fn new() -> GUIComponentReferences<'a> {
+        GUIComponentReferences {
+            buttons: &[],
+            texts: &[],
+        }
+    }
+
+    fn set_buttons(mut self, buttons: &'a [GUIButton]) -> GUIComponentReferences<'a> {
+        self.buttons = buttons;
+        self
+    }
+
+    fn set_texts(mut self, texts: &'a [GUIText]) -> GUIComponentReferences<'a> {
+        self.texts = texts;
+        self
+    }
+
+    pub fn buttons(&self) -> &[GUIButton] {
+        self.buttons
+    }
+
+    pub fn texts(&self) -> &[GUIText] {
+        self.texts
+    }
+}
+
 pub trait GUILayerComponents {
-    fn components(&self) -> (&[GUIButton], &[GUIText]);
+    fn components<'a>(&'a self) -> GUIComponentReferences<'a>;
 }
 
 
@@ -45,6 +77,7 @@ pub struct GUI {
     main_menu: MainMenu,
     pause_menu: PauseMenu,
     settings_menu: SettingsMenu,
+    game_status: GameStatus,
     state: GUIState,
     render_game: bool,
     update_game: bool,
@@ -58,10 +91,11 @@ impl GUI {
             main_menu: MainMenu::new(),
             pause_menu: PauseMenu::new(),
             settings_menu: SettingsMenu::new(settings),
+            game_status: GameStatus::new(),
             state: GUIState::MainMenu,
             render_game: false,
             update_game: false,
-            fps_counter: GUIFpsCounter::new(-5.0, 3.5),
+            fps_counter: GUIFpsCounter::new(-5.0, 3.0),
         }
     }
 
@@ -135,18 +169,19 @@ impl GUI {
         self.fps_counter.set_show_fps(value);
     }
 
-    pub fn update_component_positions(&mut self, screen_width: f32) {
-        self.fps_counter.update_position_x(-screen_width);
+    pub fn update_component_positions(&mut self, half_screen_width: f32) {
+        self.fps_counter.update_position_x(-half_screen_width);
+        self.game_status.update_position_from_half_screen_width(half_screen_width);
     }
 }
 
 impl GUILayerComponents for GUI {
-    fn components(&self) -> (&[GUIButton], &[GUIText]) {
+    fn components<'a>(&'a self) -> GUIComponentReferences<'a> {
         match self.state {
             GUIState::MainMenu => self.main_menu.components(),
             GUIState::PauseMenu => self.pause_menu.components(),
             GUIState::SettingsMenu => self.settings_menu.components(),
-            _ => (&[], &[]),
+            GUIState::Game => self.game_status.components(),
         }
     }
 }
@@ -212,8 +247,8 @@ impl MainMenu {
 }
 
 impl GUILayerComponents for MainMenu {
-    fn components(&self) -> (&[GUIButton], &[GUIText]) {
-        (self.buttons.get_components(), &self.texts)
+    fn components<'a>(&'a self) -> GUIComponentReferences<'a> {
+        GUIComponentReferences::new().set_buttons(self.buttons.get_components()).set_texts(&self.texts)
     }
 }
 
@@ -253,8 +288,8 @@ impl PauseMenu {
 }
 
 impl GUILayerComponents for PauseMenu {
-    fn components(&self) -> (&[GUIButton], &[GUIText]) {
-        (self.buttons.get_components(), &self.texts)
+    fn components<'a>(&'a self) -> GUIComponentReferences<'a> {
+        GUIComponentReferences::new().set_buttons(self.buttons.get_components()).set_texts(&self.texts)
     }
 }
 
@@ -274,6 +309,33 @@ impl GUIBasicLayer for PauseMenu {
 }
 
 impl GUILayerEventHandler for PauseMenu {}
+
+
+pub struct GameStatus {
+    texts: [GUIText; 2],
+}
+
+impl GameStatus {
+    fn new() -> GameStatus {
+        let texts = [
+            GUIText::new_with_alignment(-3.0, 4.0, "Player", GUIComponentAlignment::Left),
+            GUIText::new_with_alignment(3.0, 4.0, "Enemy", GUIComponentAlignment::Right)
+        ];
+
+        GameStatus {texts}
+    }
+
+    fn update_position_from_half_screen_width(&mut self, width: f32) {
+        self.texts[0].update_position_x(-width);
+        self.texts[1].update_position_x(width);
+    }
+}
+
+impl GUILayerComponents for GameStatus {
+    fn components<'a>(&'a self) -> GUIComponentReferences<'a> {
+        GUIComponentReferences::new().set_texts(&self.texts)
+    }
+}
 
 
 pub struct SettingsMenu {
@@ -331,8 +393,8 @@ impl SettingsMenu {
 }
 
 impl GUILayerComponents for SettingsMenu {
-    fn components(&self) -> (&[GUIButton], &[GUIText]) {
-        (self.buttons.get_components(), &self.texts)
+    fn components<'a>(&'a self) -> GUIComponentReferences<'a> {
+        GUIComponentReferences::new().set_buttons(self.buttons.get_components()).set_texts(&self.texts)
     }
 }
 

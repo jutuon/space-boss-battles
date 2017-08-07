@@ -1,5 +1,5 @@
 /*
-src/renderer/mod.rs, 2017-08-06
+src/renderer/mod.rs, 2017-08-07
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -36,6 +36,7 @@ use logic::{Logic};
 use logic::common::ModelMatrix;
 
 use gui::{GUI, GUILayerComponents};
+use gui::components::*;
 
 pub struct OpenGLRenderer {
     video_system: VideoSubsystem,
@@ -77,67 +78,52 @@ impl Renderer for OpenGLRenderer {
 
         self.textures[Textures::Background as usize].bind();
         for background in logic.get_moving_background().get_backgrounds() {
-            self.texture_shader.send_uniform_data(background.model_matrix(), &self.projection_matrix);
-            self.square.draw();
+            self.draw_rectangle_with_texture(background.model_matrix());
         }
 
         self.textures[Textures::Player as usize].bind();
-        self.texture_shader.send_uniform_data(logic.get_player().model_matrix(), &self.projection_matrix);
-        self.square.draw();
+        self.draw_rectangle_with_texture(logic.get_player().model_matrix());
 
         self.textures[Textures::Enemy as usize].bind();
-        self.texture_shader.send_uniform_data(logic.get_enemy().model_matrix(), &self.projection_matrix);
-        self.square.draw();
+        self.draw_rectangle_with_texture(logic.get_enemy().model_matrix());
 
         self.color_shader.use_program();
 
         let color = Vector3::new(0.0,0.0,1.0);
         for laser in logic.get_player().get_lasers() {
-            self.color_shader.send_uniform_data(laser.model_matrix(), &self.projection_matrix, &color);
-            self.square.draw();
+            self.draw_color_rectangle(laser.model_matrix(), &color);
         }
 
         let color = Vector3::new(1.0,0.0,0.0);
         for laser in logic.get_enemy().get_lasers() {
-            self.color_shader.send_uniform_data(laser.model_matrix(), &self.projection_matrix, &color);
-            self.square.draw();
+            self.draw_color_rectangle(laser.model_matrix(), &color);
         }
     }
 
     fn render_gui(&mut self, gui: &GUI) {
 
-        let (buttons, texts) = gui.components();
+        let components = gui.components();
 
         self.color_shader.use_program();
 
-        for button in buttons {
-            self.color_shader.send_uniform_data(button.model_matrix(), &self.projection_matrix, button.color());
-            self.square.draw();
+        for button in components.buttons() {
+            self.draw_color_rectangle(button.model_matrix(), button.color());
         }
 
         self.tilemap_shader.use_program();
         self.textures[Textures::Font as usize].bind();
 
-        for text in texts {
-            for tile in text.get_tiles() {
-                self.tilemap_shader.send_uniform_data(tile.get_rectangle().model_matrix(), &self.projection_matrix, tile.get_tile_info());
-                self.square.draw();
-            }
+        for text in components.texts() {
+            self.draw_text(text);
         }
 
-        for button in buttons {
-            for tile in button.get_text().get_tiles() {
-                self.tilemap_shader.send_uniform_data(tile.get_rectangle().model_matrix(), &self.projection_matrix, tile.get_tile_info());
-                self.square.draw();
-            }
+        for button in components.buttons() {
+            self.draw_text(button.get_text());
         }
 
         if gui.get_gui_fps_counter().show_fps() {
             for text in gui.get_gui_fps_counter().texts().into_iter() {
-                for tile in text.get_tiles() {
-                    self.tilemap_shader.send_uniform_data(tile.get_rectangle().model_matrix(), &self.projection_matrix, tile.get_tile_info());
-                    self.square.draw();
-                }
+                self.draw_text(text);
             }
         }
     }
@@ -274,6 +260,27 @@ impl OpenGLRenderer {
 
         self.screen_width = width;
         self.screen_height = height;
+    }
+
+    fn draw_text(&mut self, text: &GUIText) {
+        for tile in text.get_tiles() {
+            self.draw_tile(tile);
+        }
+    }
+
+    fn draw_tile(&mut self, tile: &Tile) {
+        self.tilemap_shader.send_uniform_data(tile.get_rectangle().model_matrix(), &self.projection_matrix, tile.get_tile_info());
+        self.square.draw();
+    }
+
+    fn draw_color_rectangle(&mut self, model_matrix: &Matrix4<f32>, color: &Vector3<f32>) {
+        self.color_shader.send_uniform_data(model_matrix, &self.projection_matrix, color);
+        self.square.draw();
+    }
+
+    fn draw_rectangle_with_texture(&mut self, model_matrix: &Matrix4<f32>) {
+        self.texture_shader.send_uniform_data(model_matrix, &self.projection_matrix);
+        self.square.draw();
     }
 }
 
