@@ -1,5 +1,5 @@
 /*
-src/renderer/mod.rs, 2017-08-07
+src/renderer/mod.rs, 2017-08-08
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -118,6 +118,14 @@ impl Renderer for OpenGLRenderer {
 
         for button in components.buttons() {
             self.draw_color_rectangle(button);
+        }
+
+        for health_bar in components.health_bars() {
+            self.draw_color_rectangle(health_bar);
+
+            for border in health_bar.borders().into_iter() {
+                self.draw_color_rectangle_with_color(*border, health_bar.color());
+            }
         }
 
         self.tilemap_shader.use_program();

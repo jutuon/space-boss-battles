@@ -1,5 +1,5 @@
 /*
-src/logic/mod.rs, 2017-08-07
+src/logic/mod.rs, 2017-08-08
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -23,6 +23,7 @@ use Timer;
 
 use std::f32::consts;
 
+use gui::GUI;
 
 use renderer::ModelMatrix;
 use cgmath::Matrix4;
@@ -51,10 +52,19 @@ impl Logic {
         Logic { player, enemy, moving_background }
     }
 
-    pub fn update<T: Input>(&mut self, input: &T) {
+    pub fn update<T: Input>(&mut self, input: &T, gui: &mut GUI) {
         self.player.update(input, &mut self.enemy);
         self.enemy.update(&mut self.player);
         self.moving_background.update();
+
+        if let Some(health) = self.player.health() {
+            gui.get_game_status().set_player_health(health);
+        }
+
+        if let Some(health) = self.enemy.health() {
+            gui.get_game_status().set_enemy_health(health);
+        }
+
     }
 
     pub fn get_player(&self) -> &Player {
@@ -68,6 +78,19 @@ impl Logic {
     pub fn get_moving_background(&self) -> &MovingBackground {
         &self.moving_background
     }
+
+    pub fn reset_game(&mut self, gui: &mut GUI) {
+        self.player.reset();
+        self.enemy.reset();
+
+        if let Some(health) = self.player.health() {
+            gui.get_game_status().set_player_health(health);
+        }
+
+        if let Some(health) = self.enemy.health() {
+            gui.get_game_status().set_enemy_health(health);
+        }
+    }
 }
 
 pub struct Player {
@@ -76,6 +99,7 @@ pub struct Player {
     lasers: Vec<Laser>,
     laser_timer: Timer,
     health: i32,
+    health_update: bool,
 }
 
 impl Player {
@@ -85,7 +109,16 @@ impl Player {
         let lasers = vec![];
         let laser_timer = Timer::new();
         let health = 100;
-        Player { data, speed, lasers, laser_timer, health }
+        let health_update = true;
+        Player { data, speed, lasers, laser_timer, health, health_update }
+    }
+
+    pub fn reset(&mut self) {
+        self.data = Data::new(0.0, 0.0, 1.0, 1.0);
+        self.lasers.clear();
+        self.health = 100;
+        self.health_update = true;
+        self.laser_timer.reset(PreciseTime::now());
     }
 
     fn update(&mut self, input: &Input, enemy: &mut Enemy) {
@@ -114,7 +147,7 @@ impl Player {
 
         let width = 5.0;
         let height = 4.0;
-        let area = Rectangle::new(-width, width, -height, height);
+        let area = Rectangle::new(-width, width, -height, height - 1.0);
         self.stay_at_area(&area);
 
         self.clean_and_update_lasers(enemy);
@@ -155,6 +188,16 @@ impl Player {
         }
 
         println!("player health: {}", self.health);
+        self.health_update = true;
+    }
+
+    pub fn health(&mut self) -> Option<u32> {
+        if self.health_update {
+            self.health_update = false;
+            Some(self.health as u32)
+        } else {
+            None
+        }
     }
 }
 
@@ -231,17 +274,27 @@ pub struct Enemy {
     lasers: Vec<Laser>,
     laser_timer: Timer,
     health: i32,
+    health_update: bool,
 }
 
 impl Enemy {
     fn new() -> Enemy {
-        let data = Data::new(3.0, 0.0, 1.0, 1.0);
+        let data = Data::new(0.0, 0.0, 0.0, 0.0);
 
         let speed = 0.05;
         let lasers = vec![];
         let laser_timer = Timer::new();
         let health = 100;
-        Enemy { data, speed, lasers, laser_timer, health }
+        let health_update = true;
+        Enemy { data, speed, lasers, laser_timer, health, health_update }
+    }
+
+    pub fn reset(&mut self) {
+        self.data = Data::new(4.5, 0.0, 1.0, 1.0);
+        self.lasers.clear();
+        self.health = 100;
+        self.health_update = true;
+        self.laser_timer.reset(PreciseTime::now());
     }
 
     fn update(&mut self, player: &mut Player) {
@@ -251,7 +304,7 @@ impl Enemy {
 
         let width = 5.0;
         let height = 4.0;
-        let area = Rectangle::new(-width, width, -height, height);
+        let area = Rectangle::new(-width, width, -height, height - 1.0);
 
         if self.stay_at_area(&area) {
             self.speed *= -1.0;
@@ -307,6 +360,16 @@ impl Enemy {
         }
 
         println!("enemy health: {}", self.health);
+        self.health_update = true;
+    }
+
+    pub fn health(&mut self) -> Option<u32> {
+        if self.health_update {
+            self.health_update = false;
+            Some(self.health as u32)
+        } else {
+            None
+        }
     }
 }
 

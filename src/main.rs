@@ -1,5 +1,5 @@
 /*
-src/main.rs, 2017-08-06
+src/main.rs, 2017-08-08
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -34,7 +34,7 @@ use renderer::{Renderer, OpenGLRenderer};
 use logic::Logic;
 
 use input::{InputManager};
-use gui::{GUI, GUIEvent};
+use gui::{GUI, GUIEvent, GUIState};
 use gui::components::GUIUpdatePosition;
 
 use settings::{Settings};
@@ -195,7 +195,7 @@ impl Game {
 
         if self.timer.update_logic() {
             if self.gui.update_game() {
-                self.game_logic.update(&self.input);
+                self.game_logic.update(&self.input, &mut self.gui);
             }
 
             match self.gui.handle_event(&mut self.input, &mut self.settings) {
@@ -203,7 +203,8 @@ impl Game {
                 Some(GUIEvent::Exit) => self.quit = true,
                 Some(GUIEvent::ChangeSetting(setting)) => {
                     self.settings.apply_setting(setting, &mut self.renderer, &mut self.gui);
-                }
+                },
+                Some(GUIEvent::ChangeState(GUIState::Game)) => self.game_logic.reset_game(&mut self.gui),
                 _ => (),
             }
 

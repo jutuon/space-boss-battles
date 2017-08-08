@@ -95,6 +95,22 @@ impl GUIRectangle<f32> {
 
         true
     }
+
+    fn position_mut(&mut self) -> &mut Point2<f32> {
+        &mut self.position
+    }
+
+    fn position(&self) -> &Point2<f32> {
+        &self.position
+    }
+
+    fn set_width(&mut self, width: f32) {
+        self.width = width;
+    }
+
+    fn width(&self) -> f32 {
+        self.width
+    }
 }
 
 impl_model_matrix!(GUIRectangle<f32>);
@@ -416,7 +432,7 @@ impl GUIText {
         self.space_between_tiles = self.font_size - 0.17;
         self.width = text_len * self.space_between_tiles;
 
-        let mut x = self.calculate_component_position(self.x);
+        let mut x = self.calculate_component_position(self.x, self.width);
 
         for c in text.chars() {
             let rectangle = GUIRectangle::new(x, self.y, self.font_size, self.font_size);
@@ -455,15 +471,15 @@ impl SetGUIComponentPosition for GUIText {
         }
     }
 
-    fn calculate_component_position(&self, new_x: f32) -> f32 {
+    fn calculate_component_position(&self, new_x: f32, width: f32) -> f32 {
         let x;
 
         let margin = 0.1;
 
         match self.alignment {
             GUIComponentAlignment::Left   => x = new_x + self.space_between_tiles/2.0 + margin,
-            GUIComponentAlignment::Center => x = new_x - self.width/2.0,
-            GUIComponentAlignment::Right  => x = new_x - self.width + self.space_between_tiles/2.0 - margin,
+            GUIComponentAlignment::Center => x = new_x - width/2.0,
+            GUIComponentAlignment::Right  => x = new_x - width + self.space_between_tiles/2.0 - margin,
         };
 
         x
@@ -534,10 +550,10 @@ pub trait SetGUIComponentPosition {
     fn set_x(&mut self, x: f32);
     fn alignment(&self) -> GUIComponentAlignment;
 
-    fn calculate_component_position(&self, new_x: f32) -> f32 {
+    fn calculate_component_position(&self, new_x: f32, width: f32) -> f32 {
         let mut x = new_x;
 
-        let half_width = self.width()/2.0;
+        let half_width = width/2.0;
 
         match self.alignment() {
             GUIComponentAlignment::Left => {
@@ -553,7 +569,141 @@ pub trait SetGUIComponentPosition {
     }
 
     fn update_component_position(&mut self, new_x: f32) {
-        let x = self.calculate_component_position(new_x);
+        let x = self.calculate_component_position(new_x, self.width());
         self.set_x(x);
+    }
+}
+
+pub struct GUIHealthBar {
+    rectangle: GUIRectangle<f32>,
+    color: Vector3<f32>,
+    alignment: GUIComponentAlignment,
+    max_value: u32,
+    max_width: f32,
+    x: f32,
+    margin: f32,
+    border_left: GUIRectangle<f32>,
+    border_right: GUIRectangle<f32>,
+    border_top: GUIRectangle<f32>,
+    border_bottom: GUIRectangle<f32>,
+    border_width: f32,
+}
+
+impl GUIHealthBar {
+    pub fn new(alignment: GUIComponentAlignment) -> GUIHealthBar {
+        let margin;
+
+        match alignment {
+            GUIComponentAlignment::Left => margin = 0.2,
+            GUIComponentAlignment::Right => margin =  -0.2,
+            _ => margin = 0.0,
+        }
+
+        let border_width = 0.05;
+        let border_height = 0.05;
+
+        let max_width = 2.5;
+        let height = 0.5;
+
+        let y = 3.4;
+
+        let mut health_bar = GUIHealthBar {
+            rectangle: GUIRectangle::new(0.0,y,max_width,height),
+            color: Vector3::zero(),
+            alignment,
+            max_value: 100,
+            max_width,
+            x: 0.0,
+            margin,
+            border_left: GUIRectangle::new(0.0, y, border_width, height + border_height*2.0),
+            border_right: GUIRectangle::new(0.0, y, border_width, height + border_height*2.0),
+            border_top: GUIRectangle::new(0.0, y + (height/2.0 + border_height/2.0), max_width, border_height),
+            border_bottom: GUIRectangle::new(0.0, y - (height/2.0 + border_height/2.0), max_width, border_height),
+            border_width,
+        };
+        health_bar
+    }
+
+    pub fn update_health(&mut self, health: u32) {
+        if health <= 25 {
+            self.color = Vector3::new(1.0,0.0,0.0);
+        } else {
+            self.color = Vector3::new(0.0,0.0,1.0);
+        }
+
+        if health > self.max_value {
+            self.rectangle.set_width(self.max_width);
+        } else {
+            self.rectangle.set_width(self.max_width * (health as f32 / self.max_value as f32));
+        }
+
+        let x = self.x;
+        self.update_component_position(x);
+    }
+
+    pub fn update_borders(&mut self) {
+        let center_x;
+        match self.alignment {
+            GUIComponentAlignment::Left => {
+                center_x = self.x + self.max_width/2.0;
+            },
+            GUIComponentAlignment::Right => {
+                center_x = self.x - self.max_width/2.0;
+            },
+            GUIComponentAlignment::Center => center_x = self.x,
+        }
+
+        self.border_left.position_mut().x = center_x - self.max_width/2.0 - self.border_width/2.0;
+        self.border_left.update_model_matrix();
+
+        self.border_right.position_mut().x = center_x + self.max_width/2.0 + self.border_width/2.0;
+        self.border_right.update_model_matrix();
+
+        self.border_top.position_mut().x = center_x;
+        self.border_top.update_model_matrix();
+
+        self.border_bottom.position_mut().x = center_x;
+        self.border_bottom.update_model_matrix();
+
+    }
+
+    pub fn borders(&self) -> [&GUIRectangle<f32>; 4] {
+        [
+            &self.border_left,
+            &self.border_right,
+            &self.border_top,
+            &self.border_bottom,
+        ]
+    }
+}
+
+impl_model_matrix!(GUIHealthBar, rectangle);
+impl_color!(GUIHealthBar);
+
+impl GUIUpdatePosition for GUIHealthBar {
+    fn update_position_from_half_screen_width(&mut self, width: f32) {
+        match self.alignment() {
+            GUIComponentAlignment::Left => {
+                self.x = -width + self.margin;
+                let x = self.x;
+                self.update_component_position(x)
+            },
+            GUIComponentAlignment::Right => {
+                self.x = width + self.margin;
+                let x = self.x;
+                self.update_component_position(x)
+            },
+            _ => (),
+        }
+        self.update_borders();
+    }
+}
+
+impl SetGUIComponentPosition for GUIHealthBar {
+    fn width(&self) -> f32 { self.rectangle.width() }
+    fn alignment(&self) -> GUIComponentAlignment { self.alignment }
+    fn set_x(&mut self, x: f32) {
+        self.rectangle.position_mut().x = x;
+        self.rectangle.update_model_matrix();
     }
 }
