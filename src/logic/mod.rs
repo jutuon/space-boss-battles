@@ -38,10 +38,23 @@ macro_rules! impl_model_matrix {
     }
 }
 
+struct LogicSettings {
+    screen_width_half: f32,
+}
+
+impl LogicSettings {
+    fn new() -> LogicSettings {
+        LogicSettings {
+            screen_width_half: 0.0,
+        }
+    }
+}
+
 pub struct Logic {
     player: Player,
     enemy: Enemy,
     moving_background: MovingBackground,
+    logic_settings: LogicSettings,
 }
 
 impl Logic {
@@ -49,12 +62,13 @@ impl Logic {
         let player = Player::new();
         let enemy = Enemy::new();
         let moving_background = MovingBackground::new();
-        Logic { player, enemy, moving_background }
+        let logic_settings = LogicSettings::new();
+        Logic { player, enemy, moving_background, logic_settings }
     }
 
     pub fn update<T: Input>(&mut self, input: &T, gui: &mut GUI) {
-        self.player.update(input, &mut self.enemy);
-        self.enemy.update(&mut self.player);
+        self.player.update(input, &mut self.enemy, &self.logic_settings);
+        self.enemy.update(&mut self.player, &self.logic_settings);
         self.moving_background.update();
 
         if let Some(health) = self.player.health() {
@@ -80,8 +94,8 @@ impl Logic {
     }
 
     pub fn reset_game(&mut self, gui: &mut GUI) {
-        self.player.reset();
-        self.enemy.reset();
+        self.player.reset(&self.logic_settings);
+        self.enemy.reset(&self.logic_settings);
 
         if let Some(health) = self.player.health() {
             gui.get_game_status().set_player_health(health);
@@ -90,6 +104,11 @@ impl Logic {
         if let Some(health) = self.enemy.health() {
             gui.get_game_status().set_enemy_health(health);
         }
+    }
+
+    pub fn update_half_screen_width(&mut self, half_width: f32) {
+        self.logic_settings.screen_width_half = half_width;
+
     }
 }
 
@@ -100,6 +119,7 @@ pub struct Player {
     laser_timer: Timer,
     health: i32,
     health_update: bool,
+
 }
 
 impl Player {
@@ -113,15 +133,15 @@ impl Player {
         Player { data, speed, lasers, laser_timer, health, health_update }
     }
 
-    pub fn reset(&mut self) {
-        self.data = Data::new(0.0, 0.0, 1.0, 1.0);
+    fn reset(&mut self, logic_settings: &LogicSettings) {
+        self.data = Data::new(-3.0, 0.0, 1.0, 1.0);
         self.lasers.clear();
         self.health = 100;
         self.health_update = true;
         self.laser_timer.reset(PreciseTime::now());
     }
 
-    fn update(&mut self, input: &Input, enemy: &mut Enemy) {
+    fn update(&mut self, input: &Input, enemy: &mut Enemy, logic_settings: &LogicSettings) {
         let speed = self.speed;
 
         let mut y_speed = 0.0;
@@ -141,16 +161,16 @@ impl Player {
         self.move_position(x_speed, y_speed);
 
         if input.shoot() && self.laser_timer.check(PreciseTime::now(), 400) {
-            let laser = Laser::new(self.data().position.x + 1.0, self.data().position.y);
+            let laser = Laser::new(self.data().position.x + 0.6, self.data().position.y);
             self.lasers.push(laser);
         }
 
-        let width = 5.0;
+        let width = logic_settings.screen_width_half - 0.5;
         let height = 4.0;
         let area = Rectangle::new(-width, width, -height, height - 1.0);
         self.stay_at_area(&area);
 
-        self.clean_and_update_lasers(enemy);
+        self.clean_and_update_lasers(enemy, logic_settings);
 
         if self.circle_collision(enemy) {
             self.update_health(-1);
@@ -161,11 +181,11 @@ impl Player {
         &self.lasers
     }
 
-    fn clean_and_update_lasers(&mut self, enemy: &mut Enemy) {
+    fn clean_and_update_lasers(&mut self, enemy: &mut Enemy, logic_settings: &LogicSettings) {
         let mut remove = (false, 0);
 
         for (i, laser) in self.lasers.iter_mut().enumerate() {
-            laser.update();
+            laser.update(logic_settings);
 
             if laser.destroy() {
                 remove = (true, i);
@@ -231,12 +251,12 @@ impl Laser {
         Laser { data, speed, destroy, damage }
     }
 
-    fn update(&mut self) {
+    fn update(&mut self, logic_settings: &LogicSettings) {
         let speed = self.speed;
         self.forward(speed);
 
-        let width = 5.0;
-        let height = 4.0;
+        let width = logic_settings.screen_width_half + 1.0;
+        let height = 5.5;
         let area = Rectangle::new(-width, width, -height, height);
 
         if self.outside_allowed_area(&area) {
@@ -289,20 +309,20 @@ impl Enemy {
         Enemy { data, speed, lasers, laser_timer, health, health_update }
     }
 
-    pub fn reset(&mut self) {
-        self.data = Data::new(4.5, 0.0, 1.0, 1.0);
+    fn reset(&mut self, logic_settings: &LogicSettings) {
+        self.data = Data::new(logic_settings.screen_width_half - 2.5, 0.0, 1.0, 1.0);
         self.lasers.clear();
         self.health = 100;
         self.health_update = true;
         self.laser_timer.reset(PreciseTime::now());
     }
 
-    fn update(&mut self, player: &mut Player) {
+    fn update(&mut self, player: &mut Player, logic_settings: &LogicSettings) {
         let speed = self.speed;
 
         self.move_position(0.0, speed);
 
-        let width = 5.0;
+        let width = logic_settings.screen_width_half - 0.5;
         let height = 4.0;
         let area = Rectangle::new(-width, width, -height, height - 1.0);
 
@@ -320,18 +340,18 @@ impl Enemy {
             }
         }
 
-        self.clean_and_update_lasers(player);
+        self.clean_and_update_lasers(player, logic_settings);
     }
 
     pub fn get_lasers(&self) -> &Vec<Laser> {
         &self.lasers
     }
 
-    fn clean_and_update_lasers(&mut self, player: &mut Player) {
+    fn clean_and_update_lasers(&mut self, player: &mut Player, logic_settings: &LogicSettings) {
         let mut remove = (false, 0);
 
         for (i, laser) in self.lasers.iter_mut().enumerate() {
-            laser.update();
+            laser.update(logic_settings);
 
             if laser.destroy() {
                 remove = (true, i);
@@ -347,7 +367,7 @@ impl Enemy {
     }
 
     fn create_laser(&mut self, rotation: f32) {
-        let mut laser = Laser::new(self.data().position.x - 1.0, self.data().position.y);
+        let mut laser = Laser::new(self.data().position.x - 0.6, self.data().position.y);
         laser.turn(rotation);
         self.lasers.push(laser);
     }

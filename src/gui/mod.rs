@@ -22,6 +22,7 @@ use settings::{ Settings, SettingType, Setting};
 
 #[derive(Copy, Clone)]
 pub enum GUIEvent {
+    NewGame,
     ChangeState(GUIState),
     ChangeSetting(SettingType),
     SettingsUpdate(usize),
@@ -106,7 +107,7 @@ impl GUI {
             state: GUIState::MainMenu,
             render_game: false,
             update_game: false,
-            fps_counter: GUIFpsCounter::new(-5.0, 2.5),
+            fps_counter: GUIFpsCounter::new(-5.0, 3.2),
         }
     }
 
@@ -162,6 +163,11 @@ impl GUI {
                 self.update_game = false;
                 self.state = state;
             },
+            Some(GUIEvent::NewGame) => {
+                self.render_game = true;
+                self.update_game = true;
+                self.state = GUIState::Game;
+            }
             _ => (),
         };
 
@@ -274,7 +280,7 @@ impl GUIBasicLayer for MainMenu {
 
     fn event_from_index(&mut self, i: usize) -> Option<GUIEvent> {
         match i {
-            0 => Some(GUIEvent::ChangeState(GUIState::Game)),
+            0 => Some(GUIEvent::NewGame),
             1 => Some(GUIEvent::ChangeState(GUIState::SettingsMenu)),
             2 => Some(GUIEvent::Exit),
             _ => None,
@@ -329,23 +335,25 @@ impl GUILayerEventHandler for PauseMenu {}
 
 
 pub struct GameStatus {
-    texts: [GUIText; 2],
+    //texts: [GUIText; 2],
     health_bars: [GUIHealthBar; 2],
 }
 
 impl GameStatus {
     fn new() -> GameStatus {
-        let texts = [
-            GUIText::new_with_alignment(-3.0, 4.0, "Player", GUIComponentAlignment::Left),
-            GUIText::new_with_alignment(3.0, 4.0, "Enemy", GUIComponentAlignment::Right)
+       /*
+       let texts = [
+            GUIText::new_with_alignment(-1.2, 4.0, "Player", GUIComponentAlignment::Center),
+            GUIText::new_with_alignment(1.4, 4.0, "Enemy", GUIComponentAlignment::Center),
         ];
+        */
 
         let health_bars = [
-            GUIHealthBar::new(GUIComponentAlignment::Left),
-            GUIHealthBar::new(GUIComponentAlignment::Right),
+            GUIHealthBar::new(GUIComponentAlignment::Left, 4.0),
+            GUIHealthBar::new(GUIComponentAlignment::Right,4.0),
         ];
 
-        GameStatus { texts, health_bars }
+        GameStatus { health_bars }
     }
 
     pub fn set_player_health(&mut self, health: u32) {
@@ -359,8 +367,8 @@ impl GameStatus {
 
 impl GUIUpdatePosition for GameStatus {
     fn update_position_from_half_screen_width(&mut self, width: f32) {
-        self.texts[0].update_position_from_half_screen_width(width);
-        self.texts[1].update_position_from_half_screen_width(width);
+        //self.texts[0].update_position_from_half_screen_width(width);
+        //self.texts[1].update_position_from_half_screen_width(width);
         self.health_bars[0].update_position_from_half_screen_width(width);
         self.health_bars[1].update_position_from_half_screen_width(width);
     }
@@ -368,7 +376,7 @@ impl GUIUpdatePosition for GameStatus {
 
 impl GUILayerComponents for GameStatus {
     fn components<'a>(&'a self) -> GUIComponentReferences<'a> {
-        GUIComponentReferences::new().set_texts(&self.texts).set_health_bars(&self.health_bars)
+        GUIComponentReferences::new().set_health_bars(&self.health_bars)
     }
 }
 

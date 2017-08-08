@@ -1,5 +1,5 @@
 /*
-src/settings.rs, 2017-08-07
+src/settings.rs, 2017-08-08
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -23,6 +23,8 @@ use sdl2::GameControllerSubsystem;
 use renderer::Renderer;
 use gui::GUI;
 use gui::components::GUIUpdatePosition;
+
+use logic::Logic;
 
 #[derive(Copy, Clone, Debug)]
 pub enum SettingEvent {
@@ -229,18 +231,19 @@ impl Settings {
         }
     }
 
-    pub fn apply_current_settings<T: Renderer>(&self, renderer: &mut T, gui: &mut GUI) {
+    pub fn apply_current_settings<T: Renderer>(&self, renderer: &mut T, gui: &mut GUI, game_logic: &mut Logic) {
         for setting in &self.settings {
-            self.apply_setting(setting.get_value(), renderer, gui);
+            self.apply_setting(setting.get_value(), renderer, gui, game_logic);
         }
     }
 
-    pub fn apply_setting<T: Renderer>(&self, setting: SettingType, renderer: &mut T, gui: &mut GUI) {
+    pub fn apply_setting<T: Renderer>(&self, setting: SettingType, renderer: &mut T, gui: &mut GUI, game_logic: &mut Logic) {
         match setting {
                 SettingType::Boolean(event, value) => match event {
                     SettingEvent::FullScreen => {
                         renderer.full_screen(value);
                         gui.update_position_from_half_screen_width(renderer.half_screen_width_world_coordinates());
+                        game_logic.update_half_screen_width(renderer.half_screen_width_world_coordinates());
                     },
                     SettingEvent::ShowFpsCounter => gui.set_show_fps_counter(value),
                     SettingEvent::VSync => renderer.v_sync(value),

@@ -590,7 +590,7 @@ pub struct GUIHealthBar {
 }
 
 impl GUIHealthBar {
-    pub fn new(alignment: GUIComponentAlignment) -> GUIHealthBar {
+    pub fn new(alignment: GUIComponentAlignment, y: f32) -> GUIHealthBar {
         let margin;
 
         match alignment {
@@ -602,10 +602,8 @@ impl GUIHealthBar {
         let border_width = 0.05;
         let border_height = 0.05;
 
-        let max_width = 2.5;
+        let max_width = 3.0;
         let height = 0.5;
-
-        let y = 3.4;
 
         let mut health_bar = GUIHealthBar {
             rectangle: GUIRectangle::new(0.0,y,max_width,height),

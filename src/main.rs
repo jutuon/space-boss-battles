@@ -116,7 +116,7 @@ pub struct Game {
 
 impl Game {
     pub fn new(mut controller_subsystem: GameControllerSubsystem, mut renderer: OpenGLRenderer, joystick_subsystem: JoystickSubsystem) -> Game {
-        let game_logic = Logic::new();
+        let mut game_logic = Logic::new();
         let quit = false;
 
         let settings = Settings::new(&mut controller_subsystem);
@@ -128,7 +128,7 @@ impl Game {
         let mut gui = GUI::new(&settings);
         gui.update_position_from_half_screen_width(renderer.half_screen_width_world_coordinates());
 
-        settings.apply_current_settings(&mut renderer, &mut gui);
+        settings.apply_current_settings(&mut renderer, &mut gui, &mut game_logic);
 
         Game {game_logic, quit, input, fps_counter, timer, gui, renderer, settings}
     }
@@ -202,9 +202,9 @@ impl Game {
                 None => (),
                 Some(GUIEvent::Exit) => self.quit = true,
                 Some(GUIEvent::ChangeSetting(setting)) => {
-                    self.settings.apply_setting(setting, &mut self.renderer, &mut self.gui);
+                    self.settings.apply_setting(setting, &mut self.renderer, &mut self.gui, &mut self.game_logic);
                 },
-                Some(GUIEvent::ChangeState(GUIState::Game)) => self.game_logic.reset_game(&mut self.gui),
+                Some(GUIEvent::NewGame) => self.game_logic.reset_game(&mut self.gui),
                 _ => (),
             }
 
