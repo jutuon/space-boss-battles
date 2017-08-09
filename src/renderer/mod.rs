@@ -111,6 +111,14 @@ impl Renderer for OpenGLRenderer {
     }
 
     fn render_gui(&mut self, gui: &GUI) {
+        if !gui.render_game() {
+            self.texture_shader.use_program();
+
+            self.textures[Textures::Background as usize].bind();
+            for background in gui.get_background().get_backgrounds() {
+                self.draw_rectangle_with_texture(background);
+            }
+        }
 
         let components = gui.components();
 

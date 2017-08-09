@@ -1,5 +1,5 @@
 /*
-src/gui/mod.rs, 2017-08-08
+src/gui/mod.rs, 2017-08-09
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -17,7 +17,7 @@ pub mod components;
 use gui::components::*;
 
 use input::Input;
-use logic::Difficulty;
+use logic::{Difficulty, MovingBackground};
 use settings::{ Settings, SettingType, Setting};
 
 
@@ -97,11 +97,15 @@ pub struct GUI {
     render_game: bool,
     update_game: bool,
     fps_counter: GUIFpsCounter,
+    background: MovingBackground,
 }
 
 
 impl GUI {
     pub fn new(settings: &Settings) -> GUI {
+        let mut background = MovingBackground::new();
+        background.move_position_x(0.25);
+
         GUI {
             main_menu: MainMenu::new(),
             pause_menu: PauseMenu::new(),
@@ -112,6 +116,7 @@ impl GUI {
             render_game: false,
             update_game: false,
             fps_counter: GUIFpsCounter::new(-5.0, 3.2),
+            background,
         }
     }
 
@@ -198,6 +203,10 @@ impl GUI {
 
     pub fn get_game_status(&mut self) -> &mut GameStatus {
         &mut self.game_status
+    }
+
+    pub fn get_background(&self) -> &MovingBackground {
+        &self.background
     }
 }
 

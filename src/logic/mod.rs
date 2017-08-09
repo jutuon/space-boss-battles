@@ -485,7 +485,7 @@ pub struct MovingBackground {
 }
 
 impl MovingBackground {
-    fn new() -> MovingBackground {
+    pub fn new() -> MovingBackground {
         let size = 9.0;
         let backgrounds = [
             Background::new(-1.0, size),
@@ -505,5 +505,11 @@ impl MovingBackground {
 
     pub fn get_backgrounds(&self) -> &[Background; 4] {
         &self.backgrounds
+    }
+
+    pub fn move_position_x(&mut self, x: f32) {
+        for background in self.backgrounds.iter_mut() {
+            background.move_position(x, 0.0);
+        }
     }
 }
