@@ -204,7 +204,7 @@ impl Game {
                 Some(GUIEvent::ChangeSetting(setting)) => {
                     self.settings.apply_setting(setting, &mut self.renderer, &mut self.gui, &mut self.game_logic);
                 },
-                Some(GUIEvent::NewGame) => self.game_logic.reset_game(&mut self.gui),
+                Some(GUIEvent::NewGame(difficulty)) => self.game_logic.reset_game(&mut self.gui, difficulty),
                 _ => (),
             }
 

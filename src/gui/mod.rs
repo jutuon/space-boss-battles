@@ -1,5 +1,5 @@
 /*
-src/gui/mod.rs, 2017-08-07
+src/gui/mod.rs, 2017-08-08
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -17,12 +17,13 @@ pub mod components;
 use gui::components::*;
 
 use input::Input;
+use logic::Difficulty;
 use settings::{ Settings, SettingType, Setting};
 
 
 #[derive(Copy, Clone)]
 pub enum GUIEvent {
-    NewGame,
+    NewGame(Difficulty),
     ChangeState(GUIState),
     ChangeSetting(SettingType),
     SettingsUpdate(usize),
@@ -32,6 +33,7 @@ pub enum GUIEvent {
 #[derive(Copy, Clone)]
 pub enum GUIState {
     MainMenu,
+    DifficultySelectionMenu,
     PauseMenu,
     Game,
     SettingsMenu,
@@ -90,6 +92,7 @@ pub struct GUI {
     pause_menu: PauseMenu,
     settings_menu: SettingsMenu,
     game_status: GameStatus,
+    difficulty_selection_menu: DifficultySelectionMenu,
     state: GUIState,
     render_game: bool,
     update_game: bool,
@@ -104,6 +107,7 @@ impl GUI {
             pause_menu: PauseMenu::new(),
             settings_menu: SettingsMenu::new(settings),
             game_status: GameStatus::new(),
+            difficulty_selection_menu: DifficultySelectionMenu::new(),
             state: GUIState::MainMenu,
             render_game: false,
             update_game: false,
@@ -139,6 +143,7 @@ impl GUI {
 
                 event
             },
+            GUIState::DifficultySelectionMenu => self.difficulty_selection_menu.handle_event(input),
         };
 
         match event {
@@ -158,12 +163,17 @@ impl GUI {
                 self.update_game = false;
                 self.state = state;
             },
+            Some(GUIEvent::ChangeState(state @ GUIState::DifficultySelectionMenu)) => {
+                self.render_game = false;
+                self.update_game = false;
+                self.state = state;
+            },
             Some(GUIEvent::ChangeState(state @ GUIState::SettingsMenu)) => {
                 self.render_game = false;
                 self.update_game = false;
                 self.state = state;
             },
-            Some(GUIEvent::NewGame) => {
+            Some(GUIEvent::NewGame(_)) => {
                 self.render_game = true;
                 self.update_game = true;
                 self.state = GUIState::Game;
@@ -205,6 +215,7 @@ impl GUILayerComponents for GUI {
             GUIState::PauseMenu => self.pause_menu.components(),
             GUIState::SettingsMenu => self.settings_menu.components(),
             GUIState::Game => self.game_status.components(),
+            GUIState::DifficultySelectionMenu => self.difficulty_selection_menu.components(),
         }
     }
 }
@@ -280,7 +291,7 @@ impl GUIBasicLayer for MainMenu {
 
     fn event_from_index(&mut self, i: usize) -> Option<GUIEvent> {
         match i {
-            0 => Some(GUIEvent::NewGame),
+            0 => Some(GUIEvent::ChangeState(GUIState::DifficultySelectionMenu)),
             1 => Some(GUIEvent::ChangeState(GUIState::SettingsMenu)),
             2 => Some(GUIEvent::Exit),
             _ => None,
@@ -290,6 +301,53 @@ impl GUIBasicLayer for MainMenu {
 
 impl GUILayerEventHandler for MainMenu {}
 
+pub struct DifficultySelectionMenu {
+     buttons: GUIGroup<GUIButton>,
+     texts: [GUIText; 1],
+}
+
+impl DifficultySelectionMenu {
+    fn new() -> DifficultySelectionMenu {
+        let width = 5.0;
+        let height = 1.0;
+
+        let mut buttons = GUIGroup::new(GUIButton::new(0.0, 1.5, width, height, "Easy"))
+            .add(GUIButton::new(0.0, 0.2, width, height, "Normal"))
+            .add(GUIButton::new(0.0, -1.1, width, height, "Hard"))
+            .add(GUIButton::new(0.0, -2.7, width, height, "Main Menu"));
+
+        buttons.selection_down();
+
+        let texts = [
+            GUIText::new(0.0, 3.0, "Select game difficulty"),
+        ];
+
+        DifficultySelectionMenu {buttons, texts}
+    }
+
+}
+
+impl GUILayerComponents for DifficultySelectionMenu {
+    fn components<'a>(&'a self) -> GUIComponentReferences<'a> {
+        GUIComponentReferences::new().set_buttons(self.buttons.get_components()).set_texts(&self.texts)
+    }
+}
+
+impl GUIBasicLayer for DifficultySelectionMenu {
+    fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton> { &mut self.buttons }
+
+    fn event_from_index(&mut self, i: usize) -> Option<GUIEvent> {
+        match i {
+            0 => Some(GUIEvent::NewGame(Difficulty::Easy)),
+            1 => Some(GUIEvent::NewGame(Difficulty::Normal)),
+            2 => Some(GUIEvent::NewGame(Difficulty::Hard)),
+            3 => Some(GUIEvent::ChangeState(GUIState::MainMenu)),
+            _ => None,
+        }
+    }
+}
+
+impl GUILayerEventHandler for DifficultySelectionMenu {}
 
 pub struct PauseMenu {
     buttons: GUIGroup<GUIButton>,

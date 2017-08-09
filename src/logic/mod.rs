@@ -1,5 +1,5 @@
 /*
-src/logic/mod.rs, 2017-08-08
+src/logic/mod.rs, 2017-08-09
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -38,15 +38,46 @@ macro_rules! impl_model_matrix {
     }
 }
 
+#[derive(Copy, Clone)]
+pub enum Difficulty {
+    Easy,
+    Normal,
+    Hard,
+}
+
 struct LogicSettings {
     screen_width_half: f32,
+    player_laser_damage: i32,
+    enemy_laser_damage: i32,
+    enemy_hit_damage: i32,
 }
 
 impl LogicSettings {
     fn new() -> LogicSettings {
         LogicSettings {
             screen_width_half: 0.0,
+            player_laser_damage: 0,
+            enemy_laser_damage: 0,
+            enemy_hit_damage: 0,
         }
+    }
+
+    fn settings_easy(&mut self) {
+        self.player_laser_damage = 5;
+        self.enemy_laser_damage = 1;
+        self.enemy_hit_damage = 1;
+    }
+
+    fn settings_normal(&mut self) {
+        self.player_laser_damage = 2;
+        self.enemy_laser_damage = 5;
+        self.enemy_hit_damage = 2;
+    }
+
+    fn settings_hard(&mut self) {
+        self.player_laser_damage = 1;
+        self.enemy_laser_damage = 10;
+        self.enemy_hit_damage = 3;
     }
 }
 
@@ -93,7 +124,13 @@ impl Logic {
         &self.moving_background
     }
 
-    pub fn reset_game(&mut self, gui: &mut GUI) {
+    pub fn reset_game(&mut self, gui: &mut GUI, difficulty: Difficulty) {
+        match difficulty {
+            Difficulty::Easy => self.logic_settings.settings_easy(),
+            Difficulty::Normal => self.logic_settings.settings_normal(),
+            Difficulty::Hard => self.logic_settings.settings_hard(),
+        }
+
         self.player.reset(&self.logic_settings);
         self.enemy.reset(&self.logic_settings);
 
@@ -173,7 +210,7 @@ impl Player {
         self.clean_and_update_lasers(enemy, logic_settings);
 
         if self.circle_collision(enemy) {
-            self.update_health(-1);
+            self.update_health(-logic_settings.enemy_hit_damage);
         }
     }
 
@@ -191,7 +228,7 @@ impl Player {
                 remove = (true, i);
             } else if enemy.circle_collision(laser) {
                 remove = (true, i);
-                enemy.update_health(-laser.get_damage());
+                enemy.update_health(-logic_settings.player_laser_damage);
             }
         }
 
@@ -239,7 +276,6 @@ pub struct Laser {
     data: Data<f32>,
     speed: f32,
     destroy: bool,
-    damage: i32,
 }
 
 impl Laser {
@@ -247,8 +283,7 @@ impl Laser {
         let data = Data::new(x, y, 0.3, 0.1);
         let speed = 0.08;
         let destroy = false;
-        let damage = 1;
-        Laser { data, speed, destroy, damage }
+        Laser { data, speed, destroy }
     }
 
     fn update(&mut self, logic_settings: &LogicSettings) {
@@ -262,10 +297,6 @@ impl Laser {
         if self.outside_allowed_area(&area) {
             self.destroy = true;
         }
-    }
-
-    fn get_damage(&self) -> i32 {
-        self.damage
     }
 }
 
@@ -357,7 +388,7 @@ impl Enemy {
                 remove = (true, i);
             } else if player.circle_collision(laser) {
                 remove = (true, i);
-                player.update_health(-laser.get_damage());
+                player.update_health(-logic_settings.enemy_laser_damage);
             }
         }
 
