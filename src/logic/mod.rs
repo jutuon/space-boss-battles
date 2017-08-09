@@ -23,7 +23,7 @@ use Timer;
 
 use std::f32::consts;
 
-use gui::GUI;
+use gui::{GUI, GUIState, GUIEvent};
 
 use renderer::ModelMatrix;
 use cgmath::Matrix4;
@@ -86,30 +86,72 @@ pub struct Logic {
     enemy: Enemy,
     moving_background: MovingBackground,
     logic_settings: LogicSettings,
+    level: u32,
+    current_difficulty: Difficulty,
+    game_running: bool,
+    explosion: Explosion,
 }
 
 impl Logic {
     pub fn new() -> Logic {
-        let player = Player::new();
-        let enemy = Enemy::new();
-        let moving_background = MovingBackground::new();
-        let logic_settings = LogicSettings::new();
-        Logic { player, enemy, moving_background, logic_settings }
+        Logic {
+            player: Player::new(),
+            enemy: Enemy::new(),
+            moving_background: MovingBackground::new(),
+            logic_settings: LogicSettings::new(),
+            level: 0,
+            current_difficulty: Difficulty::Normal,
+            game_running: true,
+            explosion: Explosion::new(),
+        }
     }
 
     pub fn update<T: Input>(&mut self, input: &T, gui: &mut GUI) {
-        self.player.update(input, &mut self.enemy, &self.logic_settings);
-        self.enemy.update(&mut self.player, &self.logic_settings);
-        self.moving_background.update();
+
+        if self.game_running {
+            self.player.update(input, &mut self.enemy, &self.logic_settings);
+            self.enemy.update(&mut self.player, &self.logic_settings);
+            self.moving_background.update();
+        }
 
         if let Some(health) = self.player.health() {
             gui.get_game_status().set_player_health(health);
+
+            if health == 0 {
+                self.player.lasers.clear();
+                self.enemy.lasers.clear();
+
+                self.game_running = false;
+                self.explosion.start_explosion(&self.player);
+            }
         }
 
         if let Some(health) = self.enemy.health() {
             gui.get_game_status().set_enemy_health(health);
+
+            if health == 0 {
+                self.player.lasers.clear();
+                self.enemy.lasers.clear();
+
+                self.game_running = false;
+                self.explosion.start_explosion(&self.enemy);
+            }
         }
 
+        if !self.game_running && self.explosion.explosion_finished() {
+            if self.player.health == 0 {
+                gui.handle_gui_event(GUIEvent::ChangeState(GUIState::GameOverScreen));
+                self.player.visible = false;
+            } else {
+                if self.level == 1 {
+                    gui.handle_gui_event(GUIEvent::ChangeState(GUIState::PlayerWinsScreen));
+                } else {
+                    gui.handle_gui_event(GUIEvent::ChangeState(GUIState::NextLevelScreen));
+                }
+
+                self.enemy.visible = false;
+            }
+        }
     }
 
     pub fn get_player(&self) -> &Player {
@@ -120,11 +162,23 @@ impl Logic {
         &self.enemy
     }
 
+    pub fn get_explosion(&self) -> &Explosion {
+        &self.explosion
+    }
+
     pub fn get_moving_background(&self) -> &MovingBackground {
         &self.moving_background
     }
 
-    pub fn reset_game(&mut self, gui: &mut GUI, difficulty: Difficulty) {
+    pub fn reset_game(&mut self, gui: &mut GUI, difficulty: Difficulty, level: u32) {
+        if level > 3 {
+            panic!("level index must be at range 0-3");
+        }
+
+        self.level = level;
+        self.current_difficulty = difficulty;
+        self.game_running = true;
+
         match difficulty {
             Difficulty::Easy => self.logic_settings.settings_easy(),
             Difficulty::Normal => self.logic_settings.settings_normal(),
@@ -132,7 +186,7 @@ impl Logic {
         }
 
         self.player.reset(&self.logic_settings);
-        self.enemy.reset(&self.logic_settings);
+        self.enemy.reset(&self.logic_settings, level);
 
         if let Some(health) = self.player.health() {
             gui.get_game_status().set_player_health(health);
@@ -143,9 +197,62 @@ impl Logic {
         }
     }
 
+    pub fn reset_to_next_level(&mut self, gui: &mut GUI) {
+        let difficulty = self.current_difficulty;
+        let level = self.level + 1;
+        self.reset_game(gui, difficulty, level);
+    }
+
     pub fn update_half_screen_width(&mut self, half_width: f32) {
         self.logic_settings.screen_width_half = half_width;
 
+    }
+}
+
+pub struct Explosion {
+    data: Data<f32>,
+    visible: bool,
+    timer: Timer,
+}
+
+impl Explosion {
+    fn new() -> Explosion {
+        Explosion {
+            data: Data::new(0.0,0.0,0.5,0.5),
+            visible: false,
+            timer: Timer::new(),
+        }
+    }
+
+    pub fn start_explosion<T: GameObject>(&mut self, object: &T) {
+        self.timer.reset(PreciseTime::now());
+        self.set_position(object.data().position.x, object.data().position.y);
+        self.visible = true;
+    }
+
+    pub fn explosion_finished(&mut self) -> bool {
+        if self.timer.check(PreciseTime::now(), 1000) {
+            self.visible = false;
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn visible(&self) -> bool {
+        self.visible
+    }
+}
+
+impl GameObject for Explosion {}
+impl_model_matrix!(Explosion);
+
+impl GameObjectData<f32> for Explosion {
+    fn data(&self) -> &Data<f32> {
+        &self.data
+    }
+    fn data_mut(&mut self) -> &mut Data<f32> {
+        &mut self.data
     }
 }
 
@@ -156,7 +263,7 @@ pub struct Player {
     laser_timer: Timer,
     health: i32,
     health_update: bool,
-
+    visible: bool,
 }
 
 impl Player {
@@ -167,7 +274,7 @@ impl Player {
         let laser_timer = Timer::new();
         let health = 100;
         let health_update = true;
-        Player { data, speed, lasers, laser_timer, health, health_update }
+        Player { data, speed, lasers, laser_timer, health, health_update, visible: true, }
     }
 
     fn reset(&mut self, logic_settings: &LogicSettings) {
@@ -176,6 +283,7 @@ impl Player {
         self.health = 100;
         self.health_update = true;
         self.laser_timer.reset(PreciseTime::now());
+        self.visible = true;
     }
 
     fn update(&mut self, input: &Input, enemy: &mut Enemy, logic_settings: &LogicSettings) {
@@ -256,6 +364,10 @@ impl Player {
             None
         }
     }
+
+    pub fn visible(&self) -> bool {
+        self.visible
+    }
 }
 
 
@@ -326,6 +438,7 @@ pub struct Enemy {
     laser_timer: Timer,
     health: i32,
     health_update: bool,
+    visible: bool,
 }
 
 impl Enemy {
@@ -337,15 +450,16 @@ impl Enemy {
         let laser_timer = Timer::new();
         let health = 100;
         let health_update = true;
-        Enemy { data, speed, lasers, laser_timer, health, health_update }
+        Enemy { data, speed, lasers, laser_timer, health, health_update, visible: true }
     }
 
-    fn reset(&mut self, logic_settings: &LogicSettings) {
+    fn reset(&mut self, logic_settings: &LogicSettings, level: u32) {
         self.data = Data::new(logic_settings.screen_width_half - 2.5, 0.0, 1.0, 1.0);
         self.lasers.clear();
         self.health = 100;
         self.health_update = true;
         self.laser_timer.reset(PreciseTime::now());
+        self.visible = true;
     }
 
     fn update(&mut self, player: &mut Player, logic_settings: &LogicSettings) {
@@ -421,6 +535,10 @@ impl Enemy {
         } else {
             None
         }
+    }
+
+    pub fn visible(&self) -> bool {
+        self.visible
     }
 }
 

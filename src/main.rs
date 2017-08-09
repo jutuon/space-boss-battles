@@ -206,7 +206,8 @@ impl Game {
                     self.gui.update_settings(&self.settings);
                     self.settings.apply_setting(new_setting_value, &mut self.renderer, &mut self.gui, &mut self.game_logic);
                 },
-                Some(GUIEvent::NewGame(difficulty)) => self.game_logic.reset_game(&mut self.gui, difficulty),
+                Some(GUIEvent::NewGame(difficulty)) => self.game_logic.reset_game(&mut self.gui, difficulty, 0),
+                Some(GUIEvent::NextLevel) => self.game_logic.reset_to_next_level(&mut self.gui),
                 _ => (),
             }
 

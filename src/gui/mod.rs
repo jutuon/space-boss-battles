@@ -202,45 +202,50 @@ impl GUI {
 
         };
 
+        if let Some(event) = event {
+            self.handle_gui_event(event);
+        }
+
+        event
+    }
+
+    pub fn handle_gui_event(&mut self, event: GUIEvent ) {
         match event {
-            None => (),
-            Some(GUIEvent::ChangeState(GUIState::Game)) | Some(GUIEvent::NextLevel) => {
+            GUIEvent::ChangeState(GUIState::Game) | GUIEvent::NextLevel => {
                 self.render_game = true;
                 self.update_game = true;
                 self.state = GUIState::Game;
             },
-            Some(GUIEvent::ChangeState(state @ GUIState::PauseMenu)) |
-            Some(GUIEvent::ChangeState(state @ GUIState::GameOverScreen)) |
-            Some(GUIEvent::ChangeState(state @ GUIState::NextLevelScreen)) |
-            Some(GUIEvent::ChangeState(state @ GUIState::PlayerWinsScreen)) => {
+            GUIEvent::ChangeState(state @ GUIState::PauseMenu) |
+            GUIEvent::ChangeState(state @ GUIState::GameOverScreen) |
+            GUIEvent::ChangeState(state @ GUIState::NextLevelScreen) |
+            GUIEvent::ChangeState(state @ GUIState::PlayerWinsScreen) => {
                 self.render_game = true;
                 self.update_game = false;
                 self.state = state;
             },
-            Some(GUIEvent::ChangeState(state @ GUIState::MainMenu)) => {
+            GUIEvent::ChangeState(state @ GUIState::MainMenu) => {
                 self.render_game = false;
                 self.update_game = false;
                 self.state = state;
             },
-            Some(GUIEvent::ChangeState(state @ GUIState::DifficultySelectionMenu)) => {
+            GUIEvent::ChangeState(state @ GUIState::DifficultySelectionMenu) => {
                 self.render_game = false;
                 self.update_game = false;
                 self.state = state;
             },
-            Some(GUIEvent::ChangeState(state @ GUIState::SettingsMenu)) => {
+            GUIEvent::ChangeState(state @ GUIState::SettingsMenu) => {
                 self.render_game = false;
                 self.update_game = false;
                 self.state = state;
             },
-            Some(GUIEvent::NewGame(_)) => {
+            GUIEvent::NewGame(_) => {
                 self.render_game = true;
                 self.update_game = true;
                 self.state = GUIState::Game;
             }
             _ => (),
         };
-
-        event
     }
 
     pub fn update_fps_counter(&mut self, count: u32) {

@@ -1,5 +1,5 @@
 /*
-src/renderer/mod.rs, 2017-08-08
+src/renderer/mod.rs, 2017-08-09
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -91,11 +91,15 @@ impl Renderer for OpenGLRenderer {
             self.draw_rectangle_with_texture(background);
         }
 
-        self.textures[Textures::Player as usize].bind();
-        self.draw_rectangle_with_texture(logic.get_player());
+        if logic.get_player().visible() {
+            self.textures[Textures::Player as usize].bind();
+            self.draw_rectangle_with_texture(logic.get_player());
+        }
 
-        self.textures[Textures::Enemy as usize].bind();
-        self.draw_rectangle_with_texture(logic.get_enemy());
+        if logic.get_enemy().visible() {
+            self.textures[Textures::Enemy as usize].bind();
+            self.draw_rectangle_with_texture(logic.get_enemy());
+        }
 
         self.color_shader.use_program();
 
@@ -107,6 +111,11 @@ impl Renderer for OpenGLRenderer {
         let color = Vector3::new(1.0,0.0,0.0);
         for laser in logic.get_enemy().get_lasers() {
             self.draw_color_rectangle_with_color(laser, &color);
+        }
+
+        let color = Vector3::from_value(0.3);
+        if logic.get_explosion().visible() {
+            self.draw_color_rectangle_with_color(logic.get_explosion(), &color);
         }
     }
 
