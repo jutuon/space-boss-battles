@@ -14,6 +14,10 @@ MIT License
 
 pub mod components;
 
+const BUTTON_WIDTH: f32 = 5.0;
+const BUTTON_HEIGHT: f32 = 1.0;
+
+
 use gui::components::*;
 
 use input::Input;
@@ -23,10 +27,10 @@ use settings::{ Settings, SettingType, Setting};
 
 #[derive(Copy, Clone)]
 pub enum GUIEvent {
+    NextLevel,
     NewGame(Difficulty),
     ChangeState(GUIState),
     ChangeSetting(SettingType),
-    SettingsUpdate(usize),
     Exit,
 }
 
@@ -36,11 +40,52 @@ pub enum GUIState {
     DifficultySelectionMenu,
     PauseMenu,
     Game,
+    PlayerWinsScreen,
+    NextLevelScreen,
+    GameOverScreen,
     SettingsMenu,
 }
 
+
+pub trait GUILayer {
+    fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton<GUIEvent>>;
+
+    fn layer_specific_operations(&mut self, event: GUIEvent) {}
+}
+
+pub trait GUILayerEventHandler
+    where Self: GUILayer {
+
+    fn handle_event<T: Input>(&mut self, input: &mut T) -> Option<GUIEvent> {
+        if input.key_hit_up() {
+            self.get_buttons_mut().selection_up();
+            None
+        } else if input.key_hit_down() {
+            self.get_buttons_mut().selection_down();
+            None
+        } else if input.key_hit_enter() {
+            let event = self.get_buttons_mut().action_of_currently_selected_component();
+            self.layer_specific_operations(event);
+            Some(event)
+        } else if input.mouse_button_hit() {
+            let option_event = self.get_buttons_mut().check_collision_and_return_action(input.mouse_location());
+
+            if let Some(event) = option_event {
+                self.layer_specific_operations(event);
+            }
+
+            option_event
+        } else if input.mouse_motion() {
+            self.get_buttons_mut().update_selection(input.mouse_location());
+            None
+        } else {
+            None
+        }
+    }
+}
+
 pub struct GUIComponentReferences<'a> {
-    buttons: &'a [GUIButton],
+    buttons: &'a [GUIButton<GUIEvent>],
     texts: &'a [GUIText],
     health_bars: &'a [GUIHealthBar],
 }
@@ -54,7 +99,7 @@ impl <'a> GUIComponentReferences<'a> {
         }
     }
 
-    fn set_buttons(mut self, buttons: &'a [GUIButton]) -> GUIComponentReferences<'a> {
+    fn set_buttons(mut self, buttons: &'a [GUIButton<GUIEvent>]) -> GUIComponentReferences<'a> {
         self.buttons = buttons;
         self
     }
@@ -69,7 +114,7 @@ impl <'a> GUIComponentReferences<'a> {
         self
     }
 
-    pub fn buttons(&self) -> &[GUIButton] {
+    pub fn buttons(&self) -> &[GUIButton<GUIEvent>] {
         self.buttons
     }
 
@@ -88,16 +133,19 @@ pub trait GUILayerComponents {
 
 
 pub struct GUI {
-    main_menu: MainMenu,
+    main_menu: BasicGUILayer,
     pause_menu: PauseMenu,
     settings_menu: SettingsMenu,
     game_status: GameStatus,
-    difficulty_selection_menu: DifficultySelectionMenu,
+    difficulty_selection_menu: BasicGUILayer,
     state: GUIState,
     render_game: bool,
     update_game: bool,
     fps_counter: GUIFpsCounter,
     background: MovingBackground,
+    game_over_screen: BasicGUILayer,
+    player_wins_screen: BasicGUILayer,
+    next_level_screen: BasicGUILayer,
 }
 
 
@@ -107,16 +155,19 @@ impl GUI {
         background.move_position_x(0.25);
 
         GUI {
-            main_menu: MainMenu::new(),
+            main_menu: BasicGUILayer::main_menu(),
             pause_menu: PauseMenu::new(),
             settings_menu: SettingsMenu::new(settings),
             game_status: GameStatus::new(),
-            difficulty_selection_menu: DifficultySelectionMenu::new(),
+            difficulty_selection_menu: BasicGUILayer::difficulty_selection_menu(),
             state: GUIState::MainMenu,
             render_game: false,
             update_game: false,
             fps_counter: GUIFpsCounter::new(-5.0, 3.2),
             background,
+            game_over_screen: BasicGUILayer::game_over_screen(),
+            player_wins_screen: BasicGUILayer::player_wins_screen(),
+            next_level_screen: BasicGUILayer::next_level_screen(),
         }
     }
 
@@ -128,7 +179,11 @@ impl GUI {
         self.update_game
     }
 
-    pub fn handle_event<T: Input>(&mut self, input: &mut T, settings: &mut Settings) -> Option<GUIEvent> {
+    pub fn update_settings(&mut self, settings: &Settings) {
+        self.settings_menu.update_settings_status_texts(settings);
+    }
+
+    pub fn handle_event<T: Input>(&mut self, input: &mut T) -> Option<GUIEvent> {
         let event = match self.state {
             GUIState::MainMenu => self.main_menu.handle_event(input),
             GUIState::PauseMenu => self.pause_menu.handle_event(input),
@@ -139,26 +194,25 @@ impl GUI {
                     None
                 }
             },
-            GUIState::SettingsMenu => {
-                let mut event = self.settings_menu.handle_event(input);
-                if let Some(GUIEvent::SettingsUpdate(i)) = event {
-                    event = settings.event_from_index(i);
-                    self.settings_menu.update_settings_status_texts(settings);
-                }
-
-                event
-            },
+            GUIState::SettingsMenu => self.settings_menu.handle_event(input),
             GUIState::DifficultySelectionMenu => self.difficulty_selection_menu.handle_event(input),
+            GUIState::NextLevelScreen => self.next_level_screen.handle_event(input),
+            GUIState::GameOverScreen => self.game_over_screen.handle_event(input),
+            GUIState::PlayerWinsScreen => self.player_wins_screen.handle_event(input),
+
         };
 
         match event {
             None => (),
-            Some(GUIEvent::ChangeState(state @ GUIState::Game)) => {
+            Some(GUIEvent::ChangeState(GUIState::Game)) | Some(GUIEvent::NextLevel) => {
                 self.render_game = true;
                 self.update_game = true;
-                self.state = state;
+                self.state = GUIState::Game;
             },
-            Some(GUIEvent::ChangeState(state @ GUIState::PauseMenu)) => {
+            Some(GUIEvent::ChangeState(state @ GUIState::PauseMenu)) |
+            Some(GUIEvent::ChangeState(state @ GUIState::GameOverScreen)) |
+            Some(GUIEvent::ChangeState(state @ GUIState::NextLevelScreen)) |
+            Some(GUIEvent::ChangeState(state @ GUIState::PlayerWinsScreen)) => {
                 self.render_game = true;
                 self.update_game = false;
                 self.state = state;
@@ -225,175 +279,105 @@ impl GUILayerComponents for GUI {
             GUIState::SettingsMenu => self.settings_menu.components(),
             GUIState::Game => self.game_status.components(),
             GUIState::DifficultySelectionMenu => self.difficulty_selection_menu.components(),
+            GUIState::GameOverScreen => self.game_over_screen.components(),
+            GUIState::PlayerWinsScreen => self.player_wins_screen.components(),
+            GUIState::NextLevelScreen => self.next_level_screen.components(),
         }
     }
 }
 
 
 
-pub trait GUIBasicLayer {
-    fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton>;
 
-    fn event_from_index(&mut self, i: usize) -> Option<GUIEvent>;
+
+pub struct BasicGUILayer {
+     buttons: GUIGroup<GUIButton<GUIEvent>>,
+     texts: Vec<GUIText>,
 }
 
-pub trait GUILayerEventHandler
-    where Self: GUIBasicLayer {
-
-    fn handle_event<T: Input>(&mut self, input: &mut T) -> Option<GUIEvent> {
-        if input.key_hit_up() {
-            self.get_buttons_mut().selection_up();
-            None
-        } else if input.key_hit_down() {
-            self.get_buttons_mut().selection_down();
-            None
-        } else if input.key_hit_enter() {
-            let i = self.get_buttons_mut().get_selection_index();
-            self.event_from_index(i)
-        } else if input.mouse_button_hit() {
-            match self.get_buttons_mut().get_collision_index(input.mouse_location()) {
-                Some(i) => self.event_from_index(i),
-                None => None,
-            }
-        } else if input.mouse_motion() {
-            self.get_buttons_mut().update_selection(input.mouse_location());
-            None
-        } else {
-            None
+impl BasicGUILayer {
+    fn main_menu() -> BasicGUILayer {
+        BasicGUILayer {
+            buttons: GUIGroup::new(GUIButton::new(0.0, 1.0, BUTTON_WIDTH, BUTTON_HEIGHT, "Start Game", GUIEvent::ChangeState(GUIState::DifficultySelectionMenu)))
+                              .add(GUIButton::new(0.0, -1.0, BUTTON_WIDTH, BUTTON_HEIGHT, "Settings", GUIEvent::ChangeState(GUIState::SettingsMenu)))
+                              .add(GUIButton::new(0.0, -3.0, BUTTON_WIDTH, BUTTON_HEIGHT, "Exit", GUIEvent::Exit)),
+            texts: vec![GUIText::new(0.0, 3.0, "Space Boss Battles")],
         }
     }
-}
 
-
-
-pub struct MainMenu {
-     buttons: GUIGroup<GUIButton>,
-     texts: [GUIText; 1],
-}
-
-impl MainMenu {
-    fn new() -> MainMenu {
-        let width = 5.0;
-        let height = 1.0;
-
-        let buttons = GUIGroup::new(GUIButton::new(0.0, 1.0, width, height, "Start Game"))
-            .add(GUIButton::new(0.0, -1.0, width, height, "Settings"))
-            .add(GUIButton::new(0.0, -3.0, width, height, "Exit"));
-
-        let texts = [
-            GUIText::new(0.0, 3.0, "Space Boss Battles"),
-        ];
-
-        MainMenu {buttons, texts}
-    }
-
-}
-
-impl GUILayerComponents for MainMenu {
-    fn components<'a>(&'a self) -> GUIComponentReferences<'a> {
-        GUIComponentReferences::new().set_buttons(self.buttons.get_components()).set_texts(&self.texts)
-    }
-}
-
-impl GUIBasicLayer for MainMenu {
-    fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton> { &mut self.buttons }
-
-    fn event_from_index(&mut self, i: usize) -> Option<GUIEvent> {
-        match i {
-            0 => Some(GUIEvent::ChangeState(GUIState::DifficultySelectionMenu)),
-            1 => Some(GUIEvent::ChangeState(GUIState::SettingsMenu)),
-            2 => Some(GUIEvent::Exit),
-            _ => None,
-        }
-    }
-}
-
-impl GUILayerEventHandler for MainMenu {}
-
-pub struct DifficultySelectionMenu {
-     buttons: GUIGroup<GUIButton>,
-     texts: [GUIText; 1],
-}
-
-impl DifficultySelectionMenu {
-    fn new() -> DifficultySelectionMenu {
-        let width = 5.0;
-        let height = 1.0;
-
-        let mut buttons = GUIGroup::new(GUIButton::new(0.0, 1.5, width, height, "Easy"))
-            .add(GUIButton::new(0.0, 0.2, width, height, "Normal"))
-            .add(GUIButton::new(0.0, -1.1, width, height, "Hard"))
-            .add(GUIButton::new(0.0, -2.7, width, height, "Main Menu"));
+    fn difficulty_selection_menu() -> BasicGUILayer {
+        let mut buttons = GUIGroup::new(GUIButton::new(0.0, 1.5, BUTTON_WIDTH, BUTTON_HEIGHT, "Easy", GUIEvent::NewGame(Difficulty::Easy)))
+            .add(GUIButton::new(0.0, 0.2, BUTTON_WIDTH, BUTTON_HEIGHT, "Normal", GUIEvent::NewGame(Difficulty::Normal)))
+            .add(GUIButton::new(0.0, -1.1, BUTTON_WIDTH, BUTTON_HEIGHT, "Hard", GUIEvent::NewGame(Difficulty::Hard)))
+            .add(GUIButton::new(0.0, -2.7, BUTTON_WIDTH, BUTTON_HEIGHT, "Main Menu", GUIEvent::ChangeState(GUIState::MainMenu)));
 
         buttons.selection_down();
 
-        let texts = [
-            GUIText::new(0.0, 3.0, "Select game difficulty"),
-        ];
-
-        DifficultySelectionMenu {buttons, texts}
+        BasicGUILayer {
+            buttons,
+            texts: vec![GUIText::new(0.0, 3.0, "Select game difficulty")],
+        }
     }
 
+    fn player_wins_screen() -> BasicGUILayer {
+        BasicGUILayer {
+            buttons: GUIGroup::new(GUIButton::new(0.0, 1.0, BUTTON_WIDTH, BUTTON_HEIGHT, "Main Menu", GUIEvent::ChangeState(GUIState::MainMenu))),
+            texts: vec![GUIText::new(0.0, 3.0, "Congratulations, you won the game")],
+        }
+    }
+
+    fn game_over_screen() -> BasicGUILayer {
+        BasicGUILayer {
+            buttons: GUIGroup::new(GUIButton::new(0.0, 1.0, BUTTON_WIDTH, BUTTON_HEIGHT, "Main Menu", GUIEvent::ChangeState(GUIState::MainMenu))),
+            texts: vec![GUIText::new(0.0, 3.0, "Game Over")],
+        }
+    }
+
+    fn next_level_screen() -> BasicGUILayer {
+        BasicGUILayer {
+            buttons: GUIGroup::new(GUIButton::new(0.0, 1.0, BUTTON_WIDTH, BUTTON_HEIGHT, "Next Level", GUIEvent::NextLevel)),
+            texts: vec![GUIText::new(0.0, 3.0, "Congratulations, you won")],
+        }
+    }
 }
 
-impl GUILayerComponents for DifficultySelectionMenu {
+impl GUILayerComponents for BasicGUILayer {
     fn components<'a>(&'a self) -> GUIComponentReferences<'a> {
         GUIComponentReferences::new().set_buttons(self.buttons.get_components()).set_texts(&self.texts)
     }
 }
 
-impl GUIBasicLayer for DifficultySelectionMenu {
-    fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton> { &mut self.buttons }
-
-    fn event_from_index(&mut self, i: usize) -> Option<GUIEvent> {
-        match i {
-            0 => Some(GUIEvent::NewGame(Difficulty::Easy)),
-            1 => Some(GUIEvent::NewGame(Difficulty::Normal)),
-            2 => Some(GUIEvent::NewGame(Difficulty::Hard)),
-            3 => Some(GUIEvent::ChangeState(GUIState::MainMenu)),
-            _ => None,
-        }
-    }
+impl GUILayer for BasicGUILayer {
+    fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton<GUIEvent>> { &mut self.buttons }
 }
 
-impl GUILayerEventHandler for DifficultySelectionMenu {}
+impl GUILayerEventHandler for BasicGUILayer {}
 
-pub struct PauseMenu {
-    buttons: GUIGroup<GUIButton>,
-    texts: [GUIText; 1],
-}
+
+pub struct PauseMenu(BasicGUILayer);
 
 impl PauseMenu {
     fn new() -> PauseMenu {
-        let width = 5.0;
-        let height = 1.0;
-
-        let buttons = GUIGroup::new(GUIButton::new(0.0, 1.0, width, height, "Continue"))
-            .add(GUIButton::new(0.0, -1.0, width, height, "Main Menu"));
-
-        let texts = [GUIText::new(0.0, 3.0, "Game Paused")];
-
-        PauseMenu {buttons, texts}
+        PauseMenu(
+            BasicGUILayer {
+                buttons: GUIGroup::new(GUIButton::new(0.0, 1.0, BUTTON_WIDTH, BUTTON_HEIGHT, "Continue", GUIEvent::ChangeState(GUIState::Game)))
+                                .add(GUIButton::new(0.0, -1.0, BUTTON_WIDTH, BUTTON_HEIGHT, "Main Menu", GUIEvent::ChangeState(GUIState::MainMenu))),
+                texts: vec![GUIText::new(0.0, 3.0, "Game Paused")],
+            }
+        )
     }
 }
 
 impl GUILayerComponents for PauseMenu {
-    fn components<'a>(&'a self) -> GUIComponentReferences<'a> {
-        GUIComponentReferences::new().set_buttons(self.buttons.get_components()).set_texts(&self.texts)
-    }
+    fn components<'a>(&'a self) -> GUIComponentReferences<'a> { self.0.components() }
 }
 
-impl GUIBasicLayer for PauseMenu {
-    fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton> { &mut self.buttons }
+impl GUILayer for PauseMenu {
+    fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton<GUIEvent>> { self.0.get_buttons_mut() }
 
-    fn event_from_index(&mut self, i: usize) -> Option<GUIEvent> {
-        match i {
-            0 => Some(GUIEvent::ChangeState(GUIState::Game)),
-            1 => {
-                self.buttons.selection_up();
-                Some(GUIEvent::ChangeState(GUIState::MainMenu))
-            },
-            _ => None,
+    fn layer_specific_operations(&mut self, event: GUIEvent) {
+        if let GUIEvent::ChangeState(GUIState::MainMenu) = event {
+            self.0.buttons.selection_up();
         }
     }
 }
@@ -402,25 +386,17 @@ impl GUILayerEventHandler for PauseMenu {}
 
 
 pub struct GameStatus {
-    //texts: [GUIText; 2],
     health_bars: [GUIHealthBar; 2],
 }
 
 impl GameStatus {
     fn new() -> GameStatus {
-       /*
-       let texts = [
-            GUIText::new_with_alignment(-1.2, 4.0, "Player", GUIComponentAlignment::Center),
-            GUIText::new_with_alignment(1.4, 4.0, "Enemy", GUIComponentAlignment::Center),
-        ];
-        */
-
-        let health_bars = [
-            GUIHealthBar::new(GUIComponentAlignment::Left, 4.0),
-            GUIHealthBar::new(GUIComponentAlignment::Right,4.0),
-        ];
-
-        GameStatus { health_bars }
+        GameStatus {
+            health_bars: [
+                GUIHealthBar::new(GUIComponentAlignment::Left, 4.0),
+                GUIHealthBar::new(GUIComponentAlignment::Right,4.0),
+            ],
+        }
     }
 
     pub fn set_player_health(&mut self, health: u32) {
@@ -434,8 +410,6 @@ impl GameStatus {
 
 impl GUIUpdatePosition for GameStatus {
     fn update_position_from_half_screen_width(&mut self, width: f32) {
-        //self.texts[0].update_position_from_half_screen_width(width);
-        //self.texts[1].update_position_from_half_screen_width(width);
         self.health_bars[0].update_position_from_half_screen_width(width);
         self.health_bars[1].update_position_from_half_screen_width(width);
     }
@@ -448,16 +422,10 @@ impl GUILayerComponents for GameStatus {
 }
 
 
-pub struct SettingsMenu {
-     buttons: GUIGroup<GUIButton>,
-     texts: Vec<GUIText>,
-}
+pub struct SettingsMenu(BasicGUILayer);
 
 impl SettingsMenu {
     fn new(settings: &Settings) -> SettingsMenu {
-        let width = 5.0;
-        let height = 1.0;
-
         let x_button = -2.0;
         let x_text = 3.0;
         let mut y = 1.5;
@@ -466,7 +434,7 @@ impl SettingsMenu {
         let mut texts = Vec::new();
 
         for setting in settings.get_settings() {
-            gui_group_builder.add(GUIButton::new(x_button, y, width, height, setting.get_name()));
+            gui_group_builder.add(GUIButton::new(x_button, y, BUTTON_WIDTH, BUTTON_HEIGHT, setting.get_name(), GUIEvent::ChangeSetting(setting.get_value())));
 
             let text = match setting.get_value() {
                 SettingType::Boolean(_, true) => "Enabled",
@@ -483,13 +451,13 @@ impl SettingsMenu {
         let buttons = gui_group_builder.create_gui_group();
 
         y -= 0.50;
-        let buttons = buttons.add(GUIButton::new(x_button, y, width, height, "Main Menu"));
+        let buttons = buttons.add(GUIButton::new(x_button, y, BUTTON_WIDTH, BUTTON_HEIGHT, "Main Menu", GUIEvent::ChangeState(GUIState::MainMenu)));
 
-        SettingsMenu {buttons, texts}
+        SettingsMenu(BasicGUILayer {buttons, texts})
     }
 
     fn update_settings_status_texts(&mut self, settings: &Settings) {
-        for (setting, text) in settings.get_settings().iter().zip(self.texts.iter_mut()) {
+        for (setting, text) in settings.get_settings().iter().zip(self.0.texts.iter_mut()) {
 
             let new_text = match setting.get_value() {
                 SettingType::Boolean(_, true) => "Enabled",
@@ -504,20 +472,12 @@ impl SettingsMenu {
 
 impl GUILayerComponents for SettingsMenu {
     fn components<'a>(&'a self) -> GUIComponentReferences<'a> {
-        GUIComponentReferences::new().set_buttons(self.buttons.get_components()).set_texts(&self.texts)
+        self.0.components()
     }
 }
 
-impl GUIBasicLayer for SettingsMenu {
-    fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton> { &mut self.buttons }
-
-    fn event_from_index(&mut self, i: usize) -> Option<GUIEvent> {
-        if i == self.buttons.get_components().len() - 1 {
-            Some(GUIEvent::ChangeState(GUIState::MainMenu))
-        } else {
-            Some(GUIEvent::SettingsUpdate(i))
-        }
-    }
+impl GUILayer for SettingsMenu {
+    fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton<GUIEvent>> { self.0.get_buttons_mut() }
 }
 
 impl GUILayerEventHandler for SettingsMenu {}

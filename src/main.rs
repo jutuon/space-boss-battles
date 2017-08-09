@@ -1,5 +1,5 @@
 /*
-src/main.rs, 2017-08-08
+src/main.rs, 2017-08-09
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -34,7 +34,7 @@ use renderer::{Renderer, OpenGLRenderer};
 use logic::Logic;
 
 use input::{InputManager};
-use gui::{GUI, GUIEvent, GUIState};
+use gui::{GUI, GUIEvent};
 use gui::components::GUIUpdatePosition;
 
 use settings::{Settings};
@@ -198,11 +198,13 @@ impl Game {
                 self.game_logic.update(&self.input, &mut self.gui);
             }
 
-            match self.gui.handle_event(&mut self.input, &mut self.settings) {
+            match self.gui.handle_event(&mut self.input) {
                 None => (),
                 Some(GUIEvent::Exit) => self.quit = true,
                 Some(GUIEvent::ChangeSetting(setting)) => {
-                    self.settings.apply_setting(setting, &mut self.renderer, &mut self.gui, &mut self.game_logic);
+                    let new_setting_value = self.settings.update_setting(setting);
+                    self.gui.update_settings(&self.settings);
+                    self.settings.apply_setting(new_setting_value, &mut self.renderer, &mut self.gui, &mut self.game_logic);
                 },
                 Some(GUIEvent::NewGame(difficulty)) => self.game_logic.reset_game(&mut self.gui, difficulty),
                 _ => (),

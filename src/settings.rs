@@ -1,5 +1,5 @@
 /*
-src/settings.rs, 2017-08-08
+src/settings.rs, 2017-08-09
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -11,8 +11,6 @@ or
 
 MIT License
 */
-
-use gui::GUIEvent;
 
 use std::env;
 use std::fs::File;
@@ -26,7 +24,7 @@ use gui::components::GUIUpdatePosition;
 
 use logic::Logic;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum SettingEvent {
     FullScreen,
     ShowFpsCounter,
@@ -71,12 +69,20 @@ impl Settings {
         &self.settings
     }
 
-    pub fn event_from_index(&mut self, i: usize) -> Option<GUIEvent> {
-        if i >= self.settings.len() {
-            panic!("setting index out of bounds");
-        } else {
-            self.settings[i].update()
+    pub fn update_setting(&mut self, setting_to_be_updated: SettingType) -> SettingType {
+        let SettingType::Boolean(event, _) = setting_to_be_updated;
+
+        for setting in &mut self.settings {
+            match setting.get_value() {
+                SettingType::Boolean(event2, _) => {
+                    if event == event2 {
+                        return setting.update()
+                    }
+                },
+            }
         }
+
+        panic!("setting not found");
     }
 
     pub fn save(&self) {
@@ -273,12 +279,12 @@ impl SettingContainer {
         SettingContainer { name, setting_type }
     }
 
-    pub fn update(&mut self) -> Option<GUIEvent> {
+    pub fn update(&mut self) -> SettingType {
         match self.setting_type {
             SettingType::Boolean(event, value) => self.setting_type = SettingType::Boolean(event, !value),
         }
 
-        Some(GUIEvent::ChangeSetting(self.setting_type))
+        self.setting_type
     }
 
     fn set_value(&mut self, value: SettingType) {

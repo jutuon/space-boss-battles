@@ -1,5 +1,5 @@
 /*
-src/gui/components.rs, 2017-08-07
+src/gui/components.rs, 2017-08-09
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -16,6 +16,8 @@ use cgmath::{Matrix4, Point2, Vector3};
 use cgmath::prelude::*;
 
 use renderer::{ModelMatrix, Color, TileLocationInfo};
+
+use super::GUIEvent;
 
 macro_rules! impl_model_matrix {
     ( $x:ty ) => {
@@ -42,6 +44,10 @@ macro_rules! impl_color {
             }
         }
     }
+}
+
+pub trait GUIActionData<T: Clone + Copy> {
+    fn action_data(&self) -> T;
 }
 
 pub trait GUICollision {
@@ -100,10 +106,6 @@ impl GUIRectangle<f32> {
         &mut self.position
     }
 
-    fn position(&self) -> &Point2<f32> {
-        &self.position
-    }
-
     fn set_width(&mut self, width: f32) {
         self.width = width;
     }
@@ -116,18 +118,20 @@ impl GUIRectangle<f32> {
 impl_model_matrix!(GUIRectangle<f32>);
 
 
-pub struct GUIButton {
+pub struct GUIButton<T: Clone + Copy> {
     rectangle: GUIRectangle<f32>,
     text: GUIText,
     color: Vector3<f32>,
+    action_data: T,
 }
 
-impl GUIButton {
-    pub fn new(x: f32, y: f32, width: f32, height: f32, text: &str) -> GUIButton {
+impl <T: Clone + Copy> GUIButton<T> {
+    pub fn new(x: f32, y: f32, width: f32, height: f32, text: &str, action_data: T) -> GUIButton<T> {
         let mut button = GUIButton {
             rectangle: GUIRectangle::new(x, y, width, height),
             text: GUIText::new(x, y, text),
             color: Vector3::zero(),
+            action_data,
         };
 
         button.set_state(GUIComponentState::Normal);
@@ -140,17 +144,22 @@ impl GUIButton {
     }
 }
 
-impl_model_matrix!(GUIButton, rectangle);
-impl_color!(GUIButton);
+impl_model_matrix!(GUIButton<GUIEvent>, rectangle);
+impl_color!(GUIButton<GUIEvent>);
 
+impl <T: Clone + Copy> GUIActionData<T> for GUIButton<T> {
+    fn action_data(&self) -> T {
+        self.action_data
+    }
+}
 
-impl GUICollision for GUIButton {
+impl <T: Clone + Copy> GUICollision for GUIButton<T> {
     fn collision(&self, point: &Point2<f32>) -> bool {
         self.rectangle.axis_aligned_rectangle_and_point_collision(point)
     }
 }
 
-impl SetGUIComponentState for GUIButton {
+impl <T: Clone + Copy> SetGUIComponentState for GUIButton<T> {
     fn set_state(&mut self, state: GUIComponentState) {
         let color_selected = Vector3::new(0.0,0.0,1.0);
         let color_normal = Vector3::new(0.0,0.0,0.4);
@@ -159,7 +168,6 @@ impl SetGUIComponentState for GUIButton {
             GUIComponentState::Normal => self.color = color_normal,
             GUIComponentState::Selected => self.color = color_selected,
         }
-
     }
 }
 
@@ -198,7 +206,7 @@ pub struct GUIGroup<T: SetGUIComponentState> {
     selected: usize,
 }
 
-impl <T: SetGUIComponentState + GUICollision> GUIGroup<T> {
+impl <T: SetGUIComponentState + GUICollision + GUIActionData<GUIEvent>> GUIGroup<T> {
     pub fn new(mut first_component: T) -> GUIGroup<T> {
         let mut vec = Vec::new();
         first_component.set_state(GUIComponentState::Selected);
@@ -245,18 +253,18 @@ impl <T: SetGUIComponentState + GUICollision> GUIGroup<T> {
         self.components[self.selected].set_state(GUIComponentState::Selected);
     }
 
-    pub fn get_selection_index(&self) -> usize {
-        self.selected
+    pub fn action_of_currently_selected_component(&self) -> GUIEvent {
+        self.components[self.selected].action_data()
     }
 
     pub fn get_components(&self) -> &[T] {
         self.components.as_slice()
     }
 
-    pub fn get_collision_index(&self, point: &Point2<f32>) -> Option<usize> {
-        for (i, button) in self.components.iter().enumerate() {
+    pub fn check_collision_and_return_action(&self, point: &Point2<f32>) -> Option<GUIEvent> {
+        for button in &self.components {
             if button.collision(point) {
-                return Some(i);
+                return Some(button.action_data());
             }
         };
 
@@ -605,7 +613,7 @@ impl GUIHealthBar {
         let max_width = 3.0;
         let height = 0.5;
 
-        let mut health_bar = GUIHealthBar {
+        let health_bar = GUIHealthBar {
             rectangle: GUIRectangle::new(0.0,y,max_width,height),
             color: Vector3::zero(),
             alignment,
