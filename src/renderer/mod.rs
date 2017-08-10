@@ -31,7 +31,7 @@ use renderer::shader::*;
 use sdl2::VideoSubsystem;
 use sdl2::video::{Window, FullscreenType, GLProfile, GLContext};
 
-use logic::{Logic};
+use logic::{Logic, LaserColor};
 
 use gui::{GUI, GUILayerComponents};
 use gui::components::*;
@@ -99,24 +99,48 @@ impl Renderer for OpenGLRenderer {
         if logic.get_enemy().visible() {
             self.textures[Textures::Enemy as usize].bind();
             self.draw_rectangle_with_texture(logic.get_enemy());
+
+            if logic.get_enemy().get_laser_cannon_top().visible() {
+                self.textures[Textures::Enemy as usize].bind();
+                self.draw_rectangle_with_texture(logic.get_enemy().get_laser_cannon_top());
+            }
+
+            if logic.get_enemy().get_laser_cannon_bottom().visible() {
+                self.textures[Textures::Enemy as usize].bind();
+                self.draw_rectangle_with_texture(logic.get_enemy().get_laser_cannon_bottom());
+            }
         }
 
         self.color_shader.use_program();
 
-        let color = Vector3::new(0.0,0.0,1.0);
+        let color_blue = Vector3::new(0.0,0.0,1.0);
+        let color_red = Vector3::new(1.0,0.0,0.0);
+        let color_green = Vector3::new(0.0,0.5,0.0);
+        let color_particle = Vector3::from_value(0.3);
+
+        if logic.get_enemy().get_shield().visible() {
+            self.draw_color_rectangle_with_color(logic.get_enemy().get_shield(), &color_particle);
+        }
+
         for laser in logic.get_player().get_lasers() {
-            self.draw_color_rectangle_with_color(laser, &color);
+            self.draw_color_rectangle_with_color(laser, &color_green);
         }
 
-        let color = Vector3::new(1.0,0.0,0.0);
         for laser in logic.get_enemy().get_lasers() {
-            self.draw_color_rectangle_with_color(laser, &color);
+            if let LaserColor::Red = laser.color() {
+                self.draw_color_rectangle_with_color(laser, &color_red);
+            } else {
+                self.draw_color_rectangle_with_color(laser, &color_blue);
+            }
         }
 
-        let color = Vector3::from_value(0.3);
+        for laser_bomb in logic.get_enemy().get_laser_bombs() {
+            self.draw_color_rectangle_with_color(laser_bomb, &color_blue);
+        }
+
         if logic.get_explosion().visible() {
             for particle in logic.get_explosion().particles() {
-                self.draw_color_rectangle_with_color(particle, &color);
+                self.draw_color_rectangle_with_color(particle, &color_particle);
             }
         }
     }

@@ -92,6 +92,12 @@ pub trait GameObject
         self.data_mut().update_model_matrix_position();
     }
 
+    fn set_position_y(&mut self, y: f32) {
+        self.data_mut().position.y = y;
+
+        self.data_mut().update_model_matrix_position();
+    }
+
     fn circle_collision<T: GameObjectData<f32>>(&self, game_object: &T) -> bool {
         if !self.outer_square_collision(game_object) {
             return false;

@@ -22,11 +22,12 @@ use time::PreciseTime;
 use Timer;
 
 use std::f32::consts;
+use std::convert::From;
 
 use gui::{GUI, GUIState, GUIEvent};
 
 use renderer::ModelMatrix;
-use cgmath::Matrix4;
+use cgmath::{Matrix4, Point2};
 
 use rand::{Rng, ThreadRng};
 use rand;
@@ -47,6 +48,20 @@ pub enum Difficulty {
     Normal,
     Hard,
 }
+
+#[derive(Copy, Clone)]
+pub enum LaserColor {
+    Red,
+    Green,
+    Blue,
+}
+
+#[derive(Copy, Clone)]
+pub enum EnemyType {
+    Normal,
+    Shield,
+}
+
 
 struct LogicSettings {
     screen_width_half: f32,
@@ -125,6 +140,7 @@ impl Logic {
             if health == 0 {
                 self.player.lasers.clear();
                 self.enemy.lasers.clear();
+                self.enemy.laser_bombs.clear();
 
                 self.game_running = false;
                 self.explosion.start_explosion(&self.player);
@@ -137,6 +153,7 @@ impl Logic {
             if health == 0 {
                 self.player.lasers.clear();
                 self.enemy.lasers.clear();
+                self.enemy.laser_bombs.clear();
 
                 self.game_running = false;
                 self.explosion.start_explosion(&self.enemy);
@@ -148,7 +165,7 @@ impl Logic {
                 gui.handle_gui_event(GUIEvent::ChangeState(GUIState::GameOverScreen));
                 self.player.visible = false;
             } else {
-                if self.level == 1 {
+                if self.level == 3 {
                     gui.handle_gui_event(GUIEvent::ChangeState(GUIState::PlayerWinsScreen));
                 } else {
                     gui.handle_gui_event(GUIEvent::ChangeState(GUIState::NextLevelScreen));
@@ -200,6 +217,8 @@ impl Logic {
         if let Some(health) = self.enemy.health() {
             gui.get_game_status().set_enemy_health(health);
         }
+
+        self.explosion.visible = false;
     }
 
     pub fn reset_to_next_level(&mut self, gui: &mut GUI) {
@@ -400,7 +419,7 @@ impl Player {
         self.move_position(x_speed, y_speed);
 
         if input.shoot() && self.laser_timer.check(PreciseTime::now(), 400) {
-            let laser = Laser::new(self.data().position.x + 0.6, self.data().position.y);
+            let laser = Laser::new(self.data().position.x + 0.6, self.data().position.y, LaserColor::Green);
             self.lasers.push(laser);
         }
 
@@ -428,9 +447,26 @@ impl Player {
 
             if laser.destroy() {
                 remove = (true, i);
-            } else if enemy.circle_collision(laser) {
-                remove = (true, i);
-                enemy.update_health(-logic_settings.player_laser_damage);
+            } else {
+                if let EnemyType::Shield = enemy.enemy_type {
+                    if enemy.shield.visible && enemy.shield.circle_collision(laser) {
+                        remove = (true, i);
+                    } else if enemy.laser_cannon_bottom.circle_collision(laser) {
+                        enemy.laser_cannon_bottom.parent_object_shield_enabled = false;
+                        remove = (true, i);
+                    } else if enemy.laser_cannon_top.circle_collision(laser) {
+                        enemy.laser_cannon_top.parent_object_shield_enabled = false;
+                        remove = (true, i);
+                    } else if !enemy.shield.visible && enemy.circle_collision(laser)  {
+                        remove = (true, i);
+                        enemy.update_health(-logic_settings.player_laser_damage);
+                    }
+                } else {
+                    if enemy.circle_collision(laser) {
+                        remove = (true, i);
+                        enemy.update_health(-logic_settings.player_laser_damage);
+                    }
+                }
             }
         }
 
@@ -446,7 +482,7 @@ impl Player {
             self.health = 0;
         }
 
-        println!("player health: {}", self.health);
+        //println!("player health: {}", self.health);
         self.health_update = true;
     }
 
@@ -482,14 +518,22 @@ pub struct Laser {
     data: Data<f32>,
     speed: f32,
     destroy: bool,
+    color: LaserColor,
 }
 
 impl Laser {
-    fn new(x: f32, y: f32) -> Laser {
+    fn new(x: f32, y: f32, color: LaserColor) -> Laser {
         let data = Data::new(x, y, 0.3, 0.1);
         let speed = 0.08;
         let destroy = false;
-        Laser { data, speed, destroy }
+        Laser { data, speed, destroy, color }
+    }
+
+    fn new_with_width_and_height(x: f32, y: f32, color: LaserColor, width: f32, height: f32) -> Laser {
+        let data = Data::new(x, y, width, height);
+        let speed = 0.08;
+        let destroy = false;
+        Laser { data, speed, destroy, color }
     }
 
     fn update(&mut self, logic_settings: &LogicSettings) {
@@ -503,6 +547,10 @@ impl Laser {
         if self.outside_allowed_area(&area) {
             self.destroy = true;
         }
+    }
+
+    pub fn color(&self) -> LaserColor {
+        self.color
     }
 }
 
@@ -533,18 +581,40 @@ pub struct Enemy {
     health: i32,
     health_update: bool,
     visible: bool,
+    enemy_type: EnemyType,
+    laser_cannon_top: LaserCannon,
+    laser_cannon_bottom: LaserCannon,
+    laser_bombs: Vec<LaserBomb>,
+    laser_bomb_timer: Timer,
+    laser_bomb_enabled: bool,
+    shield: Shield,
 }
 
 impl Enemy {
     fn new() -> Enemy {
         let data = Data::new(0.0, 0.0, 0.0, 0.0);
 
-        let speed = 0.05;
+        let speed = 0.04;
         let lasers = vec![];
         let laser_timer = Timer::new();
         let health = 100;
         let health_update = true;
-        Enemy { data, speed, lasers, laser_timer, health, health_update, visible: true }
+        Enemy {
+            data,
+            speed,
+            lasers,
+            laser_timer,
+            health,
+            health_update,
+            visible: true,
+            enemy_type: EnemyType::Normal,
+            laser_cannon_top: LaserCannon::new(true),
+            laser_cannon_bottom: LaserCannon::new(false),
+            laser_bombs: Vec::new(),
+            laser_bomb_timer: Timer::new(),
+            laser_bomb_enabled: true,
+            shield: Shield::new(0.0,0.0),
+        }
     }
 
     fn reset(&mut self, logic_settings: &LogicSettings, level: u32) {
@@ -552,8 +622,29 @@ impl Enemy {
         self.lasers.clear();
         self.health = 100;
         self.health_update = true;
-        self.laser_timer.reset(PreciseTime::now());
+
+        let time = PreciseTime::now();
+
+        self.laser_bomb_timer.reset(time);
+        self.laser_timer.reset(time);
         self.visible = true;
+
+        if level == 0 || level == 2 {
+            self.enemy_type = EnemyType::Normal;
+        } else {
+            self.enemy_type = EnemyType::Shield;
+        }
+
+        if level >= 2 {
+            self.laser_bomb_enabled = true;
+        } else {
+            self.laser_bomb_enabled = false;
+        }
+        self.laser_bombs.clear();
+
+        self.laser_cannon_bottom.reset(self.data.position, level, time);
+        self.laser_cannon_top.reset(self.data.position, level, time);
+        self.shield.reset(self.data.position, level);
     }
 
     fn update(&mut self, player: &mut Player, logic_settings: &LogicSettings) {
@@ -562,14 +653,21 @@ impl Enemy {
         self.move_position(0.0, speed);
 
         let width = logic_settings.screen_width_half - 0.5;
-        let height = 4.0;
+        let height = if let EnemyType::Shield = self.enemy_type {
+            2.0
+        } else {
+            4.0
+        };
+
         let area = Rectangle::new(-width, width, -height, height - 1.0);
 
         if self.stay_at_area(&area) {
             self.speed *= -1.0;
         }
 
-        if self.laser_timer.check(PreciseTime::now(), 1000) {
+        let current_time = PreciseTime::now();
+
+        if self.laser_timer.check(current_time, 1000) {
             self.create_laser(consts::PI);
             if self.health < 25 {
                 self.create_laser(consts::PI * 0.9);
@@ -580,6 +678,30 @@ impl Enemy {
         }
 
         self.clean_and_update_lasers(player, logic_settings);
+
+        let y = self.data().position.y;
+        self.laser_cannon_bottom.update(y, current_time, logic_settings, &mut self.lasers);
+        self.laser_cannon_top.update(y, current_time, logic_settings, &mut self.lasers);
+
+        if self.laser_bomb_enabled {
+            self.clean_and_update_laser_bombs(player, logic_settings, current_time);
+
+            if self.laser_bomb_timer.check(current_time, 3000) {
+                self.create_laser_bomb();
+            }
+        }
+
+        if let EnemyType::Shield = self.enemy_type {
+            if self.shield.update(self.data.position.y, current_time) {
+                self.laser_cannon_top.parent_object_shield_enabled = true;
+                self.laser_cannon_bottom.parent_object_shield_enabled = true;
+            }
+
+            if self.shield.visible && !self.laser_cannon_top.parent_object_shield_enabled && !self.laser_cannon_bottom.parent_object_shield_enabled {
+                self.shield.disable(current_time);
+            }
+        }
+
     }
 
     pub fn get_lasers(&self) -> &Vec<Laser> {
@@ -605,10 +727,49 @@ impl Enemy {
         }
     }
 
+    fn clean_and_update_laser_bombs(&mut self, player: &mut Player, logic_settings: &LogicSettings, time: PreciseTime) {
+        let mut remove = (false, 0);
+
+        for (i, laser_bomb) in self.laser_bombs.iter_mut().enumerate() {
+            laser_bomb.update(time, logic_settings, &mut self.lasers);
+
+            if laser_bomb.destroy() {
+                remove = (true, i);
+            } else if player.circle_collision(laser_bomb) {
+                remove = (true, i);
+                player.update_health(-logic_settings.enemy_laser_damage);
+            }
+        }
+
+        if let (true, i) = remove {
+            self.laser_bombs.swap_remove(i);
+        }
+    }
+
     fn create_laser(&mut self, rotation: f32) {
-        let mut laser = Laser::new(self.data().position.x - 0.6, self.data().position.y);
+        let mut laser = Laser::new(self.data().position.x - 0.6, self.data().position.y, LaserColor::Red);
         laser.turn(rotation);
         self.lasers.push(laser);
+    }
+
+    fn create_laser_bomb(&mut self) {
+        let mut laser_bomb = match self.enemy_type {
+            EnemyType::Normal => {
+                LaserBomb::new(self.data().position.x - 0.6, self.data().position.y)
+            },
+            EnemyType::Shield => {
+                if self.laser_cannon_top.laser_bombs_enabled {
+                    self.laser_cannon_top.laser_bombs_enabled = false;
+                    LaserBomb::new(self.laser_cannon_top.data().position.x - 0.6, self.laser_cannon_top.data().position.y)
+                } else {
+                    self.laser_cannon_top.laser_bombs_enabled = true;
+                    LaserBomb::new(self.laser_cannon_bottom.data().position.x - 0.6, self.laser_cannon_bottom.data().position.y)
+                }
+            },
+        };
+
+        laser_bomb.turn(consts::PI);
+        self.laser_bombs.push(laser_bomb);
     }
 
     pub fn update_health(&mut self, amount: i32) {
@@ -618,7 +779,7 @@ impl Enemy {
             self.health = 0;
         }
 
-        println!("enemy health: {}", self.health);
+        //println!("enemy health: {}", self.health);
         self.health_update = true;
     }
 
@@ -633,6 +794,22 @@ impl Enemy {
 
     pub fn visible(&self) -> bool {
         self.visible
+    }
+
+    pub fn get_laser_cannon_top(&self) -> &LaserCannon {
+        &self.laser_cannon_top
+    }
+
+    pub fn get_laser_cannon_bottom(&self) -> &LaserCannon {
+        &self.laser_cannon_bottom
+    }
+
+    pub fn get_laser_bombs(&self) -> &Vec<LaserBomb> {
+        &self.laser_bombs
+    }
+
+    pub fn get_shield(&self) -> &Shield {
+        &self.shield
     }
 }
 
@@ -649,6 +826,217 @@ impl GameObjectData<f32> for Enemy {
         &mut self.data
     }
 }
+
+
+pub struct Shield {
+    data: Data<f32>,
+    visible: bool,
+    timer: Timer,
+}
+
+impl Shield {
+    fn new(x: f32, y: f32) -> Shield {
+        let size = 1.1;
+        Shield {
+            data: Data::new(x, y, size, size),
+            visible: false,
+            timer: Timer::new(),
+        }
+    }
+
+    fn reset(&mut self, parent_position: Point2<f32>, level: u32) {
+        if level == 1 || level == 3 {
+            self.visible = true;
+        } else {
+            self.visible = false;
+            return;
+        }
+
+        self.set_position(parent_position.x, 0.0);
+        self.update_position(parent_position.y);
+    }
+
+    fn update(&mut self, parent_position_y: f32, current_time: PreciseTime) -> bool {
+        self.update_position(parent_position_y);
+
+        if !self.visible && self.timer.check(current_time, 10_000) {
+            self.visible = true;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn update_position(&mut self, parent_object_y: f32) {
+        self.set_position_y(parent_object_y);
+    }
+
+    pub fn visible(&self) -> bool {
+        self.visible
+    }
+
+    pub fn disable(&mut self, current_time: PreciseTime) {
+        self.timer.reset(current_time);
+        self.visible = false;
+    }
+}
+
+impl GameObject for Shield {}
+impl_model_matrix!(Shield);
+
+
+impl GameObjectData<f32> for Shield {
+    fn data(&self) -> &Data<f32> {
+        &self.data
+    }
+    fn data_mut(&mut self) -> &mut Data<f32> {
+        &mut self.data
+    }
+}
+
+
+pub struct LaserCannon {
+    data: Data<f32>,
+    cannon_position_top: bool,
+    visible: bool,
+    laser_bombs_enabled: bool,
+    laser_timer: Timer,
+    parent_object_shield_enabled: bool,
+}
+
+impl LaserCannon {
+    fn new(cannon_position_top: bool) -> LaserCannon {
+        let size = 0.5;
+
+        LaserCannon {
+            data: Data::new(0.0, 0.0, size, size),
+            cannon_position_top,
+            visible: false,
+            laser_bombs_enabled: false,
+            laser_timer: Timer::new(),
+            parent_object_shield_enabled: true,
+        }
+    }
+
+    fn reset(&mut self, parent_position: Point2<f32>, level: u32, current_time: PreciseTime) {
+        if level == 1 || level == 3 {
+            self.visible = true;
+        } else {
+            self.visible = false;
+            return;
+        }
+
+        self.set_position(parent_position.x, 0.0);
+        self.update_position(parent_position.y);
+
+        if level == 3 && self.cannon_position_top {
+            self.laser_bombs_enabled = true;
+        } else {
+            self.laser_bombs_enabled = false;
+        }
+
+        self.laser_timer.reset(current_time);
+
+        self.parent_object_shield_enabled = true;
+    }
+
+    fn update(&mut self, parent_position_y: f32, current_time: PreciseTime, logic_settings: &LogicSettings, parents_lasers: &mut Vec<Laser>) {
+        if !self.visible {
+            return;
+        }
+
+        if self.laser_timer.check(current_time, 1000) {
+            let mut laser = Laser::new(self.data().position.x - 0.6, self.data().position.y, LaserColor::Red);
+            laser.turn(consts::PI);
+            parents_lasers.push(laser);
+        }
+
+        self.update_position(parent_position_y);
+    }
+
+    fn update_position(&mut self, parent_object_y: f32) {
+        if self.cannon_position_top {
+            self.set_position_y(parent_object_y + 2.0);
+        } else {
+            self.set_position_y(parent_object_y - 2.0);
+        }
+    }
+
+    pub fn visible(&self) -> bool {
+        self.visible
+    }
+}
+
+impl GameObject for LaserCannon {}
+impl_model_matrix!(LaserCannon);
+
+
+impl GameObjectData<f32> for LaserCannon {
+    fn data(&self) -> &Data<f32> {
+        &self.data
+    }
+    fn data_mut(&mut self) -> &mut Data<f32> {
+        &mut self.data
+    }
+}
+
+
+pub struct LaserBomb {
+    laser: Laser,
+    timer: Timer,
+}
+
+impl LaserBomb {
+    fn new(x: f32, y: f32) -> LaserBomb {
+        let size = 0.25;
+        LaserBomb {
+            laser: Laser::new_with_width_and_height(x, y, LaserColor::Blue, size, size),
+            timer: Timer::new(),
+        }
+    }
+
+    fn update(&mut self, current_time: PreciseTime, logic_settings: &LogicSettings, parent_lasers: &mut Vec<Laser>) {
+        self.laser.update(logic_settings);
+
+        if self.timer.check(current_time, 1000) {
+            let laser_count : u16 = 15;
+            let mut angle = 0.0;
+            let angle_between_lasers = (consts::PI*2.0) / f32::from(laser_count);
+
+            for _ in 0..laser_count {
+                let mut laser = Laser::new(self.data().position.x - 0.6, self.data().position.y, LaserColor::Blue);
+                laser.turn(angle);
+                parent_lasers.push(laser);
+
+                angle += angle_between_lasers;
+            }
+
+            self.laser.destroy = true;
+        }
+    }
+}
+
+impl CanDestroy for LaserBomb {
+    fn destroy(&self) -> bool {
+        self.laser.destroy()
+    }
+}
+
+impl GameObject for LaserBomb {}
+impl_model_matrix!(LaserBomb);
+
+
+impl GameObjectData<f32> for LaserBomb {
+    fn data(&self) -> &Data<f32> {
+        &self.laser.data
+    }
+    fn data_mut(&mut self) -> &mut Data<f32> {
+        &mut self.laser.data
+    }
+}
+
+
+
 
 
 pub struct Background {
