@@ -1,5 +1,5 @@
 /*
-src/main.rs, 2017-08-09
+src/main.rs, 2017-08-10
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -18,6 +18,7 @@ extern crate gl;
 extern crate time;
 extern crate image;
 extern crate cgmath;
+extern crate rand;
 
 
 mod gui;
@@ -317,6 +318,10 @@ pub struct Timer {
 impl Timer {
     pub fn new() -> Timer {
         Timer {update_time: PreciseTime::now()}
+    }
+
+    pub fn new_from_time(time: PreciseTime) -> Timer {
+        Timer { update_time: time }
     }
 
     pub fn check(&mut self, current_time: PreciseTime, timer_reset_milliseconds: i64) -> bool {

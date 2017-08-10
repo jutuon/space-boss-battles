@@ -36,7 +36,12 @@ pub trait GameObject
     fn turn(&mut self, angle: f32) {
         self.data_mut().rotation += angle;
 
-        self.data_mut().update_rotation();
+        self.data_mut().update_rotation(true);
+    }
+
+    fn turn_without_updating_model_matrix(&mut self, angle: f32) {
+        self.data_mut().rotation += angle;
+        self.data_mut().update_rotation(false);
     }
 
     fn outside_allowed_area(&self, area: &Rectangle) -> bool {
@@ -188,18 +193,20 @@ impl Data<f32> {
         let radius_inner = f32::min(width, height)/2.0;
 
         let mut data = Data {model_matrix, position, direction, width, height, rotation, radius_outer, radius_inner};
-        data.update_rotation();
+        data.update_rotation(true);
 
         data
     }
 
-    fn update_rotation(&mut self) {
+    fn update_rotation(&mut self, update_model_matrix: bool) {
         let rotation_matrix = Matrix4::from_angle_z(Rad(self.rotation));
 
         self.direction = (rotation_matrix * Vector4::unit_x()).truncate().truncate();
 
-        let scale_matrix = Matrix4::from_nonuniform_scale(self.width, self.height, 1.0);
-        self.model_matrix = rotation_matrix * scale_matrix;
+        if update_model_matrix {
+            let scale_matrix = Matrix4::from_nonuniform_scale(self.width, self.height, 1.0);
+            self.model_matrix = rotation_matrix * scale_matrix;
+        }
 
         self.update_model_matrix_position();
     }

@@ -115,7 +115,9 @@ impl Renderer for OpenGLRenderer {
 
         let color = Vector3::from_value(0.3);
         if logic.get_explosion().visible() {
-            self.draw_color_rectangle_with_color(logic.get_explosion(), &color);
+            for particle in logic.get_explosion().particles() {
+                self.draw_color_rectangle_with_color(particle, &color);
+            }
         }
     }
 

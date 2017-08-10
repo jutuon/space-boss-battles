@@ -1,5 +1,5 @@
 /*
-src/logic/mod.rs, 2017-08-09
+src/logic/mod.rs, 2017-08-10
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -27,6 +27,9 @@ use gui::{GUI, GUIState, GUIEvent};
 
 use renderer::ModelMatrix;
 use cgmath::Matrix4;
+
+use rand::{Rng, ThreadRng};
+use rand;
 
 macro_rules! impl_model_matrix {
     ( $x:ty ) => {
@@ -113,6 +116,8 @@ impl Logic {
             self.enemy.update(&mut self.player, &self.logic_settings);
             self.moving_background.update();
         }
+
+        self.explosion.update();
 
         if let Some(health) = self.player.health() {
             gui.get_game_status().set_player_health(health);
@@ -209,10 +214,56 @@ impl Logic {
     }
 }
 
+pub struct Particle {
+    data: Data<f32>,
+    speed: f32,
+    lifetime_timer: Timer,
+    lifetime_as_milliseconds: i64,
+}
+
+impl Particle {
+    fn new(current_time: PreciseTime, x: f32, y: f32, angle: f32, speed: f32, lifetime_as_milliseconds: i64) -> Particle {
+
+        let mut particle = Particle {
+            data: Data::new(x, y, 0.1, 0.1),
+            speed,
+            lifetime_timer: Timer::new_from_time(current_time),
+            lifetime_as_milliseconds,
+        };
+        particle.turn_without_updating_model_matrix(angle);
+
+        particle
+    }
+
+    fn update(&mut self, current_time: PreciseTime) -> bool {
+        let speed = self.speed;
+        self.forward(speed);
+
+        self.lifetime_timer.check(current_time, self.lifetime_as_milliseconds)
+    }
+}
+
+impl GameObject for Particle {}
+impl_model_matrix!(Particle);
+
+impl GameObjectData<f32> for Particle {
+    fn data(&self) -> &Data<f32> {
+        &self.data
+    }
+    fn data_mut(&mut self) -> &mut Data<f32> {
+        &mut self.data
+    }
+}
+
+
 pub struct Explosion {
     data: Data<f32>,
     visible: bool,
     timer: Timer,
+    particles: Vec<Particle>,
+    particle_creation_timer: Timer,
+    rng: ThreadRng,
+    remove_at_index: Vec<usize>,
 }
 
 impl Explosion {
@@ -221,17 +272,23 @@ impl Explosion {
             data: Data::new(0.0,0.0,0.5,0.5),
             visible: false,
             timer: Timer::new(),
+            particles: Vec::new(),
+            particle_creation_timer: Timer::new(),
+            rng: rand::thread_rng(),
+            remove_at_index: Vec::new(),
         }
     }
 
     pub fn start_explosion<T: GameObject>(&mut self, object: &T) {
-        self.timer.reset(PreciseTime::now());
+        let current_time = PreciseTime::now();
+        self.timer.reset(current_time);
         self.set_position(object.data().position.x, object.data().position.y);
         self.visible = true;
+        self.particles.clear();
     }
 
     pub fn explosion_finished(&mut self) -> bool {
-        if self.timer.check(PreciseTime::now(), 1000) {
+        if self.timer.check(PreciseTime::now(), 1500) {
             self.visible = false;
             true
         } else {
@@ -239,8 +296,45 @@ impl Explosion {
         }
     }
 
+    pub fn update(&mut self) {
+        if !self.visible {
+            return;
+        }
+
+        let current_time = PreciseTime::now();
+
+        let mut remove_particles = false;
+        for (i,particle) in self.particles.iter_mut().enumerate() {
+            if particle.update(current_time) {
+                self.remove_at_index.push(i);
+                remove_particles = true;
+            }
+        }
+
+        if remove_particles {
+            for i in self.remove_at_index.iter().rev() {
+                self.particles.remove(*i);
+            }
+            self.remove_at_index.clear();
+        }
+
+        if self.particle_creation_timer.check(current_time, 500) {
+            let particle_count = 15;
+            let circle_in_radians = consts::PI*2.0;
+            for _ in 0..particle_count {
+                let x = self.data().position.x;
+                let y = self.data().position.y;
+                self.particles.push(Particle::new(current_time, x, y, circle_in_radians * self.rng.gen::<f32>(), (self.rng.gen::<f32>()*0.02).max(0.01), (self.rng.gen::<u32>()%400+500) as i64));
+            }
+        }
+    }
+
     pub fn visible(&self) -> bool {
         self.visible
+    }
+
+    pub fn particles(&self) -> &Vec<Particle> {
+        &self.particles
     }
 }
 
