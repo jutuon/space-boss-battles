@@ -1,5 +1,5 @@
 /*
-src/renderer/texture.rs, 2017-08-06
+src/renderer/texture.rs, 2017-08-11
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -25,6 +25,9 @@ pub enum Textures {
     Enemy,
     Background,
     Font,
+    Shield,
+    LaserCannonGreen,
+    LaserCannonRed,
     TextureCount,
 }
 
@@ -35,6 +38,9 @@ impl Textures {
             Textures::load("game_files/images/enemy1.png"),
             Textures::load("game_files/images/background.png"),
             Textures::load("game_files/images/tilemap-font.png"),
+            Textures::load("game_files/images/shield.png"),
+            Textures::load("game_files/images/laser_cannon_green.png"),
+            Textures::load("game_files/images/laser_cannon_red.png"),
         ]
     }
 

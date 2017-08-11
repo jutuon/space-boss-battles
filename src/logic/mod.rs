@@ -847,7 +847,7 @@ pub struct Shield {
 
 impl Shield {
     fn new(x: f32, y: f32) -> Shield {
-        let size = 1.1;
+        let size = 1.5;
         Shield {
             data: Data::new(x, y, size, size),
             visible: false,
@@ -917,7 +917,7 @@ pub struct LaserCannon {
 
 impl LaserCannon {
     fn new(cannon_position_top: bool) -> LaserCannon {
-        let size = 0.5;
+        let size = 0.7;
 
         LaserCannon {
             data: Data::new(0.0, 0.0, size, size),
@@ -957,7 +957,7 @@ impl LaserCannon {
         }
 
         if self.laser_timer.check(current_time, 1000) {
-            let mut laser = Laser::new(self.data().position.x - 0.6, self.data().position.y, LaserColor::Red);
+            let mut laser = Laser::new(self.data().position.x - 0.5, self.data().position.y, LaserColor::Red);
             laser.turn(consts::PI);
             parents_lasers.push(laser);
         }
@@ -975,6 +975,10 @@ impl LaserCannon {
 
     pub fn visible(&self) -> bool {
         self.visible
+    }
+
+    pub fn green_color(&self) -> bool {
+        self.parent_object_shield_enabled
     }
 }
 

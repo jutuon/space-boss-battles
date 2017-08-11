@@ -1,5 +1,5 @@
 /*
-src/renderer/mod.rs, 2017-08-09
+src/renderer/mod.rs, 2017-08-11
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -101,13 +101,26 @@ impl Renderer for OpenGLRenderer {
             self.draw_rectangle_with_texture(logic.get_enemy());
 
             if logic.get_enemy().get_laser_cannon_top().visible() {
-                self.textures[Textures::Enemy as usize].bind();
+                if logic.get_enemy().get_laser_cannon_top().green_color() {
+                    self.textures[Textures::LaserCannonGreen as usize].bind();
+                } else {
+                    self.textures[Textures::LaserCannonRed as usize].bind();
+                }
                 self.draw_rectangle_with_texture(logic.get_enemy().get_laser_cannon_top());
             }
 
             if logic.get_enemy().get_laser_cannon_bottom().visible() {
-                self.textures[Textures::Enemy as usize].bind();
+                if logic.get_enemy().get_laser_cannon_bottom().green_color() {
+                    self.textures[Textures::LaserCannonGreen as usize].bind();
+                } else {
+                    self.textures[Textures::LaserCannonRed as usize].bind();
+                }
                 self.draw_rectangle_with_texture(logic.get_enemy().get_laser_cannon_bottom());
+            }
+
+            if logic.get_enemy().get_shield().visible() {
+                self.textures[Textures::Shield as usize].bind();
+                self.draw_rectangle_with_texture(logic.get_enemy().get_shield());
             }
         }
 
@@ -117,10 +130,6 @@ impl Renderer for OpenGLRenderer {
         let color_red = Vector3::new(1.0,0.0,0.0);
         let color_green = Vector3::new(0.0,0.5,0.0);
         let color_particle = Vector3::from_value(0.3);
-
-        if logic.get_enemy().get_shield().visible() {
-            self.draw_color_rectangle_with_color(logic.get_enemy().get_shield(), &color_particle);
-        }
 
         for laser in logic.get_player().get_lasers() {
             self.draw_color_rectangle_with_color(laser, &color_green);
