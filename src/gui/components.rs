@@ -1,5 +1,5 @@
 /*
-src/gui/components.rs, 2017-08-09
+src/gui/components.rs, 2017-08-11
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -48,6 +48,7 @@ macro_rules! impl_color {
 
 pub trait GUIActionData<T: Clone + Copy> {
     fn action_data(&self) -> T;
+    fn set_action_data(&mut self, data: T);
 }
 
 pub trait GUICollision {
@@ -151,6 +152,10 @@ impl <T: Clone + Copy> GUIActionData<T> for GUIButton<T> {
     fn action_data(&self) -> T {
         self.action_data
     }
+
+    fn set_action_data(&mut self, data: T) {
+        self.action_data = data;
+    }
 }
 
 impl <T: Clone + Copy> GUICollision for GUIButton<T> {
@@ -253,12 +258,20 @@ impl <T: SetGUIComponentState + GUICollision + GUIActionData<GUIEvent>> GUIGroup
         self.components[self.selected].set_state(GUIComponentState::Selected);
     }
 
+    pub fn set_action_of_currently_selected_component(&mut self, action: GUIEvent) {
+        self.components[self.selected].set_action_data(action);
+    }
+
     pub fn action_of_currently_selected_component(&self) -> GUIEvent {
         self.components[self.selected].action_data()
     }
 
     pub fn get_components(&self) -> &[T] {
         self.components.as_slice()
+    }
+
+    pub fn get_components_mut(&mut self) -> &mut [T] {
+        self.components.as_mut_slice()
     }
 
     pub fn check_collision_and_return_action(&self, point: &Point2<f32>) -> Option<GUIEvent> {
@@ -587,6 +600,7 @@ pub struct GUIHealthBar {
     color: Vector3<f32>,
     alignment: GUIComponentAlignment,
     max_value: u32,
+    low_value: u32,
     max_width: f32,
     x: f32,
     margin: f32,
@@ -595,10 +609,11 @@ pub struct GUIHealthBar {
     border_top: GUIRectangle<f32>,
     border_bottom: GUIRectangle<f32>,
     border_width: f32,
+    change_color_when_low_value: bool,
 }
 
 impl GUIHealthBar {
-    pub fn new(alignment: GUIComponentAlignment, y: f32) -> GUIHealthBar {
+    pub fn new(alignment: GUIComponentAlignment, x: f32, y: f32, max_width: f32, max_value: u32, low_value: u32, change_color_when_low_value: bool) -> GUIHealthBar {
         let margin;
 
         match alignment {
@@ -610,28 +625,29 @@ impl GUIHealthBar {
         let border_width = 0.05;
         let border_height = 0.05;
 
-        let max_width = 3.0;
         let height = 0.5;
 
         let health_bar = GUIHealthBar {
             rectangle: GUIRectangle::new(0.0,y,max_width,height),
             color: Vector3::zero(),
             alignment,
-            max_value: 100,
+            max_value,
+            low_value,
             max_width,
-            x: 0.0,
+            x,
             margin,
             border_left: GUIRectangle::new(0.0, y, border_width, height + border_height*2.0),
             border_right: GUIRectangle::new(0.0, y, border_width, height + border_height*2.0),
             border_top: GUIRectangle::new(0.0, y + (height/2.0 + border_height/2.0), max_width, border_height),
             border_bottom: GUIRectangle::new(0.0, y - (height/2.0 + border_height/2.0), max_width, border_height),
             border_width,
+            change_color_when_low_value,
         };
         health_bar
     }
 
     pub fn update_health(&mut self, health: u32) {
-        if health <= 25 {
+        if health <= self.low_value && self.change_color_when_low_value {
             self.color = Vector3::new(1.0,0.0,0.0);
         } else {
             self.color = Vector3::new(0.0,0.0,1.0);

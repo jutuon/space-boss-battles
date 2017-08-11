@@ -31,7 +31,7 @@ struct SoundEffect {
 }
 
 impl SoundEffect {
-    fn new(mixer_context: &Sdl2MixerContext, file_path: &str) -> SoundEffect {
+    fn new(_mixer_context: &Sdl2MixerContext, file_path: &str) -> SoundEffect {
         SoundEffect {
             channel: Channel::all(),
             chunk: Chunk::from_file(file_path).expect("error"),
@@ -104,13 +104,9 @@ impl SoundEffectManager {
             effect.change_volume(volume);
         }
     }
-
-    pub fn current_volume(&self) -> i32 {
-        self.effect_volume
-    }
 }
 
-fn check_volume_value(volume: i32) -> i32 {
+pub fn check_volume_value(volume: i32) -> i32 {
     if volume > mixer::MAX_VOLUME {
         mixer::MAX_VOLUME
     } else if volume < 0 {
@@ -145,7 +141,7 @@ impl SoundEffectPlayer for SoundEffectManager {
 
 pub struct AudioManager {
     audio_subsystem: AudioSubsystem,
-    mixer_context: Sdl2MixerContext,
+    _mixer_context: Sdl2MixerContext,
     sound_effects: SoundEffectManager,
     music: Option<Music<'static>>,
     music_volume: i32,
@@ -155,7 +151,9 @@ impl AudioManager {
     pub fn new(audio_subsystem: AudioSubsystem) -> AudioManager {
         let mut music_support = true;
 
-        let mixer_context = match mixer::init(mixer::INIT_OGG) {
+        println!("");
+
+        let _mixer_context = match mixer::init(mixer::INIT_OGG) {
             Ok(context) => context,
             Err(error) => {
                 println!("SDL_mixer init error: {}", error);
@@ -175,7 +173,7 @@ impl AudioManager {
 
         mixer::open_audio(mixer::DEFAULT_FREQUENCY, mixer::DEFAULT_FORMAT, mixer::DEFAULT_CHANNELS, 1024).expect("error");
 
-        let sound_effects = SoundEffectManager::new(&mixer_context);
+        let sound_effects = SoundEffectManager::new(&_mixer_context);
 
         let music_default_volume = mixer::MAX_VOLUME;
         Music::set_volume(music_default_volume);
@@ -202,7 +200,7 @@ impl AudioManager {
 
         AudioManager {
             audio_subsystem,
-            mixer_context,
+            _mixer_context,
             sound_effects,
             music,
             music_volume: music_default_volume,
@@ -218,10 +216,6 @@ impl AudioManager {
         self.music_volume = volume;
 
         Music::set_volume(volume);
-    }
-
-    pub fn get_music_volume(&self) -> i32 {
-        self.music_volume
     }
 
     pub fn max_volume() -> i32 {

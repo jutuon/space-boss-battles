@@ -1,5 +1,5 @@
 /*
-src/gui/mod.rs, 2017-08-09
+src/gui/mod.rs, 2017-08-11
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -22,7 +22,10 @@ use gui::components::*;
 
 use input::Input;
 use logic::{Difficulty, MovingBackground};
-use settings::{ Settings, SettingType, Setting};
+use settings::{ Settings, SettingType, Setting, SettingEvent};
+
+use audio::AudioManager;
+use audio;
 
 
 #[derive(Copy, Clone)]
@@ -50,13 +53,14 @@ pub enum GUIState {
 pub trait GUILayer {
     fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton<GUIEvent>>;
 
-    fn layer_specific_operations(&mut self, event: GUIEvent) {}
+    fn layer_specific_operations(&mut self, _event: &mut GUIEvent) {}
+    fn layer_specific_input_handling<T: Input>(&mut self, _input: &mut T) -> Option<GUIEvent> { None }
 }
 
 pub trait GUILayerEventHandler
     where Self: GUILayer {
 
-    fn handle_event<T: Input>(&mut self, input: &mut T) -> Option<GUIEvent> {
+    fn handle_input<T: Input>(&mut self, input: &mut T) -> Option<GUIEvent> {
         if input.key_hit_up() {
             self.get_buttons_mut().selection_up();
             None
@@ -64,13 +68,13 @@ pub trait GUILayerEventHandler
             self.get_buttons_mut().selection_down();
             None
         } else if input.key_hit_enter() {
-            let event = self.get_buttons_mut().action_of_currently_selected_component();
-            self.layer_specific_operations(event);
+            let mut event = self.get_buttons_mut().action_of_currently_selected_component();
+            self.layer_specific_operations(&mut event);
             Some(event)
         } else if input.mouse_button_hit() {
-            let option_event = self.get_buttons_mut().check_collision_and_return_action(input.mouse_location());
+            let mut option_event = self.get_buttons_mut().check_collision_and_return_action(input.mouse_location());
 
-            if let Some(event) = option_event {
+            if let &mut Some(ref mut event) = &mut option_event {
                 self.layer_specific_operations(event);
             }
 
@@ -79,7 +83,7 @@ pub trait GUILayerEventHandler
             self.get_buttons_mut().update_selection(input.mouse_location());
             None
         } else {
-            None
+            self.layer_specific_input_handling(input)
         }
     }
 }
@@ -179,14 +183,10 @@ impl GUI {
         self.update_game
     }
 
-    pub fn update_settings(&mut self, settings: &Settings) {
-        self.settings_menu.update_settings_status_texts(settings);
-    }
-
-    pub fn handle_event<T: Input>(&mut self, input: &mut T) -> Option<GUIEvent> {
+    pub fn handle_input<T: Input>(&mut self, input: &mut T) -> Option<GUIEvent> {
         let event = match self.state {
-            GUIState::MainMenu => self.main_menu.handle_event(input),
-            GUIState::PauseMenu => self.pause_menu.handle_event(input),
+            GUIState::MainMenu => self.main_menu.handle_input(input),
+            GUIState::PauseMenu => self.pause_menu.handle_input(input),
             GUIState::Game => {
                 if input.key_hit_back() {
                     Some(GUIEvent::ChangeState(GUIState::PauseMenu))
@@ -194,11 +194,11 @@ impl GUI {
                     None
                 }
             },
-            GUIState::SettingsMenu => self.settings_menu.handle_event(input),
-            GUIState::DifficultySelectionMenu => self.difficulty_selection_menu.handle_event(input),
-            GUIState::NextLevelScreen => self.next_level_screen.handle_event(input),
-            GUIState::GameOverScreen => self.game_over_screen.handle_event(input),
-            GUIState::PlayerWinsScreen => self.player_wins_screen.handle_event(input),
+            GUIState::SettingsMenu => self.settings_menu.handle_input(input),
+            GUIState::DifficultySelectionMenu => self.difficulty_selection_menu.handle_input(input),
+            GUIState::NextLevelScreen => self.next_level_screen.handle_input(input),
+            GUIState::GameOverScreen => self.game_over_screen.handle_input(input),
+            GUIState::PlayerWinsScreen => self.player_wins_screen.handle_input(input),
 
         };
 
@@ -380,8 +380,8 @@ impl GUILayerComponents for PauseMenu {
 impl GUILayer for PauseMenu {
     fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton<GUIEvent>> { self.0.get_buttons_mut() }
 
-    fn layer_specific_operations(&mut self, event: GUIEvent) {
-        if let GUIEvent::ChangeState(GUIState::MainMenu) = event {
+    fn layer_specific_operations(&mut self, event: &mut GUIEvent) {
+        if let &mut GUIEvent::ChangeState(GUIState::MainMenu) = event {
             self.0.buttons.selection_up();
         }
     }
@@ -398,8 +398,8 @@ impl GameStatus {
     fn new() -> GameStatus {
         GameStatus {
             health_bars: [
-                GUIHealthBar::new(GUIComponentAlignment::Left, 4.0),
-                GUIHealthBar::new(GUIComponentAlignment::Right,4.0),
+                GUIHealthBar::new(GUIComponentAlignment::Left, 0.0, 4.0, 3.0, 100, 25, true),
+                GUIHealthBar::new(GUIComponentAlignment::Right, 0.0, 4.0, 3.0, 100, 25, true),
             ],
         }
     }
@@ -427,62 +427,122 @@ impl GUILayerComponents for GameStatus {
 }
 
 
-pub struct SettingsMenu(BasicGUILayer);
+pub struct SettingsMenu {
+    layer: BasicGUILayer,
+    value_indicators: Vec<GUIHealthBar>,
+}
 
 impl SettingsMenu {
     fn new(settings: &Settings) -> SettingsMenu {
         let x_button = -2.0;
         let x_text = 3.0;
-        let mut y = 1.5;
+        let mut y = 2.7;
 
         let mut gui_group_builder = GUIGroupBuilder::new();
         let mut texts = Vec::new();
+        let mut value_indicators = Vec::new();
 
         for setting in settings.get_settings() {
             gui_group_builder.add(GUIButton::new(x_button, y, BUTTON_WIDTH, BUTTON_HEIGHT, setting.get_name(), GUIEvent::ChangeSetting(setting.get_value())));
 
-            let text = match setting.get_value() {
-                SettingType::Boolean(_, true) => "Enabled",
-                SettingType::Boolean(_, false) => "Disabled",
-            };
+            match setting.get_value() {
+                SettingType::Boolean(_, true) => texts.push(GUIText::new(x_text, y, "Enabled")),
+                SettingType::Boolean(_, false) => texts.push(GUIText::new(x_text, y, "Disabled")),
+                SettingType::Integer(_, value) => {
+                    let mut value_indicator = GUIHealthBar::new(GUIComponentAlignment::Left, 1.5, y, 3.0, AudioManager::max_volume() as u32, 0, false);
+                    value_indicator.update_health(value as u32);
+                    value_indicator.update_borders();
+                    value_indicators.push(value_indicator);
+                }
+            }
 
-            texts.push(GUIText::new(x_text, y, text));
-
-            y -= 1.25;
+            y -= 1.15;
         }
 
-        texts.push(GUIText::new(0.0, 3.0, "Settings"));
+        texts.push(GUIText::new(0.0, 3.8, "Settings"));
 
         let buttons = gui_group_builder.create_gui_group();
 
         y -= 0.50;
         let buttons = buttons.add(GUIButton::new(x_button, y, BUTTON_WIDTH, BUTTON_HEIGHT, "Main Menu", GUIEvent::ChangeState(GUIState::MainMenu)));
 
-        SettingsMenu(BasicGUILayer {buttons, texts})
-    }
-
-    fn update_settings_status_texts(&mut self, settings: &Settings) {
-        for (setting, text) in settings.get_settings().iter().zip(self.0.texts.iter_mut()) {
-
-            let new_text = match setting.get_value() {
-                SettingType::Boolean(_, true) => "Enabled",
-                SettingType::Boolean(_, false) => "Disabled",
-            };
-
-            text.change_text(new_text);
+        SettingsMenu {
+            layer: BasicGUILayer {buttons, texts},
+            value_indicators,
         }
     }
 
+    fn update_boolean_setting(&mut self, event: SettingEvent, value: bool) -> Option<SettingType> {
+        for (button, text) in self.layer.buttons.get_components_mut().iter_mut().zip(self.layer.texts.iter_mut()) {
+
+            if let GUIEvent::ChangeSetting(SettingType::Boolean(event2, value2)) = button.action_data() {
+                if event == event2 && value == value2 {
+
+                    if value {
+                        text.change_text("Disabled");
+                    } else {
+                        text.change_text("Enabled");
+                    }
+                    let new_setting = SettingType::Boolean(event, !value);
+                    button.set_action_data(GUIEvent::ChangeSetting(new_setting));
+                    return Some(new_setting);
+                }
+            }
+
+        }
+
+        None
+    }
+
+    fn update_currently_selected_integer_setting(&mut self, number: i32) -> Option<GUIEvent> {
+         if let GUIEvent::ChangeSetting(SettingType::Integer(event, value)) = self.layer.buttons.action_of_currently_selected_component() {
+            let value = audio::check_volume_value(value + number);
+
+            let updated_gui_event = GUIEvent::ChangeSetting(SettingType::Integer(event, value));
+            self.layer.buttons.set_action_of_currently_selected_component(updated_gui_event);
+
+            if let SettingEvent::MusicVolume = event {
+                self.value_indicators[0].update_health(value as u32);
+            } else if let SettingEvent::SoundEffectVolume = event {
+                self.value_indicators[1].update_health(value as u32);
+            }
+
+            Some(updated_gui_event)
+        } else {
+            None
+        }
+    }
 }
+
+
+
 
 impl GUILayerComponents for SettingsMenu {
     fn components<'a>(&'a self) -> GUIComponentReferences<'a> {
-        self.0.components()
+        self.layer.components().set_health_bars(&self.value_indicators)
     }
 }
 
 impl GUILayer for SettingsMenu {
-    fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton<GUIEvent>> { self.0.get_buttons_mut() }
+    fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton<GUIEvent>> { self.layer.get_buttons_mut() }
+
+    fn layer_specific_operations(&mut self, event: &mut GUIEvent) {
+        if let &mut GUIEvent::ChangeSetting(SettingType::Boolean(setting_event, value)) = event {
+            if let Some(updated_setting) = self.update_boolean_setting(setting_event, value) {
+                *event = GUIEvent::ChangeSetting(updated_setting);
+            }
+        }
+    }
+
+    fn layer_specific_input_handling<T: Input>(&mut self, input: &mut T) -> Option<GUIEvent> {
+        if input.key_hit_left() {
+            self.update_currently_selected_integer_setting(-20)
+        } else if input.key_hit_right() {
+            self.update_currently_selected_integer_setting(20)
+        } else {
+            None
+        }
+    }
 }
 
 impl GUILayerEventHandler for SettingsMenu {}

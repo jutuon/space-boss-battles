@@ -1,5 +1,5 @@
 /*
-src/settings.rs, 2017-08-09
+src/settings.rs, 2017-08-11
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -24,16 +24,21 @@ use gui::components::GUIUpdatePosition;
 
 use logic::Logic;
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+use audio::AudioManager;
+
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum SettingEvent {
     FullScreen,
     ShowFpsCounter,
     VSync,
+    SoundEffectVolume,
+    MusicVolume,
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum SettingType {
     Boolean(SettingEvent, bool),
+    Integer(SettingEvent, i32),
 }
 
 pub struct Settings {
@@ -49,6 +54,9 @@ impl Settings {
             SettingContainer::new("Full screen", SettingType::Boolean(SettingEvent::FullScreen, false)),
             SettingContainer::new("FPS counter", SettingType::Boolean(SettingEvent::ShowFpsCounter, false)),
             SettingContainer::new("VSync", SettingType::Boolean(SettingEvent::VSync, true)),
+            SettingContainer::new("Music volume", SettingType::Integer(SettingEvent::MusicVolume, AudioManager::max_volume())),
+            SettingContainer::new("Effect volume", SettingType::Integer(SettingEvent::SoundEffectVolume, AudioManager::max_volume())),
+
         ];
 
         let mut settings = Settings {
@@ -69,14 +77,17 @@ impl Settings {
         &self.settings
     }
 
-    pub fn update_setting(&mut self, setting_to_be_updated: SettingType) -> SettingType {
-        let SettingType::Boolean(event, _) = setting_to_be_updated;
+    pub fn update_setting(&mut self, new_value: SettingType) {
+        let event = match new_value {
+            SettingType::Boolean(event,_) | SettingType::Integer(event,_)   => event,
+        };
 
         for setting in &mut self.settings {
             match setting.get_value() {
-                SettingType::Boolean(event2, _) => {
+                SettingType::Boolean(event2, _) | SettingType::Integer(event2,_) => {
                     if event == event2 {
-                        return setting.update()
+                        setting.set_value(new_value);
+                        return;
                     }
                 },
             }
@@ -95,6 +106,9 @@ impl Settings {
         for setting in &self.settings {
             match setting.get_value() {
                 SettingType::Boolean(_, value) => {
+                    writeln!(settings_text, "{}={}", setting.get_name(), value).unwrap();
+                },
+                SettingType::Integer(_, value) => {
                     writeln!(settings_text, "{}={}", setting.get_name(), value).unwrap();
                 }
             }
@@ -170,11 +184,6 @@ impl Settings {
                         }
                     };
 
-                    if !(value == "true" || value == "false") {
-                        println!("couldn't load settings, invalid setting: {}", line);
-                        continue;
-                    }
-
                     for setting in &mut self.settings {
                         if setting.get_name() != name {
                             continue;
@@ -188,6 +197,12 @@ impl Settings {
                                     setting.set_value(SettingType::Boolean(event, false));
                                 }
                             },
+                            SettingType::Integer(event, _) => {
+                                match value.parse::<i32>() {
+                                    Ok(number) => setting.set_value(SettingType::Integer(event, number)),
+                                    Err(error) => println!("error when parsing value \"{}\" for setting \"{}\": {}", value, setting.get_name(), error),
+                                }
+                            }
                         }
                     }
 
@@ -237,23 +252,24 @@ impl Settings {
         }
     }
 
-    pub fn apply_current_settings<T: Renderer>(&self, renderer: &mut T, gui: &mut GUI, game_logic: &mut Logic) {
+    pub fn apply_current_settings<T: Renderer>(&self, renderer: &mut T, gui: &mut GUI, game_logic: &mut Logic, audio_manager: &mut AudioManager) {
         for setting in &self.settings {
-            self.apply_setting(setting.get_value(), renderer, gui, game_logic);
+            self.apply_setting(setting.get_value(), renderer, gui, game_logic, audio_manager);
         }
     }
 
-    pub fn apply_setting<T: Renderer>(&self, setting: SettingType, renderer: &mut T, gui: &mut GUI, game_logic: &mut Logic) {
+    pub fn apply_setting<T: Renderer>(&self, setting: SettingType, renderer: &mut T, gui: &mut GUI, game_logic: &mut Logic, audio_manager: &mut AudioManager) {
         match setting {
-                SettingType::Boolean(event, value) => match event {
-                    SettingEvent::FullScreen => {
-                        renderer.full_screen(value);
-                        gui.update_position_from_half_screen_width(renderer.half_screen_width_world_coordinates());
-                        game_logic.update_half_screen_width(renderer.half_screen_width_world_coordinates());
-                    },
-                    SettingEvent::ShowFpsCounter => gui.set_show_fps_counter(value),
-                    SettingEvent::VSync => renderer.v_sync(value),
-                },
+            SettingType::Boolean(SettingEvent::FullScreen, value) => {
+                    renderer.full_screen(value);
+                    gui.update_position_from_half_screen_width(renderer.half_screen_width_world_coordinates());
+                    game_logic.update_half_screen_width(renderer.half_screen_width_world_coordinates());
+            },
+            SettingType::Boolean(SettingEvent::ShowFpsCounter, value) => gui.set_show_fps_counter(value),
+            SettingType::Boolean(SettingEvent::VSync , value)  => renderer.v_sync(value),
+            SettingType::Integer(SettingEvent::SoundEffectVolume, value) => audio_manager.sound_effect_manager_mut().change_volume(value),
+            SettingType::Integer(SettingEvent::MusicVolume, value) => audio_manager.set_music_volume(value),
+            _ => (),
         }
     }
 }
@@ -277,14 +293,6 @@ pub struct SettingContainer {
 impl SettingContainer {
     pub fn new(name: &'static str, setting_type: SettingType) -> SettingContainer {
         SettingContainer { name, setting_type }
-    }
-
-    pub fn update(&mut self) -> SettingType {
-        match self.setting_type {
-            SettingType::Boolean(event, value) => self.setting_type = SettingType::Boolean(event, !value),
-        }
-
-        self.setting_type
     }
 
     fn set_value(&mut self, value: SettingType) {

@@ -136,8 +136,9 @@ impl Game {
         let mut gui = GUI::new(&settings);
         gui.update_position_from_half_screen_width(renderer.half_screen_width_world_coordinates());
 
-        settings.apply_current_settings(&mut renderer, &mut gui, &mut game_logic);
         let mut audio_manager = AudioManager::new(audio_subsystem);
+        settings.apply_current_settings(&mut renderer, &mut gui, &mut game_logic, &mut audio_manager);
+
 
         audio_manager.play_music();
 
@@ -209,13 +210,12 @@ impl Game {
                 self.game_logic.update(&self.input, &mut self.gui, self.audio_manager.sound_effect_manager_mut());
             }
 
-            match self.gui.handle_event(&mut self.input) {
+            match self.gui.handle_input(&mut self.input) {
                 None => (),
                 Some(GUIEvent::Exit) => self.quit = true,
-                Some(GUIEvent::ChangeSetting(setting)) => {
-                    let new_setting_value = self.settings.update_setting(setting);
-                    self.gui.update_settings(&self.settings);
-                    self.settings.apply_setting(new_setting_value, &mut self.renderer, &mut self.gui, &mut self.game_logic);
+                Some(GUIEvent::ChangeSetting(new_setting_value)) => {
+                    self.settings.update_setting(new_setting_value);
+                    self.settings.apply_setting(new_setting_value, &mut self.renderer, &mut self.gui, &mut self.game_logic, &mut self.audio_manager);
                 },
                 Some(GUIEvent::NewGame(difficulty)) => self.game_logic.reset_game(&mut self.gui, difficulty, 0),
                 Some(GUIEvent::NextLevel) => self.game_logic.reset_to_next_level(&mut self.gui),

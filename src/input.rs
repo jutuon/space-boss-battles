@@ -1,5 +1,5 @@
 /*
-src/input.rs, 2017-08-06
+src/input.rs, 2017-08-11
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -30,8 +30,8 @@ pub struct InputManager {
     right: bool,
     shoot: bool,
 
-    key_hit_left: bool,
-    key_hit_right: bool,
+    key_hit_left_timer: KeyHitTimer,
+    key_hit_right_timer: KeyHitTimer,
     key_hit_enter: bool,
     key_hit_back: bool,
 
@@ -57,8 +57,8 @@ impl InputManager {
             right: false,
             shoot: false,
 
-            key_hit_left: false,
-            key_hit_right: false,
+            key_hit_left_timer: KeyHitTimer::new(Keycode::Left),
+            key_hit_right_timer: KeyHitTimer::new(Keycode::Right),
             key_hit_enter: false,
             key_hit_back: false,
 
@@ -78,13 +78,13 @@ impl InputManager {
 
     pub fn reset_key_hits(&mut self) {
         let value = false;
-        self.key_hit_left = value;
-        self.key_hit_right = value;
         self.key_hit_enter = value;
         self.key_hit_back = value;
 
         self.key_hit_up_timer.reset();
         self.key_hit_down_timer.reset();
+        self.key_hit_left_timer.reset();
+        self.key_hit_right_timer.reset();
 
         self.mouse_button_hit = false;
     }
@@ -95,6 +95,8 @@ impl InputManager {
 
         self.key_hit_up_timer.event_key_up(key);
         self.key_hit_down_timer.event_key_up(key);
+        self.key_hit_left_timer.event_key_up(key);
+        self.key_hit_right_timer.event_key_up(key);
     }
 
     pub fn update_key_down(&mut self, key: Keycode) {
@@ -103,6 +105,9 @@ impl InputManager {
         let current_time = PreciseTime::now();
         self.key_hit_up_timer.event_key_down(key, current_time);
         self.key_hit_down_timer.event_key_down(key, current_time);
+        self.key_hit_left_timer.event_key_down(key, current_time);
+        self.key_hit_right_timer.event_key_down(key, current_time);
+
     }
 
     fn update_keys(&mut self, key: Keycode, value: bool) {
@@ -118,8 +123,6 @@ impl InputManager {
 
     fn update_key_hit(&mut self, key: Keycode, value: bool) {
         match key {
-            Keycode::Left       => self.key_hit_left = value,
-            Keycode::Right      => self.key_hit_right = value,
             Keycode::Return     => self.key_hit_enter = value,
             Keycode::Backspace  => self.key_hit_back = value,
             _ => (),
@@ -211,6 +214,10 @@ impl InputManager {
             self.key_hit_up_timer.event_key_up(Keycode::Up);
         } else if let Button::DPadDown = button {
             self.key_hit_down_timer.event_key_up(Keycode::Down);
+        } else if let Button::DPadLeft = button {
+            self.key_hit_left_timer.event_key_up(Keycode::Left);
+        } else if let Button::DPadRight = button {
+            self.key_hit_right_timer.event_key_up(Keycode::Right);
         }
     }
 
@@ -222,19 +229,29 @@ impl InputManager {
             self.key_hit_up_timer.event_key_down(Keycode::Up, current_time);
         } else if let Button::DPadDown = button {
             self.key_hit_down_timer.event_key_down(Keycode::Down, current_time);
+        } else if let Button::DPadLeft = button {
+            self.key_hit_left_timer.event_key_down(Keycode::Left, current_time);
+        } else if let Button::DPadRight = button {
+            self.key_hit_right_timer.event_key_down(Keycode::Right, current_time);
         }
     }
 
     pub fn game_controller_axis_motion(&mut self, axis: Axis, value: i16) {
         match axis {
             Axis::LeftX | Axis::RightX => {
+                let current_time = PreciseTime::now();
+
                 if value > 10000 {
                     self.right = true;
+                    self.key_hit_right_timer.event_key_down_scroll_mode_only(Keycode::Right, current_time);
                 } else if value < -10000 {
                     self.left = true;
+                    self.key_hit_left_timer.event_key_down_scroll_mode_only(Keycode::Left, current_time);
                 } else {
                     self.left = false;
                     self.right = false;
+                    self.key_hit_left_timer.event_key_up_scroll_mode_only(Keycode::Left);
+                    self.key_hit_right_timer.event_key_up_scroll_mode_only(Keycode::Right);
                 }
             },
             Axis::LeftY | Axis::RightY => {
@@ -277,8 +294,6 @@ impl InputManager {
 
     fn update_key_hit_values_from_game_controller(&mut self, button: Button, value: bool) {
         match button {
-            Button::DPadLeft       => self.key_hit_left = value,
-            Button::DPadRight      => self.key_hit_right = value,
             Button::A              => self.key_hit_enter = value,
             Button::Back           => self.key_hit_back = value,
             _ => (),
@@ -320,8 +335,8 @@ impl Input for InputManager {
 
     fn key_hit_up(&mut self) -> bool     { self.key_hit_up_timer.return_and_reset()    }
     fn key_hit_down(&mut self) -> bool   { self.key_hit_down_timer.return_and_reset()  }
-    fn key_hit_left(&mut self) -> bool   { return_and_reset(&mut self.key_hit_left)  }
-    fn key_hit_right(&mut self) -> bool  { return_and_reset(&mut self.key_hit_right) }
+    fn key_hit_left(&mut self) -> bool   { self.key_hit_left_timer.return_and_reset()  }
+    fn key_hit_right(&mut self) -> bool  { self.key_hit_right_timer.return_and_reset() }
     fn key_hit_enter(&mut self) -> bool  { return_and_reset(&mut self.key_hit_enter) }
     fn key_hit_back(&mut self) -> bool   { return_and_reset(&mut self.key_hit_back) }
 
