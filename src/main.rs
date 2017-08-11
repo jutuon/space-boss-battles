@@ -61,6 +61,7 @@ fn main() {
     }
 
     let sdl_context = sdl2::init().expect("sdl2 init failed");
+    println!("SDL2 version: {}", sdl2::version::version());
     let audio_subsystem = sdl_context.audio().expect("error");
 
     let mut event_pump = sdl_context.event_pump().expect("failed to get handle to sdl2 event_pump");
