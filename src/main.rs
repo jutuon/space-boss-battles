@@ -1,5 +1,5 @@
 /*
-src/main.rs, 2017-08-10
+src/main.rs, 2017-08-11
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -26,10 +26,11 @@ mod logic;
 mod renderer;
 mod input;
 mod settings;
+mod audio;
 
 use sdl2::event::{Event};
 use sdl2::keyboard::Keycode;
-use sdl2::{GameControllerSubsystem, JoystickSubsystem};
+use sdl2::{GameControllerSubsystem, JoystickSubsystem, AudioSubsystem};
 
 use renderer::{Renderer, OpenGLRenderer};
 use logic::Logic;
@@ -43,6 +44,8 @@ use settings::{Settings};
 use time::PreciseTime;
 
 use std::env;
+
+use audio::AudioManager;
 
 pub const COMMAND_LINE_HELP_TEXT: &str = "
 Space Boss Battles command line options:
@@ -58,6 +61,8 @@ fn main() {
     }
 
     let sdl_context = sdl2::init().expect("sdl2 init failed");
+    let audio_subsystem = sdl_context.audio().expect("error");
+
     let mut event_pump = sdl_context.event_pump().expect("failed to get handle to sdl2 event_pump");
 
     let video = sdl_context.video().expect("video subsystem init fail");
@@ -66,7 +71,8 @@ fn main() {
 
     let game_controller_subsystem = sdl_context.game_controller().expect("game controller subsystem init failed");
     let joystick_subsystem = sdl_context.joystick().expect("joystick subsystem init failed");
-    let mut game = Game::new(game_controller_subsystem, renderer, joystick_subsystem);
+    let mut game = Game::new(game_controller_subsystem, renderer, joystick_subsystem, audio_subsystem);
+
 
     for event in event_pump.poll_iter() {
         match event {
@@ -113,10 +119,11 @@ pub struct Game {
     gui: GUI,
     renderer: OpenGLRenderer,
     settings: Settings,
+    audio_manager: AudioManager,
 }
 
 impl Game {
-    pub fn new(mut controller_subsystem: GameControllerSubsystem, mut renderer: OpenGLRenderer, joystick_subsystem: JoystickSubsystem) -> Game {
+    pub fn new(mut controller_subsystem: GameControllerSubsystem, mut renderer: OpenGLRenderer, joystick_subsystem: JoystickSubsystem, audio_subsystem: AudioSubsystem) -> Game {
         let mut game_logic = Logic::new();
         let quit = false;
 
@@ -130,8 +137,11 @@ impl Game {
         gui.update_position_from_half_screen_width(renderer.half_screen_width_world_coordinates());
 
         settings.apply_current_settings(&mut renderer, &mut gui, &mut game_logic);
+        let mut audio_manager = AudioManager::new(audio_subsystem);
 
-        Game {game_logic, quit, input, fps_counter, timer, gui, renderer, settings}
+        audio_manager.play_music();
+
+        Game { game_logic, quit, input, fps_counter, timer, gui, renderer, settings, audio_manager }
     }
 
     pub fn quit(&self) -> bool {
@@ -196,7 +206,7 @@ impl Game {
 
         if self.timer.update_logic() {
             if self.gui.update_game() {
-                self.game_logic.update(&self.input, &mut self.gui);
+                self.game_logic.update(&self.input, &mut self.gui, self.audio_manager.sound_effect_manager_mut());
             }
 
             match self.gui.handle_event(&mut self.input) {

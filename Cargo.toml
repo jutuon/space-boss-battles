@@ -8,11 +8,15 @@ gles = ["gl/gles"]
 
 [dependencies]
 gl = { path = "gl" }
-sdl2 = "0.30"
 cgmath = "0.14.1"
 rand = "0.3.15"
 time = "0.1.38"
 image = "0.14.0"
+
+[dependencies.sdl2]
+version = "0.30"
+default-features = false
+features = ["mixer"]
 
 
 [workspace]
