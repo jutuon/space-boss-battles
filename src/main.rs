@@ -1,5 +1,5 @@
 /*
-src/main.rs, 2017-08-11
+src/main.rs, 2017-08-12
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -223,7 +223,7 @@ impl Game {
                 _ => (),
             }
 
-            self.input.reset_key_hits();
+            self.input.update(current_time);
         }
     }
 
