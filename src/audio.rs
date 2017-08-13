@@ -86,12 +86,13 @@ impl SoundEffectManager {
         sounds
     }
 
-    fn all_mut(&mut self) -> [&mut SoundEffect; 4] {
+    fn all_mut(&mut self) -> [&mut SoundEffect; 5] {
         [
             &mut self.laser,
             &mut self.explosion,
             &mut self.laser_bomb_launch,
             &mut self.laser_bomb_explosion,
+            &mut self.player_laser_hits_laser_cannon,
         ]
     }
 
