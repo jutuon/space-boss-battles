@@ -1,5 +1,5 @@
 /*
-src/logic/common.rs, 2017-08-07
+src/logic/common.rs, 2017-08-13
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -107,6 +107,19 @@ pub trait GameObject
 
         distance <= self.data().radius_inner + game_object.data().radius_inner
     }
+
+    fn position(&self) -> &Vector2<f32> {
+        &self.data().position
+    }
+
+    fn x(&self) -> f32 {
+        self.data().position.x
+    }
+
+    fn y(&self) -> f32 {
+        self.data().position.y
+    }
+
 /*
     fn circle_point(&self, point: Point2<f32>) -> bool {
         let a = self.data().position.x;
@@ -161,7 +174,7 @@ impl Rectangle {
         }
     }
 
-    fn outside(&self, point: &Point2<f32>) -> bool {
+    fn outside(&self, point: &Vector2<f32>) -> bool {
         if point.x < self.left_top_corner.x || self.right_bottom_corner.x < point.x {
             return true;
         }
@@ -176,7 +189,7 @@ impl Rectangle {
 
 pub struct Data<T: BaseFloat> {
     pub model_matrix: Matrix4<T>,
-    pub position: Point2<T>,
+    pub position: Vector2<T>,
     pub direction: Vector2<T>,
     pub width: T,
     pub height: T,
@@ -186,9 +199,8 @@ pub struct Data<T: BaseFloat> {
 }
 
 impl Data<f32> {
-    pub fn new(x: f32, y: f32, width: f32, height: f32) -> Data<f32> {
+    pub fn new(position: Vector2<f32>, width: f32, height: f32) -> Data<f32> {
         let model_matrix = Matrix4::identity();
-        let position = Point2::new(x, y);
         let direction = Vector2::unit_x();
         let rotation = 0.0;
 
@@ -202,6 +214,10 @@ impl Data<f32> {
         data.update_rotation(true);
 
         data
+    }
+
+    pub fn new_square(position: Vector2<f32>, side_length: f32) -> Data<f32> {
+        Data::new(position, side_length, side_length)
     }
 
     fn update_rotation(&mut self, update_model_matrix: bool) {

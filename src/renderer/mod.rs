@@ -40,7 +40,7 @@ const DEFAULT_SCREEN_HEIGHT: i32 = 480;
 
 // FIXME: Changing this value makes GUI element positioning
 //        and object movement limits not match screen size.
-const SCREEN_TOP_Y_VALUE_IN_WORLD_COORDINATES: f32 = 4.5;
+pub const SCREEN_TOP_Y_VALUE_IN_WORLD_COORDINATES: f32 = 4.5;
 
 /// Model matrix for rendering.
 pub trait ModelMatrix {

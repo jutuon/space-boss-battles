@@ -29,12 +29,14 @@ use audio::AudioManager;
 
 const SETTINGS_FILE_NAME: &'static str = "space_boss_battles_settings.txt";
 
+/// Settings with integer value.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum IntegerSetting {
     SoundEffectVolume,
     MusicVolume,
 }
 
+/// Settings with boolean value.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum BooleanSetting {
     FullScreen,
@@ -42,11 +44,13 @@ pub enum BooleanSetting {
     VSync,
 }
 
+/// Setting value types.
 #[derive(Copy, Clone, Debug)]
 pub enum SettingType {
     Boolean(BooleanSetting, bool),
     Integer(IntegerSetting, i32),
 }
+
 
 pub struct Settings {
     settings: Vec<SettingContainer>,
