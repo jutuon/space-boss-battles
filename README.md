@@ -6,13 +6,38 @@ This project is also my first proper project written in Rust and will also serve
 
 ## Features
 
-General features:
+Game:
+
+- [x] 3 difficulty settings
+- [x] 4 game levels
+
+GUI:
+
+- [x] Main menu
+- [x] Settings
+- [x] Pause menu
+- [x] Display game status
+- [x] FPS counter
+- [ ] GUI scaling for different display sizes
+
+Input:
+
+- [x] Keyboard
+- [x] Mouse (only GUI support)
+- [x] Game controllers
+- [ ] Touch screen
+- [ ] Configurable controls
+
+Renderer:
 
 - [x] OpenGL 3.3 and OpenGL ES 2.0 support
-- [ ] Support for display aspect ratios of 4:3 and 16:9
-- [ ] Basic menu system for main menu and settings
-- [ ] 4 levels
+- [x] Full screen mode
+- [x] Option to disable vertical synchronization
 
+Audio:
+
+- [x] Sound effects
+- [ ] Music (not included, but supported)
 
 Platforms:
 
@@ -21,8 +46,11 @@ Platforms:
 - [ ] Mac
 - [ ] Android
 - [ ] Web
+- [x] Raspberry Pi
 
+General features:
 
+- [x] Settings file
 
 ## Building and running
 
