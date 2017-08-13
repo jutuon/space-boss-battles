@@ -153,6 +153,7 @@ pub struct Logic {
     current_difficulty: Difficulty,
     game_running: bool,
     explosion: Explosion,
+    index_buffer: Vec<usize>,
 }
 
 impl Logic {
@@ -166,18 +167,19 @@ impl Logic {
             current_difficulty: Difficulty::Normal,
             game_running: true,
             explosion: Explosion::new(EXPLOSION_PARTICLE_COUNT, EXPLOSION_MILLISECONDS_BETWEEN_PARTICLE_CREATION),
+            index_buffer: vec![],
         }
     }
 
     pub fn update<T: Input>(&mut self, input: &T, gui: &mut GUI, sound_effect_manager: &mut SoundEffectManager) {
 
         if self.game_running {
-            self.player.update(input, &mut self.enemy, &self.logic_settings, sound_effect_manager);
-            self.enemy.update(&mut self.player, &self.logic_settings, sound_effect_manager);
+            self.player.update(input, &mut self.enemy, &self.logic_settings, sound_effect_manager, &mut self.index_buffer);
+            self.enemy.update(&mut self.player, &self.logic_settings, sound_effect_manager, &mut self.index_buffer);
             self.moving_background.update();
         }
 
-        self.explosion.update(sound_effect_manager);
+        self.explosion.update(sound_effect_manager, &mut self.index_buffer);
 
         if let Some(health) = self.player.health() {
             gui.get_game_status().set_player_health(health);
@@ -317,7 +319,6 @@ pub struct Explosion {
     particles: Vec<Particle>,
     particle_creation_timer: Timer,
     rng: ThreadRng,
-    remove_at_index: Vec<usize>,
     particle_count: u32,
     milliseconds_between_particle_generation: i64,
 }
@@ -328,10 +329,9 @@ impl Explosion {
             position: Vector2::zero(),
             visible: false,
             timer: Timer::new(),
-            particles: Vec::new(),
+            particles: vec![],
             particle_creation_timer: Timer::new(),
             rng: rand::thread_rng(),
-            remove_at_index: Vec::new(),
             particle_count,
             milliseconds_between_particle_generation,
         }
@@ -354,27 +354,16 @@ impl Explosion {
         }
     }
 
-    pub fn update(&mut self, sounds: &mut SoundEffectManager) {
+    pub fn update(&mut self, sounds: &mut SoundEffectManager, index_buffer: &mut Vec<usize>) {
         if !self.visible {
             return;
         }
 
         let current_time = PreciseTime::now();
 
-        let mut remove_particles = false;
-        for (i,particle) in self.particles.iter_mut().enumerate() {
-            if particle.update(current_time) {
-                self.remove_at_index.push(i);
-                remove_particles = true;
-            }
-        }
-
-        if remove_particles {
-            for i in self.remove_at_index.iter().rev() {
-                self.particles.remove(*i);
-            }
-            self.remove_at_index.clear();
-        }
+        self.particles.update(index_buffer, &mut | particle | {
+            particle.update(current_time)
+        });
 
         if self.particle_creation_timer.check(current_time, self.milliseconds_between_particle_generation) {
             sounds.explosion();
@@ -426,7 +415,7 @@ impl Player {
         self.visible = true;
     }
 
-    fn update(&mut self, input: &Input, enemy: &mut Enemy, logic_settings: &LogicSettings, sounds: &mut SoundEffectManager) {
+    fn update(&mut self, input: &Input, enemy: &mut Enemy, logic_settings: &LogicSettings, sounds: &mut SoundEffectManager, index_buffer: &mut Vec<usize>) {
         let speed = self.speed;
 
         let mut y_speed = 0.0;
@@ -457,7 +446,7 @@ impl Player {
         let area = Rectangle::new(-width, width, -height, height - GUI_MARGIN_TOP);
         self.stay_at_area(&area);
 
-        self.clean_and_update_lasers(enemy, logic_settings, sounds);
+        self.clean_and_update_lasers(enemy, logic_settings, sounds, index_buffer);
 
         if self.circle_collision(enemy) {
             self.update_health(-logic_settings.enemy_hit_damage);
@@ -468,46 +457,44 @@ impl Player {
         &self.lasers
     }
 
-    fn clean_and_update_lasers(&mut self, enemy: &mut Enemy, logic_settings: &LogicSettings, sounds: &mut SoundEffectManager) {
-        let mut remove = (false, 0);
-
-        for (i, laser) in self.lasers.iter_mut().enumerate() {
+    fn clean_and_update_lasers(&mut self, enemy: &mut Enemy, logic_settings: &LogicSettings, sounds: &mut SoundEffectManager, index_buffer: &mut Vec<usize>) {
+        self.lasers.update(index_buffer, &mut |laser| {
             laser.update(logic_settings);
 
             if laser.destroy() {
-                remove = (true, i);
-            } else {
-                if let EnemyType::Shield = enemy.enemy_type {
-                    if enemy.shield.visible && enemy.shield.circle_collision(laser) {
-                        remove = (true, i);
-                    } else if enemy.laser_cannon_bottom.circle_collision(laser) {
-                        if enemy.laser_cannon_bottom.parent_object_shield_enabled {
-                            sounds.player_laser_hits_laser_cannon();
-                        }
-                        enemy.laser_cannon_bottom.parent_object_shield_enabled = false;
-                        remove = (true, i);
-                    } else if enemy.laser_cannon_top.circle_collision(laser) {
-                        if enemy.laser_cannon_top.parent_object_shield_enabled {
-                            sounds.player_laser_hits_laser_cannon();
-                        }
-                        enemy.laser_cannon_top.parent_object_shield_enabled = false;
-                        remove = (true, i);
-                    } else if !enemy.shield.visible && enemy.circle_collision(laser)  {
-                        remove = (true, i);
-                        enemy.update_health(-logic_settings.player_laser_damage);
+                return true;
+            }
+
+            if let EnemyType::Shield = enemy.enemy_type {
+                if enemy.shield.visible && enemy.shield.circle_collision(laser) {
+                    true
+                } else if enemy.laser_cannon_bottom.circle_collision(laser) {
+                    if enemy.laser_cannon_bottom.parent_object_shield_enabled {
+                        sounds.player_laser_hits_laser_cannon();
                     }
+                    enemy.laser_cannon_bottom.parent_object_shield_enabled = false;
+                    true
+                } else if enemy.laser_cannon_top.circle_collision(laser) {
+                    if enemy.laser_cannon_top.parent_object_shield_enabled {
+                        sounds.player_laser_hits_laser_cannon();
+                    }
+                    enemy.laser_cannon_top.parent_object_shield_enabled = false;
+                    true
+                } else if !enemy.shield.visible && enemy.circle_collision(laser)  {
+                    enemy.update_health(-logic_settings.player_laser_damage);
+                    true
                 } else {
-                    if enemy.circle_collision(laser) {
-                        remove = (true, i);
-                        enemy.update_health(-logic_settings.player_laser_damage);
-                    }
+                    false
+                }
+            } else {
+                if enemy.circle_collision(laser) {
+                    enemy.update_health(-logic_settings.player_laser_damage);
+                    return true
+                } else {
+                    false
                 }
             }
-        }
-
-        if let (true, i) = remove {
-            self.lasers.swap_remove(i);
-        }
+        });
     }
 
     pub fn update_health(&mut self, amount: i32) {
@@ -657,7 +644,7 @@ impl Enemy {
         self.shield.reset(self.data.position, level);
     }
 
-    fn update(&mut self, player: &mut Player, logic_settings: &LogicSettings, sounds: &mut SoundEffectManager) {
+    fn update(&mut self, player: &mut Player, logic_settings: &LogicSettings, sounds: &mut SoundEffectManager, index_buffer: &mut Vec<usize>) {
         let speed = self.speed;
 
         self.move_position(0.0, speed);
@@ -687,14 +674,40 @@ impl Enemy {
             }
         }
 
-        self.clean_and_update_lasers(player, logic_settings);
+        self.lasers.update(index_buffer, &mut |laser| {
+            laser.update(logic_settings);
+
+            if laser.destroy() {
+                true
+            } else if player.circle_collision(laser) {
+                player.update_health(-logic_settings.enemy_laser_damage);
+                true
+            } else {
+                false
+            }
+        });
+
 
         let y = self.y();
         self.laser_cannon_bottom.update(y, current_time, logic_settings, &mut self.lasers);
         self.laser_cannon_top.update(y, current_time, logic_settings, &mut self.lasers);
 
         if self.laser_bomb_enabled {
-            self.clean_and_update_laser_bombs(player, logic_settings, current_time, sounds);
+            {
+                let lasers = &mut self.lasers;
+                self.laser_bombs.update(index_buffer, &mut |laser_bomb| {
+                    laser_bomb.update(current_time, logic_settings, lasers, sounds);
+
+                    if laser_bomb.destroy() {
+                        true
+                    } else if player.circle_collision(laser_bomb) {
+                        player.update_health(-logic_settings.enemy_laser_damage);
+                        true
+                    } else {
+                        false
+                    }
+                });
+            }
 
             if self.laser_bomb_timer.check(current_time, ENEMY_MILLISECONDS_BETWEEN_LASER_BOMBS) {
                 sounds.laser_bomb_launch();
@@ -717,44 +730,6 @@ impl Enemy {
 
     pub fn get_lasers(&self) -> &Vec<Laser> {
         &self.lasers
-    }
-
-    fn clean_and_update_lasers(&mut self, player: &mut Player, logic_settings: &LogicSettings) {
-        let mut remove = (false, 0);
-
-        for (i, laser) in self.lasers.iter_mut().enumerate() {
-            laser.update(logic_settings);
-
-            if laser.destroy() {
-                remove = (true, i);
-            } else if player.circle_collision(laser) {
-                remove = (true, i);
-                player.update_health(-logic_settings.enemy_laser_damage);
-            }
-        }
-
-        if let (true, i) = remove {
-            self.lasers.swap_remove(i);
-        }
-    }
-
-    fn clean_and_update_laser_bombs(&mut self, player: &mut Player, logic_settings: &LogicSettings, time: PreciseTime, sounds: &mut SoundEffectManager) {
-        let mut remove = (false, 0);
-
-        for (i, laser_bomb) in self.laser_bombs.iter_mut().enumerate() {
-            laser_bomb.update(time, logic_settings, &mut self.lasers, sounds);
-
-            if laser_bomb.destroy() {
-                remove = (true, i);
-            } else if player.circle_collision(laser_bomb) {
-                remove = (true, i);
-                player.update_health(-logic_settings.enemy_laser_damage);
-            }
-        }
-
-        if let (true, i) = remove {
-            self.laser_bombs.swap_remove(i);
-        }
     }
 
     fn create_laser(&mut self, rotation: f32) {

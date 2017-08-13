@@ -238,3 +238,23 @@ impl Data<f32> {
         self.model_matrix.w.y = self.position.y;
     }
 }
+
+pub trait UpdateContent<T> {
+    fn update(&mut self, index_buffer: &mut Vec<usize>, check_object: &mut FnMut(&mut T) -> bool);
+}
+
+impl <T> UpdateContent<T> for Vec<T> {
+    fn update(&mut self, index_buffer: &mut Vec<usize>, check_object: &mut FnMut(&mut T) -> bool) {
+        for (i, object) in self.iter_mut().enumerate() {
+            if check_object(object) {
+                index_buffer.push(i);
+            }
+        }
+
+        for i in index_buffer.iter().rev() {
+            self.swap_remove(*i);
+        }
+
+        index_buffer.clear();
+    }
+}
