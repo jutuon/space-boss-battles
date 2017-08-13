@@ -21,12 +21,12 @@ extern crate cgmath;
 extern crate rand;
 
 
-mod gui;
-mod logic;
-mod renderer;
-mod input;
-mod settings;
-mod audio;
+pub mod gui;
+pub mod logic;
+pub mod renderer;
+pub mod input;
+pub mod settings;
+pub mod audio;
 
 use sdl2::event::{Event};
 use sdl2::keyboard::Keycode;

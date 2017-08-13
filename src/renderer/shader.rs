@@ -200,6 +200,8 @@ fn load_shader(shader_type: ShaderType, file_path: &str) -> Shader {
 
 /// Create uniform specific to one shader program.
 ///
+/// `program_name` argument is for displaying program name in the possible error message.
+///
 /// # Panics
 /// * If `name` argument contains 0 byte.
 /// * If there is not uniform with name that equals argument `name` in the shader program.

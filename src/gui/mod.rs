@@ -1,5 +1,5 @@
 /*
-src/gui/mod.rs, 2017-08-11
+src/gui/mod.rs, 2017-08-13
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -22,7 +22,7 @@ use gui::components::*;
 
 use input::Input;
 use logic::{Difficulty, MovingBackground};
-use settings::{ Settings, SettingType, Setting, SettingEvent};
+use settings::{ Settings, SettingType, Setting, BooleanSetting, IntegerSetting};
 
 use audio::AudioManager;
 use audio;
@@ -472,18 +472,18 @@ impl SettingsMenu {
         }
     }
 
-    fn update_boolean_setting(&mut self, event: SettingEvent, value: bool) -> Option<SettingType> {
+    fn update_boolean_setting(&mut self, setting: BooleanSetting, value: bool) -> Option<SettingType> {
         for (button, text) in self.layer.buttons.get_components_mut().iter_mut().zip(self.layer.texts.iter_mut()) {
 
-            if let GUIEvent::ChangeSetting(SettingType::Boolean(event2, value2)) = button.action_data() {
-                if event == event2 && value == value2 {
+            if let GUIEvent::ChangeSetting(SettingType::Boolean(events_boolean_setting, value2)) = button.action_data() {
+                if setting == events_boolean_setting && value == value2 {
 
                     if value {
                         text.change_text("Disabled");
                     } else {
                         text.change_text("Enabled");
                     }
-                    let new_setting = SettingType::Boolean(event, !value);
+                    let new_setting = SettingType::Boolean(setting, !value);
                     button.set_action_data(GUIEvent::ChangeSetting(new_setting));
                     return Some(new_setting);
                 }
@@ -495,15 +495,15 @@ impl SettingsMenu {
     }
 
     fn update_currently_selected_integer_setting(&mut self, number: i32) -> Option<GUIEvent> {
-         if let GUIEvent::ChangeSetting(SettingType::Integer(event, value)) = self.layer.buttons.action_of_currently_selected_component() {
+         if let GUIEvent::ChangeSetting(SettingType::Integer(integer_setting, value)) = self.layer.buttons.action_of_currently_selected_component() {
             let value = audio::check_volume_value(value + number);
 
-            let updated_gui_event = GUIEvent::ChangeSetting(SettingType::Integer(event, value));
+            let updated_gui_event = GUIEvent::ChangeSetting(SettingType::Integer(integer_setting, value));
             self.layer.buttons.set_action_of_currently_selected_component(updated_gui_event);
 
-            if let SettingEvent::MusicVolume = event {
+            if let IntegerSetting::MusicVolume = integer_setting {
                 self.value_indicators[0].update_health(value as u32);
-            } else if let SettingEvent::SoundEffectVolume = event {
+            } else if let IntegerSetting::SoundEffectVolume = integer_setting {
                 self.value_indicators[1].update_health(value as u32);
             }
 

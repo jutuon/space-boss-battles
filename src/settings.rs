@@ -1,5 +1,5 @@
 /*
-src/settings.rs, 2017-08-11
+src/settings.rs, 2017-08-13
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -19,6 +19,7 @@ use std::io::prelude::*;
 use sdl2::GameControllerSubsystem;
 
 use renderer::Renderer;
+
 use gui::GUI;
 use gui::components::GUIUpdatePosition;
 
@@ -26,19 +27,25 @@ use logic::Logic;
 
 use audio::AudioManager;
 
+const SETTINGS_FILE_NAME: &'static str = "space_boss_battles_settings.txt";
+
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub enum SettingEvent {
-    FullScreen,
-    ShowFpsCounter,
-    VSync,
+pub enum IntegerSetting {
     SoundEffectVolume,
     MusicVolume,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq)]
+pub enum BooleanSetting {
+    FullScreen,
+    ShowFpsCounter,
+    VSync,
+}
+
+#[derive(Copy, Clone, Debug)]
 pub enum SettingType {
-    Boolean(SettingEvent, bool),
-    Integer(SettingEvent, i32),
+    Boolean(BooleanSetting, bool),
+    Integer(IntegerSetting, i32),
 }
 
 pub struct Settings {
@@ -51,11 +58,11 @@ pub struct Settings {
 impl Settings {
     pub fn new(game_controller_subsystem: &mut GameControllerSubsystem) -> Settings {
         let settings = vec![
-            SettingContainer::new("Full screen", SettingType::Boolean(SettingEvent::FullScreen, false)),
-            SettingContainer::new("FPS counter", SettingType::Boolean(SettingEvent::ShowFpsCounter, false)),
-            SettingContainer::new("VSync", SettingType::Boolean(SettingEvent::VSync, true)),
-            SettingContainer::new("Music volume", SettingType::Integer(SettingEvent::MusicVolume, AudioManager::max_volume())),
-            SettingContainer::new("Effect volume", SettingType::Integer(SettingEvent::SoundEffectVolume, AudioManager::max_volume())),
+            SettingContainer::new("Full screen", SettingType::Boolean(BooleanSetting::FullScreen, false)),
+            SettingContainer::new("FPS counter", SettingType::Boolean(BooleanSetting::ShowFpsCounter, false)),
+            SettingContainer::new("VSync", SettingType::Boolean(BooleanSetting::VSync, true)),
+            SettingContainer::new("Music volume", SettingType::Integer(IntegerSetting::MusicVolume, AudioManager::max_volume())),
+            SettingContainer::new("Effect volume", SettingType::Integer(IntegerSetting::SoundEffectVolume, AudioManager::max_volume())),
 
         ];
 
@@ -78,22 +85,27 @@ impl Settings {
     }
 
     pub fn update_setting(&mut self, new_value: SettingType) {
-        let event = match new_value {
-            SettingType::Boolean(event,_) | SettingType::Integer(event,_)   => event,
-        };
+        // FIXME: Change Vec<SettingContainer> to better system, so there won't
+        //        be need to find correct setting with loop.
 
-        for setting in &mut self.settings {
-            match setting.get_value() {
-                SettingType::Boolean(event2, _) | SettingType::Integer(event2,_) => {
-                    if event == event2 {
-                        setting.set_value(new_value);
+        match new_value {
+            SettingType::Boolean(event, value) => {
+                for setting in &mut self.settings {
+                    if setting.set_if_boolean_setting_matches(event, value) {
                         return;
                     }
-                },
-            }
+                }
+            },
+            SettingType::Integer(event, value) => {
+                for setting in &mut self.settings {
+                    if setting.set_if_integer_setting_matches(event, value) {
+                        return;
+                    }
+                }
+            },
         }
 
-        panic!("setting not found");
+        println!("unimplemented setting found: {:?}", new_value);
     }
 
     pub fn save(&self) {
@@ -121,7 +133,7 @@ impl Settings {
             settings_text.push('\n');
         }
 
-        let mut file = match File::create("settings.txt") {
+        let mut file = match File::create(SETTINGS_FILE_NAME) {
             Ok(file) => file,
             Err(error) => {
                 println!("couldn't save settings: {}", error);
@@ -135,7 +147,7 @@ impl Settings {
     }
 
     pub fn load(&mut self) {
-        let mut file = match File::open("settings.txt") {
+        let mut file = match File::open(SETTINGS_FILE_NAME) {
             Ok(file) => file,
             Err(error) => {
                 println!("couldn't load settings: {}", error);
@@ -192,14 +204,18 @@ impl Settings {
                         match setting.get_value() {
                             SettingType::Boolean(event, _) => {
                                 if value == "true" {
-                                    setting.set_value(SettingType::Boolean(event, true));
+                                    setting.set_if_boolean_setting_matches(event, true);
                                 } else if value == "false" {
-                                    setting.set_value(SettingType::Boolean(event, false));
+                                    setting.set_if_boolean_setting_matches(event, false);
+                                } else {
+                                    println!("error when parsing value \"{}\" for setting \"{}\": not a boolean value", value, setting.get_name());
                                 }
                             },
                             SettingType::Integer(event, _) => {
                                 match value.parse::<i32>() {
-                                    Ok(number) => setting.set_value(SettingType::Integer(event, number)),
+                                    Ok(number) => {
+                                        setting.set_if_integer_setting_matches(event, number);
+                                    },
                                     Err(error) => println!("error when parsing value \"{}\" for setting \"{}\": {}", value, setting.get_name(), error),
                                 }
                             }
@@ -260,16 +276,15 @@ impl Settings {
 
     pub fn apply_setting<T: Renderer>(&self, setting: SettingType, renderer: &mut T, gui: &mut GUI, game_logic: &mut Logic, audio_manager: &mut AudioManager) {
         match setting {
-            SettingType::Boolean(SettingEvent::FullScreen, value) => {
+            SettingType::Boolean(BooleanSetting::FullScreen, value) => {
                     renderer.full_screen(value);
                     gui.update_position_from_half_screen_width(renderer.half_screen_width_world_coordinates());
                     game_logic.update_half_screen_width(renderer.half_screen_width_world_coordinates());
             },
-            SettingType::Boolean(SettingEvent::ShowFpsCounter, value) => gui.set_show_fps_counter(value),
-            SettingType::Boolean(SettingEvent::VSync , value)  => renderer.v_sync(value),
-            SettingType::Integer(SettingEvent::SoundEffectVolume, value) => audio_manager.sound_effect_manager_mut().change_volume(value),
-            SettingType::Integer(SettingEvent::MusicVolume, value) => audio_manager.set_music_volume(value),
-            _ => (),
+            SettingType::Boolean(BooleanSetting::ShowFpsCounter, value) => gui.set_show_fps_counter(value),
+            SettingType::Boolean(BooleanSetting::VSync , value)  => renderer.v_sync(value),
+            SettingType::Integer(IntegerSetting::SoundEffectVolume, value) => audio_manager.sound_effect_manager_mut().change_volume(value),
+            SettingType::Integer(IntegerSetting::MusicVolume, value) => audio_manager.set_music_volume(value),
         }
     }
 }
@@ -295,8 +310,26 @@ impl SettingContainer {
         SettingContainer { name, setting_type }
     }
 
-    fn set_value(&mut self, value: SettingType) {
-        self.setting_type = value;
+    fn set_if_boolean_setting_matches(&mut self, setting: BooleanSetting, value: bool) -> bool {
+        if let &mut SettingType::Boolean(container_setting, ref mut old_value) = &mut self.setting_type {
+            if container_setting == setting {
+                *old_value = value;
+                return true;
+            }
+        }
+
+        false
+    }
+
+    fn set_if_integer_setting_matches(&mut self, setting: IntegerSetting, value: i32) -> bool {
+        if let &mut SettingType::Integer(container_setting, ref mut old_value) = &mut self.setting_type {
+            if container_setting == setting {
+                *old_value = value;
+                return true;
+            }
+        }
+
+        false
     }
 }
 
