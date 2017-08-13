@@ -1,5 +1,5 @@
 /*
-src/renderer/texture.rs, 2017-08-11
+src/renderer/texture.rs, 2017-08-13
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -12,6 +12,8 @@ or
 MIT License
 */
 
+//! Textures for `OpenGLRenderer`.
+
 use std::fs::File;
 
 use gl::texture::*;
@@ -19,7 +21,7 @@ use gl::texture::*;
 use image::png::PNGDecoder;
 use image::{ImageDecoder, DecodingResult, ColorType};
 
-
+/// Availible textures.
 pub enum Textures {
     Player,
     Enemy,
@@ -32,6 +34,10 @@ pub enum Textures {
 }
 
 impl Textures {
+    /// Loads textures to an array.
+    ///
+    /// # Panics
+    /// * If loading of some texture fails.
     pub fn load_all() -> [Texture; Textures::TextureCount as usize] {
         [
             Textures::load("game_files/images/player.png"),
@@ -44,6 +50,13 @@ impl Textures {
         ]
     }
 
+    /// Load texture from from RGBA or RGB image with PNG format.
+    ///
+    /// # Panics
+    /// * Opening the file fails.
+    /// * Can't read image dimensions, color type or data.
+    /// * If image data is not unsigned bytes.
+    /// * Image color type is not RGBA or RGB.
     fn load(file_path: &str) -> Texture {
         let img_file = File::open(file_path).expect("img opening fail");
         let mut img = PNGDecoder::new(img_file);

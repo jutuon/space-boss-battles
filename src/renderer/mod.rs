@@ -1,5 +1,5 @@
 /*
-src/renderer/mod.rs, 2017-08-11
+src/renderer/mod.rs, 2017-08-13
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -15,68 +15,121 @@ MIT License
 mod texture;
 mod shader;
 
-use gl::buffer::*;
-use gl::texture::*;
-
-use gl::gl_raw;
-use gl;
+use sdl2::VideoSubsystem;
+use sdl2::video::{Window, FullscreenType, GLProfile, GLContext};
 
 use cgmath::{Vector3, Matrix4, Point2, Vector4};
 use cgmath;
 use cgmath::prelude::*;
 
+use gl::buffer::*;
+use gl::texture::*;
+use gl::gl_raw;
+use gl;
+
 use renderer::texture::Textures;
 use renderer::shader::*;
-
-use sdl2::VideoSubsystem;
-use sdl2::video::{Window, FullscreenType, GLProfile, GLContext};
 
 use logic::{Logic, LaserColor};
 
 use gui::{GUI, GUILayerComponents};
 use gui::components::*;
 
+const DEFAULT_SCREEN_WIDTH: i32 = 640;
+const DEFAULT_SCREEN_HEIGHT: i32 = 480;
+
+// FIXME: Changing this value makes GUI element positioning
+//        and object movement limits not match screen size.
+const SCREEN_TOP_Y_VALUE_IN_WORLD_COORDINATES: f32 = 4.5;
+
+/// Model matrix for rendering.
 pub trait ModelMatrix {
+    /// Get model matrix.
     fn model_matrix(&self) -> &Matrix4<f32>;
 }
 
+/// Color for rendering.
 pub trait Color {
+    /// Get color.
     fn color(&self) -> &Vector3<f32>;
 }
 
+/// Render tile from tile map.
 pub trait TileLocationInfo {
+    /// Tile's location information.
+    ///
+    /// # Vector3 components
+    /// vector[0]: movement in x direction.
+    /// vector[1]: movement in y direction.
+    /// vector[2]: scaling factor for texture coordinates.
+    ///
+    /// Shader will multiply texture coordinates with scaling factor
+    /// and then add x and y movement to multiplied texture coordinates.
+    ///
+    /// For tile rendering, scaling factor should be less than 1.0.
+    /// In practice, the scaling factor will make square represented by texture coordinates
+    /// smaller, positioned at lower left corner of the texture. Then with x and y movement
+    /// values you can move that square to a specific location on a tile map.
     fn tile_info(&self) -> &Vector3<f32>;
 }
 
+/// OpenGL 3.0 and OpenGL ES 2.0 renderer.
+///
+/// When compiling with feature "gles" you must only load
+/// OpenGL ES 2.0 compatible shaders.
 pub struct OpenGLRenderer {
     video_system: VideoSubsystem,
     window: Window,
-    context: GLContext,
+    /// OpenGL context is stored here because it
+    /// would be otherwise dropped.
+    _context: GLContext,
     textures: [Texture; Textures::TextureCount as usize],
     texture_shader: TextureShader,
     color_shader: ColorShader,
-    tilemap_shader: TilemapShader,
+    tile_map_shader: TileMapShader,
+    /// Vertex and texture coordinates of square.
     square: VertexArray,
     projection_matrix: Matrix4<f32>,
+    /// Go back to world coordinates from normalized device coordinates.
     inverse_projection_matrix: Matrix4<f32>,
+    // FIXME: use unsigned values for coordinates?
     screen_width: i32,
     screen_height: i32,
     half_screen_width_world_coordinates: f32,
 }
 
+/// Interface for renderers.
+///
+/// This enables you to write different renderers without
+/// changing other codes.
 pub trait Renderer {
+    /// Start rendering new frame. Call this first.
     fn start(&mut self);
+    /// Render game logic.
     fn render(&mut self, &Logic);
+    /// Render GUI.
     fn render_gui(&mut self, &GUI);
+    /// End rendering of new frame. Call this last.
     fn end(&mut self);
+    /// Converts screen coordinates to world coordinates.
+    ///
+    /// # Coordinates
+    /// * Start form top left corner of the window.
+    /// * Are in pixels.
+    /// * Are at range [0, i32::MAX].
+    // FIXME: use unsigned values for coordinates? SDL2 event makes i32 values.
     fn screen_coordinates_to_world_coordinates(&self, x: i32, y: i32) -> Point2<f32>;
+    /// Enable or disable full screen mode.
     fn full_screen(&mut self, value: bool);
+    /// Enable or disable vertical synchronization.
     fn v_sync(&mut self, value: bool);
+    /// Screen width in world coordinates divided by 2.
     fn half_screen_width_world_coordinates(&self) -> f32;
 }
 
 impl Renderer for OpenGLRenderer {
 
+    /// Clears OpenGL color buffer.
     fn start(&mut self) {
         unsafe {
             gl_raw::Clear(gl_raw::COLOR_BUFFER_BIT);
@@ -88,17 +141,17 @@ impl Renderer for OpenGLRenderer {
 
         self.textures[Textures::Background as usize].bind();
         for background in logic.get_moving_background().get_backgrounds() {
-            self.draw_rectangle_with_texture(background);
+            self.render_rectangle_with_texture(background);
         }
 
         if logic.get_player().visible() {
             self.textures[Textures::Player as usize].bind();
-            self.draw_rectangle_with_texture(logic.get_player());
+            self.render_rectangle_with_texture(logic.get_player());
         }
 
         if logic.get_enemy().visible() {
             self.textures[Textures::Enemy as usize].bind();
-            self.draw_rectangle_with_texture(logic.get_enemy());
+            self.render_rectangle_with_texture(logic.get_enemy());
 
             if logic.get_enemy().get_laser_cannon_top().visible() {
                 if logic.get_enemy().get_laser_cannon_top().green_color() {
@@ -106,7 +159,7 @@ impl Renderer for OpenGLRenderer {
                 } else {
                     self.textures[Textures::LaserCannonRed as usize].bind();
                 }
-                self.draw_rectangle_with_texture(logic.get_enemy().get_laser_cannon_top());
+                self.render_rectangle_with_texture(logic.get_enemy().get_laser_cannon_top());
             }
 
             if logic.get_enemy().get_laser_cannon_bottom().visible() {
@@ -115,12 +168,12 @@ impl Renderer for OpenGLRenderer {
                 } else {
                     self.textures[Textures::LaserCannonRed as usize].bind();
                 }
-                self.draw_rectangle_with_texture(logic.get_enemy().get_laser_cannon_bottom());
+                self.render_rectangle_with_texture(logic.get_enemy().get_laser_cannon_bottom());
             }
 
             if logic.get_enemy().get_shield().visible() {
                 self.textures[Textures::Shield as usize].bind();
-                self.draw_rectangle_with_texture(logic.get_enemy().get_shield());
+                self.render_rectangle_with_texture(logic.get_enemy().get_shield());
             }
         }
 
@@ -132,24 +185,24 @@ impl Renderer for OpenGLRenderer {
         let color_particle = Vector3::from_value(0.3);
 
         for laser in logic.get_player().get_lasers() {
-            self.draw_color_rectangle_with_color(laser, &color_green);
+            self.render_color_rectangle_with_color(laser, &color_green);
         }
 
         for laser in logic.get_enemy().get_lasers() {
             if let LaserColor::Red = laser.color() {
-                self.draw_color_rectangle_with_color(laser, &color_red);
+                self.render_color_rectangle_with_color(laser, &color_red);
             } else {
-                self.draw_color_rectangle_with_color(laser, &color_blue);
+                self.render_color_rectangle_with_color(laser, &color_blue);
             }
         }
 
         for laser_bomb in logic.get_enemy().get_laser_bombs() {
-            self.draw_color_rectangle_with_color(laser_bomb, &color_blue);
+            self.render_color_rectangle_with_color(laser_bomb, &color_blue);
         }
 
         if logic.get_explosion().visible() {
             for particle in logic.get_explosion().particles() {
-                self.draw_color_rectangle_with_color(particle, &color_particle);
+                self.render_color_rectangle_with_color(particle, &color_particle);
             }
         }
     }
@@ -160,7 +213,7 @@ impl Renderer for OpenGLRenderer {
 
             self.textures[Textures::Background as usize].bind();
             for background in gui.get_background().get_backgrounds() {
-                self.draw_rectangle_with_texture(background);
+                self.render_rectangle_with_texture(background);
             }
         }
 
@@ -169,35 +222,36 @@ impl Renderer for OpenGLRenderer {
         self.color_shader.use_program();
 
         for button in components.buttons() {
-            self.draw_color_rectangle(button);
+            self.render_color_rectangle(button);
         }
 
         for health_bar in components.health_bars() {
-            self.draw_color_rectangle(health_bar);
+            self.render_color_rectangle(health_bar);
 
             for border in health_bar.borders().into_iter() {
-                self.draw_color_rectangle_with_color(*border, health_bar.color());
+                self.render_color_rectangle_with_color(*border, health_bar.color());
             }
         }
 
-        self.tilemap_shader.use_program();
+        self.tile_map_shader.use_program();
         self.textures[Textures::Font as usize].bind();
 
         for text in components.texts() {
-            self.draw_text(text);
+            self.render_text(text);
         }
 
         for button in components.buttons() {
-            self.draw_text(button.get_text());
+            self.render_text(button.get_text());
         }
 
         if gui.get_gui_fps_counter().show_fps() {
             for text in gui.get_gui_fps_counter().texts().into_iter() {
-                self.draw_text(text);
+                self.render_text(text);
             }
         }
     }
 
+    /// Swap color buffers and check OpenGL errors.
     fn end(&mut self) {
         self.window.gl_swap_window();
 
@@ -206,6 +260,8 @@ impl Renderer for OpenGLRenderer {
         }
     }
 
+    /// Converts x and y to OpenGL normalized device coordinates [-1.0,1.0] and
+    /// multiplies converted coordinates with `inverse_projection_matrix`.
     fn screen_coordinates_to_world_coordinates(&self, x: i32, y: i32) -> Point2<f32> {
         let width = self.screen_width/2;
         let height = self.screen_height/2;
@@ -248,11 +304,15 @@ impl Renderer for OpenGLRenderer {
 }
 
 impl OpenGLRenderer {
+    /// Creates new OpenGLRenderer.
+    ///
+    /// This function will set OpenGL context version
+    /// to OpenGL ES 2.0, if game is compiled with feature "gles".
+    ///
+    /// # Panics
+    /// If window or OpenGL context creation fails.
     pub fn new(video_system: VideoSubsystem) -> OpenGLRenderer {
-        let screen_width = 640;
-        let screen_height = 480;
-
-        let window = video_system.window("Space Boss Battles", screen_width as u32, screen_height as u32).opengl().build().expect("window creation failed");
+        let window = video_system.window("Space Boss Battles", DEFAULT_SCREEN_WIDTH as u32, DEFAULT_SCREEN_HEIGHT as u32).opengl().build().expect("window creation failed");
 
         #[cfg(feature = "gles")]
         {
@@ -268,40 +328,49 @@ impl OpenGLRenderer {
             gl_attr.set_context_version(3,3);
         }
 
-        let context = window.gl_create_context().expect("opengl context creation failed");
+        let _context = window.gl_create_context().expect("opengl context creation failed");
         gl_raw::load_with(|name| video_system.gl_get_proc_address(name) as *const _);
 
-        window.gl_make_current(&context).expect("couldn't set opengl context to current thread");
-
-        let texture_shader = TextureShader::new();
-        let color_shader = ColorShader::new();
-        let tilemap_shader = TilemapShader::new();
+        window.gl_make_current(&_context).expect("couldn't set opengl context to current thread");
 
         unsafe {
             gl_raw::ClearColor(0.0,0.0,0.0,1.0);
         }
 
-        let textures = Textures::load_all();
-        let square = create_square();
-
         println!("OpenGL version: {:?}", gl::get_version_string());
 
-        let projection_matrix = Matrix4::identity();
-        let inverse_projection_matrix = Matrix4::identity();
-        let half_screen_width_world_coordinates = 1.0;
+        let mut renderer = OpenGLRenderer {
+            video_system,
+            window,
+            _context,
+            texture_shader: TextureShader::new(),
+            color_shader: ColorShader::new(),
+            tile_map_shader: TileMapShader::new(),
+            textures: Textures::load_all(),
+            square: create_square(),
+            projection_matrix: Matrix4::identity(),
+            inverse_projection_matrix: Matrix4::identity(),
+            screen_width: DEFAULT_SCREEN_WIDTH,
+            screen_height: DEFAULT_SCREEN_HEIGHT,
+            half_screen_width_world_coordinates: 1.0,
+        };
 
-        let mut renderer = OpenGLRenderer {video_system, window, context, texture_shader, color_shader, tilemap_shader, textures, square, projection_matrix, inverse_projection_matrix, screen_width, screen_height, half_screen_width_world_coordinates};
+        // Update fields projection_matrix, inverse_projection_matrix
+        // and half_screen_width_world_coordinates to have correct value.
         renderer.update_screen_size();
         renderer.update_projection_matrix();
 
         renderer
     }
 
+    /// Updates `OpenGLRenderer` fields `half_screen_width_world_coordinates`,
+    /// `projection_matrix` and `inverse_projection_matrix` from fields `screen_width` and `screen_height`
+    ///
+    /// # Errors
+    /// If inverse matrix calculation fails `inverse_projection_matrix` field will be set to identity matrix.
     fn update_projection_matrix(&mut self) {
-        let size = 4.5;
-        self.half_screen_width_world_coordinates = (self.screen_width as f32 /self.screen_height as f32) * size;
-        let height = 1.0 * size;
-        self.projection_matrix = cgmath::ortho::<f32>(-self.half_screen_width_world_coordinates, self.half_screen_width_world_coordinates, -height, height, 1.0, -1.0);
+        self.half_screen_width_world_coordinates = (self.screen_width as f32 /self.screen_height as f32) * SCREEN_TOP_Y_VALUE_IN_WORLD_COORDINATES;
+        self.projection_matrix = cgmath::ortho::<f32>(-self.half_screen_width_world_coordinates, self.half_screen_width_world_coordinates, -SCREEN_TOP_Y_VALUE_IN_WORLD_COORDINATES, SCREEN_TOP_Y_VALUE_IN_WORLD_COORDINATES, 1.0, -1.0);
 
         match self.projection_matrix.inverse_transform() {
             Some(matrix) => self.inverse_projection_matrix = matrix,
@@ -312,9 +381,15 @@ impl OpenGLRenderer {
         };
     }
 
+    /// Updates fields `screen_width` and `screen_height` and
+    /// OpenGL viewport to match current display mode.
+    ///
+    /// # Errors
+    /// If getting the display mode fails this function will use
+    /// `DEFAULT_SCREEN_WIDTH` and `DEFAULT_SCREEN_HEIGHT` const values.
     fn update_screen_size(&mut self) {
-        let mut width = 640;
-        let mut height = 480;
+        let mut width = DEFAULT_SCREEN_WIDTH;
+        let mut height = DEFAULT_SCREEN_HEIGHT;
 
         match self.window.display_mode() {
             Ok(display_mode) => {
@@ -332,33 +407,44 @@ impl OpenGLRenderer {
         self.screen_height = height;
     }
 
-    fn draw_text(&mut self, text: &GUIText) {
+    /// Render `GUIText`. Bind correct texture before calling this method.
+    fn render_text(&mut self, text: &GUIText) {
         for tile in text.get_tiles() {
-            self.draw_tile(tile);
+            self.render_tile(tile);
         }
     }
 
-    fn draw_tile<T: ModelMatrix + TileLocationInfo>(&mut self, tile: &T) {
-        self.tilemap_shader.send_uniform_data(tile.model_matrix(), &self.projection_matrix, tile.tile_info());
+    /// Render tile. Bind correct texture before calling this method.
+    fn render_tile<T: ModelMatrix + TileLocationInfo>(&mut self, tile: &T) {
+        self.tile_map_shader.send_uniform_data(tile.model_matrix(), &self.projection_matrix, tile.tile_info());
         self.square.draw();
     }
 
-    fn draw_color_rectangle<T: ModelMatrix + Color>(&mut self, object: &T) {
+    /// Render rectangle with object specified color.
+    fn render_color_rectangle<T: ModelMatrix + Color>(&mut self, object: &T) {
         self.color_shader.send_uniform_data(object.model_matrix(), &self.projection_matrix, object.color());
         self.square.draw();
     }
 
-    fn draw_color_rectangle_with_color<T: ModelMatrix>(&mut self, object: &T, color: &Vector3<f32>) {
+    /// Render rectangle with color from argument.
+    fn render_color_rectangle_with_color<T: ModelMatrix>(&mut self, object: &T, color: &Vector3<f32>) {
         self.color_shader.send_uniform_data(object.model_matrix(), &self.projection_matrix, color);
         self.square.draw();
     }
 
-    fn draw_rectangle_with_texture<T: ModelMatrix>(&mut self, object: &T) {
+    /// Render rectangle with texture. Bind correct texture before calling this method.
+    fn render_rectangle_with_texture<T: ModelMatrix>(&mut self, object: &T) {
         self.texture_shader.send_uniform_data(object.model_matrix(), &self.projection_matrix);
         self.square.draw();
     }
 }
 
+/// Create `VertexArray` with vertex and texture
+/// coordinate data of square.
+///
+/// Vertex data will be set to attribute index 0 and
+/// texture data will be set to attribute index 1 when rendering
+/// with this vertex array.
 fn create_square() -> VertexArray {
     let mut square = VertexArray::new(6);
 
