@@ -1,5 +1,5 @@
 /*
-src/settings.rs, 2017-08-13
+src/settings.rs, 2017-08-14
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -44,14 +44,14 @@ pub enum BooleanSetting {
     VSync,
 }
 
-/// Setting value types.
+/// Setting and it's value.
 #[derive(Copy, Clone, Debug)]
 pub enum SettingType {
     Boolean(BooleanSetting, bool),
     Integer(IntegerSetting, i32),
 }
 
-
+/// Save and load settings. Handle command line argument settings.
 pub struct Settings {
     settings: Vec<SettingContainer>,
     controller_mappings: Vec<String>,
@@ -60,6 +60,11 @@ pub struct Settings {
 }
 
 impl Settings {
+    /// Create new `Settings`.
+    ///
+    /// Read settings from file and load found game controller mappings to
+    /// `GameControllerSubsystem`. This function will also handle command
+    /// line arguments.
     pub fn new(game_controller_subsystem: &mut GameControllerSubsystem) -> Settings {
         let settings = vec![
             SettingContainer::new("Full screen", SettingType::Boolean(BooleanSetting::FullScreen, false)),
@@ -84,10 +89,15 @@ impl Settings {
         settings
     }
 
+    /// Get settings.
     pub fn get_settings(&self) -> &Vec<SettingContainer> {
         &self.settings
     }
 
+    /// Updates new value to `SettingContainer` existing in field `Vec<SettingContainer>`.
+    ///
+    /// Update will only happen to first found `IntegerSetting` or `BooleanSetting` that
+    /// matches with the argument `new_value`.
     pub fn update_setting(&mut self, new_value: SettingType) {
         // FIXME: Change Vec<SettingContainer> to better system, so there won't
         //        be need to find correct setting with loop.
@@ -112,9 +122,16 @@ impl Settings {
         println!("unimplemented setting found: {:?}", new_value);
     }
 
+    /// Save settings to a file specified by const `SETTINGS_FILE_NAME`.
+    ///
+    /// Saves current settings from `Vec<SettingsContainer>` field and game controller
+    /// mappings from `Vec<String>`.
+    ///
+    /// For file format example, see load function's documentation.
+    ///
+    /// If saving the file fails, error message will be printed to
+    /// standard output.
     pub fn save(&self) {
-        use std::fmt::Write;
-
         let mut settings_text = String::new();
 
         settings_text.push_str("# Settings file for Space Boss Battles\n\n[Settings]\n");
@@ -122,10 +139,16 @@ impl Settings {
         for setting in &self.settings {
             match setting.get_value() {
                 SettingType::Boolean(_, value) => {
-                    writeln!(settings_text, "{}={}", setting.get_name(), value).unwrap();
+                    settings_text.push_str(setting.get_name());
+                    settings_text.push('=');
+                    settings_text.push_str(&value.to_string());
+                    settings_text.push('\n');
                 },
                 SettingType::Integer(_, value) => {
-                    writeln!(settings_text, "{}={}", setting.get_name(), value).unwrap();
+                    settings_text.push_str(setting.get_name());
+                    settings_text.push('=');
+                    settings_text.push_str(&value.to_string());
+                    settings_text.push('\n');
                 }
             }
         }
@@ -150,6 +173,43 @@ impl Settings {
         }
     }
 
+    /// Load settings from a file specified by const `SETTINGS_FILE_NAME`.
+    ///
+    /// If opening or reading the settings file fails or there is parsing error, an error message
+    /// will be printed out to standard output.
+    ///
+    /// # File format
+    ///
+    /// Note that parser will trim every line it reads from the file.
+    ///
+    /// Empty lines will be skipped and lines starting with `#` will be treated as comments.
+    ///
+    /// If parser finds `[Settings]` section, it tries to parse key-value pairs `setting name=value` and
+    /// match that key-value pair to available settings in `Vec<SettingsContainer>` field.
+    ///
+    /// If parser finds `[GameControllerMappings]` section, it adds all following non empty lines to
+    /// `Vec<String>` field named `controller_mappings`.
+    ///
+    /// # Example file
+    ///
+    /// ```text
+    /// # Settings file for Space Boss Battles
+    ///
+    /// [Settings]
+    /// Full screen=false
+    /// FPS counter=false
+    /// VSync=true
+    /// Music volume=128
+    /// Effect volume=128
+    ///
+    /// [GameControllerMappings]
+    /// # https://wiki.libsdl.org/SDL_GameControllerAddMapping
+    ///
+    /// # In the generated documentation, the following game controller mapping
+    /// # may be wrapped to multiple lines but its really a one line of text.
+    /// 03000000100800000300000010010000,USB Gamepad , a:b2, b:b1, y:b0, x:b3, start:b9, guide:b12, back:b8, dpup:h0.1, dpleft:h0.8, dpdown:h0.4, dpright:h0.2, leftshoulder:b6, rightshoulder:b7, leftstick:b10, rightstick:b11, leftx:a0, lefty:a1, rightx:a3, righty:a2, lefttrigger:b4, righttrigger:b5
+    ///
+    /// ```
     pub fn load(&mut self) {
         let mut file = match File::open(SETTINGS_FILE_NAME) {
             Ok(file) => file,
@@ -166,7 +226,7 @@ impl Settings {
             return;
         }
 
-        let mut settings_parser = SettingsParserMode::None;
+        let mut settings_parser = None;
 
         for line in settings_text.lines() {
             let line = line.trim();
@@ -174,15 +234,15 @@ impl Settings {
             if line == "" || line.starts_with("#") {
                 continue;
             } else if line == "[Settings]" {
-                settings_parser = SettingsParserMode::Settings;
+                settings_parser = Some(SettingsParserMode::Settings);
                 continue;
             } else if line == "[GameControllerMappings]" {
-                settings_parser = SettingsParserMode::GameControllerMappings;
+                settings_parser = Some(SettingsParserMode::GameControllerMappings);
                 continue;
             }
 
             match settings_parser {
-                SettingsParserMode::Settings => {
+                Some(SettingsParserMode::Settings) => {
                     let mut iterator = line.split("=");
                     let name = match iterator.next() {
                         Some(name) => name,
@@ -227,10 +287,10 @@ impl Settings {
                     }
 
                 },
-                SettingsParserMode::GameControllerMappings => {
+                Some(SettingsParserMode::GameControllerMappings) => {
                     self.controller_mappings.push(line.to_string());
                 },
-                _ => (),
+                None => (),
             }
         }
     }
@@ -243,18 +303,28 @@ impl Settings {
         }
     }
 
+    /// Adds game controller mapping to `Vec<String>` located at `controller_mappings` field.
     pub fn add_game_controller_mapping(&mut self, mapping: String) {
         self.controller_mappings.push(mapping);
     }
 
+    /// Get value of `print_joystick_events` field.
     pub fn print_joystick_events(&self) -> bool {
         self.print_joystick_events
     }
 
+    /// Get value of `print_fps_count` field.
     pub fn print_fps_count(&self) -> bool {
         self.print_fps_count
     }
 
+    /// Handles command line arguments
+    ///
+    /// Prints help text `COMMAND_LINE_HELP_TEXT` from the main module, if there is an unknown argument.
+    ///
+    /// # Supported arguments
+    /// * `--fps`
+    /// * `--joystick-events`
     fn handle_command_line_arguments(&mut self) {
         use COMMAND_LINE_HELP_TEXT;
 
@@ -272,13 +342,15 @@ impl Settings {
         }
     }
 
+    /// Applies current settings from field `settings`.
     pub fn apply_current_settings<T: Renderer>(&self, renderer: &mut T, gui: &mut GUI, game_logic: &mut Logic, audio_manager: &mut AudioManager) {
         for setting in &self.settings {
-            self.apply_setting(setting.get_value(), renderer, gui, game_logic, audio_manager);
+            Settings::apply_setting(setting.get_value(), renderer, gui, game_logic, audio_manager);
         }
     }
 
-    pub fn apply_setting<T: Renderer>(&self, setting: SettingType, renderer: &mut T, gui: &mut GUI, game_logic: &mut Logic, audio_manager: &mut AudioManager) {
+    /// Apply setting provided as argument.
+    pub fn apply_setting<T: Renderer>(setting: SettingType, renderer: &mut T, gui: &mut GUI, game_logic: &mut Logic, audio_manager: &mut AudioManager) {
         match setting {
             SettingType::Boolean(BooleanSetting::FullScreen, value) => {
                     renderer.full_screen(value);
@@ -293,27 +365,30 @@ impl Settings {
     }
 }
 
+/// Settings parser states.
 enum SettingsParserMode {
-    None,
     Settings,
     GameControllerMappings,
 }
 
-pub trait Setting {
-    fn get_name(&self) -> &str;
-    fn get_value(&self) -> SettingType;
-}
 
+/// Setting and it's name as text.
 pub struct SettingContainer {
     name: &'static str,
     setting_type: SettingType,
 }
 
 impl SettingContainer {
+    /// Create new `SettingContainer`.
     pub fn new(name: &'static str, setting_type: SettingType) -> SettingContainer {
         SettingContainer { name, setting_type }
     }
 
+    /// Try setting a new boolean value to the `SettingContainer`.
+    ///
+    /// Returns true if new value was set.
+    ///
+    /// Works only if `SettingsContainer`'s current setting is same `BooleanSetting` as argument `setting`.
     fn set_if_boolean_setting_matches(&mut self, setting: BooleanSetting, value: bool) -> bool {
         if let &mut SettingType::Boolean(container_setting, ref mut old_value) = &mut self.setting_type {
             if container_setting == setting {
@@ -325,6 +400,11 @@ impl SettingContainer {
         false
     }
 
+    /// Try setting a new integer value to the `SettingContainer`.
+    ///
+    /// Returns true if new value was set.
+    ///
+    /// Works only if `SettingsContainer`'s current setting is same `IntegerSetting` as argument `setting`.
     fn set_if_integer_setting_matches(&mut self, setting: IntegerSetting, value: i32) -> bool {
         if let &mut SettingType::Integer(container_setting, ref mut old_value) = &mut self.setting_type {
             if container_setting == setting {
@@ -335,14 +415,14 @@ impl SettingContainer {
 
         false
     }
-}
 
-impl Setting for SettingContainer {
-    fn get_name(&self) -> &str {
+    /// Get setting's name text.
+    pub fn get_name(&self) -> &str {
         self.name
     }
 
-    fn get_value(&self) -> SettingType {
+    /// Get setting data.
+    pub fn get_value(&self) -> SettingType {
         self.setting_type
     }
 }

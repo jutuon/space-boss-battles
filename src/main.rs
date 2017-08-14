@@ -216,7 +216,7 @@ impl Game {
                 Some(GUIEvent::Exit) => self.quit = true,
                 Some(GUIEvent::ChangeSetting(new_setting_value)) => {
                     self.settings.update_setting(new_setting_value);
-                    self.settings.apply_setting(new_setting_value, &mut self.renderer, &mut self.gui, &mut self.game_logic, &mut self.audio_manager);
+                    Settings::apply_setting(new_setting_value, &mut self.renderer, &mut self.gui, &mut self.game_logic, &mut self.audio_manager);
                 },
                 Some(GUIEvent::NewGame(difficulty)) => self.game_logic.reset_game(&mut self.gui, difficulty, 0),
                 Some(GUIEvent::NextLevel) => self.game_logic.reset_to_next_level(&mut self.gui),

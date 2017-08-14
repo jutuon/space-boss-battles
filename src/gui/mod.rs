@@ -1,5 +1,5 @@
 /*
-src/gui/mod.rs, 2017-08-13
+src/gui/mod.rs, 2017-08-14
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -22,7 +22,7 @@ use gui::components::*;
 
 use input::Input;
 use logic::{Difficulty, MovingBackground};
-use settings::{ Settings, SettingType, Setting, BooleanSetting, IntegerSetting};
+use settings::{ Settings, SettingType, SettingContainer, BooleanSetting, IntegerSetting};
 
 use audio::AudioManager;
 use audio;

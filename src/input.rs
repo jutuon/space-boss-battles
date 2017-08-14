@@ -321,6 +321,8 @@ impl GameControllerManager {
     ///
     /// If the joystick doesn't have a game controller mapping, method will create default
     /// mapping for the joystick and return the created mapping.
+    ///
+    /// If there is an error it will be printed to standard output.
     pub fn add_game_controller_from_joystick_id(&mut self, id: u32) -> Option<GameControllerMapping> {
         let game_controller_mapping = if !self.game_controller_subsystem.is_game_controller(id) {
             let joystick_name;
@@ -368,7 +370,7 @@ impl GameControllerManager {
             Err(integer_or_sdl_error) => println!("game controller error: {}", integer_or_sdl_error),
         }
 
-        None
+        game_controller_mapping
     }
 
     /// Remove game controller which has same id as argument `id`.
