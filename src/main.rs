@@ -39,7 +39,7 @@ use input::{InputManager};
 use gui::{GUI, GUIEvent};
 use gui::components::GUIUpdatePosition;
 
-use settings::{Settings};
+use settings::{Settings, Arguments};
 
 use time::PreciseTime;
 
@@ -55,7 +55,16 @@ Space Boss Battles command line options:
 ";
 
 fn main() {
-    if check_help_option() {
+    let arguments = match Arguments::parse(env::args()) {
+        Ok(arguments) => arguments,
+        Err(unknown_argument) => {
+            println!("unknown argument: \"{}\"", unknown_argument);
+            println!("{}", COMMAND_LINE_HELP_TEXT);
+            return;
+        }
+    };
+
+    if arguments.show_help() {
         println!("{}", COMMAND_LINE_HELP_TEXT);
         return;
     }
@@ -83,7 +92,7 @@ fn main() {
 
     let game_controller_subsystem = sdl_context.game_controller().expect("game controller subsystem init failed");
     let joystick_subsystem = sdl_context.joystick().expect("joystick subsystem init failed");
-    let mut game = Game::new(game_controller_subsystem, renderer, joystick_subsystem);
+    let mut game = Game::new(game_controller_subsystem, renderer, joystick_subsystem, arguments);
 
 
     for event in event_pump.poll_iter() {
@@ -110,18 +119,6 @@ fn main() {
 
 }
 
-fn check_help_option() -> bool {
-    let args = env::args();
-
-    for arg in args.skip(1) {
-        if arg == "--help" || arg == "-h" {
-            return true;
-        }
-    }
-
-    false
-}
-
 pub struct Game {
     game_logic: Logic,
     quit: bool,
@@ -135,11 +132,11 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new(mut controller_subsystem: GameControllerSubsystem, mut renderer: OpenGLRenderer, joystick_subsystem: JoystickSubsystem) -> Game {
+    pub fn new(mut controller_subsystem: GameControllerSubsystem, mut renderer: OpenGLRenderer, joystick_subsystem: JoystickSubsystem, command_line_arguments: Arguments) -> Game {
         let mut game_logic = Logic::new();
         let quit = false;
 
-        let settings = Settings::new(&mut controller_subsystem);
+        let settings = Settings::new(&mut controller_subsystem, command_line_arguments);
 
         let input = InputManager::new(controller_subsystem, joystick_subsystem);
         let fps_counter = FpsCounter::new();

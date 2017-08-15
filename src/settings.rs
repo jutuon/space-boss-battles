@@ -12,7 +12,7 @@ or
 MIT License
 */
 
-use std::env;
+use std::env::Args;
 use std::fs::File;
 use std::io::prelude::*;
 
@@ -56,17 +56,15 @@ pub enum SettingType {
 pub struct Settings {
     settings: Vec<SettingContainer>,
     controller_mappings: Vec<String>,
-    print_fps_count: bool,
-    print_joystick_events: bool,
+    command_line_arguments: Arguments,
 }
 
 impl Settings {
     /// Create new `Settings`.
     ///
     /// Read settings from file and load found game controller mappings to
-    /// `GameControllerSubsystem`. This function will also handle command
-    /// line arguments.
-    pub fn new(game_controller_subsystem: &mut GameControllerSubsystem) -> Settings {
+    /// `GameControllerSubsystem`.
+    pub fn new(game_controller_subsystem: &mut GameControllerSubsystem, command_line_arguments: Arguments) -> Settings {
         let settings = vec![
             SettingContainer::new("Full screen", SettingType::Boolean(BooleanSetting::FullScreen, false)),
             SettingContainer::new("FPS counter", SettingType::Boolean(BooleanSetting::ShowFpsCounter, false)),
@@ -79,13 +77,11 @@ impl Settings {
         let mut settings = Settings {
             settings: settings,
             controller_mappings: Vec::new(),
-            print_fps_count: false,
-            print_joystick_events: false,
+            command_line_arguments,
         };
 
         settings.load();
         settings.load_game_controller_mappings(game_controller_subsystem);
-        settings.handle_command_line_arguments();
 
         settings
     }
@@ -309,38 +305,14 @@ impl Settings {
         self.controller_mappings.push(mapping);
     }
 
-    /// Get value of `print_joystick_events` field.
+    /// Is joystick event printing enabled.
     pub fn print_joystick_events(&self) -> bool {
-        self.print_joystick_events
+        self.command_line_arguments.print_joystick_events
     }
 
-    /// Get value of `print_fps_count` field.
+    /// Is fps count printing enabled.
     pub fn print_fps_count(&self) -> bool {
-        self.print_fps_count
-    }
-
-    /// Handles command line arguments
-    ///
-    /// Prints help text `COMMAND_LINE_HELP_TEXT` from the main module, if there is an unknown argument.
-    ///
-    /// # Supported arguments
-    /// * `--fps`
-    /// * `--joystick-events`
-    fn handle_command_line_arguments(&mut self) {
-        use COMMAND_LINE_HELP_TEXT;
-
-        let args = env::args();
-
-        for arg in args.skip(1) {
-            if arg == "--fps" {
-                self.print_fps_count = true;
-            } else if arg == "--joystick-events" {
-                self.print_joystick_events = true;
-            } else {
-                println!("unknown argument: {}", arg);
-                println!("{}", COMMAND_LINE_HELP_TEXT);
-            }
-        }
+        self.command_line_arguments.print_fps_count
     }
 
     /// Applies current settings from field `settings`.
@@ -425,5 +397,50 @@ impl SettingContainer {
     /// Get setting data.
     pub fn get_value(&self) -> SettingType {
         self.setting_type
+    }
+}
+
+/// Parsed command line arguments.
+///
+/// # Supported arguments
+/// * `--fps`
+/// * `--joystick-events`
+/// * `--help` or `-h`
+pub struct Arguments {
+    show_help: bool,
+    print_fps_count: bool,
+    print_joystick_events: bool,
+}
+
+impl Arguments {
+    /// Parse command line arguments
+    ///
+    /// Returns with Err(unknown_argument) if there is
+    /// unknown argument.
+    pub fn parse(args: Args) -> Result<Arguments, String> {
+        let mut arguments = Arguments {
+            show_help: false,
+            print_fps_count: false,
+            print_joystick_events: false,
+        };
+
+        for arg in args.skip(1) {
+            if arg == "--fps" {
+                arguments.print_fps_count = true;
+            } else if arg == "--joystick-events" {
+                arguments.print_joystick_events = true;
+            } else if arg == "--help" || arg == "-h" {
+                arguments.show_help = true;
+            } else {
+                return Err(arg);
+            }
+        }
+
+        Ok(arguments)
+    }
+
+    /// Is there argument `--help` or `-h` found.
+    pub fn show_help(&self) -> bool {
+        self.show_help
     }
 }
