@@ -1,5 +1,5 @@
 /*
-src/main.rs, 2017-08-12
+src/main.rs, 2017-08-15
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -52,6 +52,7 @@ Space Boss Battles command line options:
 --help|-h         - show this text
 --fps             - print fps to standard output
 --joystick-events - print joystick events to standard output
+--music FILE_PATH - set path to music file
 ";
 
 fn main() {
@@ -136,6 +137,12 @@ impl Game {
         let mut game_logic = Logic::new();
         let quit = false;
 
+        let mut audio_manager = if let & Some(ref music_file_path) = command_line_arguments.music_file_path() {
+            AudioManager::new(music_file_path)
+        } else {
+            AudioManager::new("music.ogg")
+        };
+
         let settings = Settings::new(&mut controller_subsystem, command_line_arguments);
 
         let input = InputManager::new(controller_subsystem, joystick_subsystem);
@@ -145,7 +152,7 @@ impl Game {
         let mut gui = GUI::new(&settings);
         gui.update_position_from_half_screen_width(renderer.half_screen_width_world_coordinates());
 
-        let mut audio_manager = AudioManager::new("music.ogg");
+
         settings.apply_current_settings(&mut renderer, &mut gui, &mut game_logic, &mut audio_manager);
 
 

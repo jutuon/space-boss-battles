@@ -406,10 +406,12 @@ impl SettingContainer {
 /// * `--fps`
 /// * `--joystick-events`
 /// * `--help` or `-h`
+/// * `--music path_to_music_file`
 pub struct Arguments {
     show_help: bool,
     print_fps_count: bool,
     print_joystick_events: bool,
+    music_file_path: Option<String>,
 }
 
 impl Arguments {
@@ -422,19 +424,35 @@ impl Arguments {
             show_help: false,
             print_fps_count: false,
             print_joystick_events: false,
+            music_file_path: None,
         };
 
+        let mut argument_parser_state = None;
+
         for arg in args.skip(1) {
-            if arg == "--fps" {
-                arguments.print_fps_count = true;
-            } else if arg == "--joystick-events" {
-                arguments.print_joystick_events = true;
-            } else if arg == "--help" || arg == "-h" {
-                arguments.show_help = true;
-            } else {
-                return Err(arg);
+            match argument_parser_state {
+                Some(ArgumentParserState::MusicFilePath) => {
+                    arguments.music_file_path = Some(arg);
+                    argument_parser_state = None;
+                },
+                None => {
+                    if arg == "--fps" {
+                        arguments.print_fps_count = true;
+                    } else if arg == "--joystick-events" {
+                        arguments.print_joystick_events = true;
+                    } else if arg == "--help" || arg == "-h" {
+                        arguments.show_help = true;
+                    } else if arg == "--music" {
+                        argument_parser_state = Some(ArgumentParserState::MusicFilePath);
+                    } else {
+                        return Err(arg);
+                    }
+                },
             }
         }
+
+        // TODO: Return error if argument_parser_state is not None
+        //       at the end of argument parsing.
 
         Ok(arguments)
     }
@@ -443,4 +461,14 @@ impl Arguments {
     pub fn show_help(&self) -> bool {
         self.show_help
     }
+
+    /// Possible user defined music file path.
+    pub fn music_file_path(&self) -> &Option<String> {
+        &self.music_file_path
+    }
+}
+
+/// State for parsing the next argument.
+enum ArgumentParserState {
+    MusicFilePath,
 }
