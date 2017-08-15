@@ -25,7 +25,7 @@ use gui::components::GUIUpdatePosition;
 
 use logic::Logic;
 
-use audio::AudioManager;
+use audio::{AudioManager, Volume};
 use audio;
 
 const SETTINGS_FILE_NAME: &'static str = "space_boss_battles_settings.txt";
@@ -332,8 +332,8 @@ impl Settings {
             },
             SettingType::Boolean(BooleanSetting::ShowFpsCounter, value) => gui.set_show_fps_counter(value),
             SettingType::Boolean(BooleanSetting::VSync , value)  => renderer.v_sync(value),
-            SettingType::Integer(IntegerSetting::SoundEffectVolume, value) => audio_manager.set_sound_effect_volume(value),
-            SettingType::Integer(IntegerSetting::MusicVolume, value) => audio_manager.set_music_volume(value),
+            SettingType::Integer(IntegerSetting::SoundEffectVolume, value) => audio_manager.set_sound_effect_volume(Volume::new(value)),
+            SettingType::Integer(IntegerSetting::MusicVolume, value) => audio_manager.set_music_volume(Volume::new(value)),
         }
     }
 }

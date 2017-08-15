@@ -45,7 +45,7 @@ use time::PreciseTime;
 
 use std::env;
 
-use audio::AudioManager;
+use audio::{AudioManager, SoundEffectPlayer};
 
 pub const COMMAND_LINE_HELP_TEXT: &str = "
 Space Boss Battles command line options:

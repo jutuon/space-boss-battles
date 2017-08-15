@@ -495,7 +495,7 @@ impl SettingsMenu {
 
     fn update_currently_selected_integer_setting(&mut self, number: i32) -> Option<GUIEvent> {
          if let GUIEvent::ChangeSetting(SettingType::Integer(integer_setting, value)) = self.layer.buttons.action_of_currently_selected_component() {
-            let value = audio::check_volume_value(value + number);
+            let value = audio::Volume::new(value + number).value();
 
             let updated_gui_event = GUIEvent::ChangeSetting(SettingType::Integer(integer_setting, value));
             self.layer.buttons.set_action_of_currently_selected_component(updated_gui_event);
