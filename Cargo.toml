@@ -11,7 +11,11 @@ gl = { path = "gl" }
 cgmath = "0.14.1"
 rand = "0.3.15"
 time = "0.1.38"
-image = "0.14.0"
+
+[dependencies.image]
+version = "0.15.0"
+default-features = false
+features = ["png_codec"]
 
 [dependencies.sdl2]
 version = "0.30"

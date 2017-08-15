@@ -62,7 +62,18 @@ fn main() {
 
     let sdl_context = sdl2::init().expect("sdl2 init failed");
     println!("SDL2 version: {}", sdl2::version::version());
+
+/*
     let audio_subsystem = sdl_context.audio().expect("error");
+
+    println!("SDL2 current audio driver: {}", audio_subsystem.current_audio_driver());
+
+    if let Some(number) = audio_subsystem.num_audio_playback_devices() {
+        for i in 0..number {
+            println!("playback device index: {}, name: {}", i, audio_subsystem.audio_playback_device_name(i).expect("error"));
+        }
+    }
+*/
 
     let mut event_pump = sdl_context.event_pump().expect("failed to get handle to sdl2 event_pump");
 
@@ -72,7 +83,7 @@ fn main() {
 
     let game_controller_subsystem = sdl_context.game_controller().expect("game controller subsystem init failed");
     let joystick_subsystem = sdl_context.joystick().expect("joystick subsystem init failed");
-    let mut game = Game::new(game_controller_subsystem, renderer, joystick_subsystem, audio_subsystem);
+    let mut game = Game::new(game_controller_subsystem, renderer, joystick_subsystem);
 
 
     for event in event_pump.poll_iter() {
@@ -124,7 +135,7 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new(mut controller_subsystem: GameControllerSubsystem, mut renderer: OpenGLRenderer, joystick_subsystem: JoystickSubsystem, audio_subsystem: AudioSubsystem) -> Game {
+    pub fn new(mut controller_subsystem: GameControllerSubsystem, mut renderer: OpenGLRenderer, joystick_subsystem: JoystickSubsystem) -> Game {
         let mut game_logic = Logic::new();
         let quit = false;
 
@@ -137,7 +148,7 @@ impl Game {
         let mut gui = GUI::new(&settings);
         gui.update_position_from_half_screen_width(renderer.half_screen_width_world_coordinates());
 
-        let mut audio_manager = AudioManager::new(audio_subsystem);
+        let mut audio_manager = AudioManager::new("music.ogg");
         settings.apply_current_settings(&mut renderer, &mut gui, &mut game_logic, &mut audio_manager);
 
 
@@ -224,6 +235,7 @@ impl Game {
             }
 
             self.input.update(current_time);
+            self.audio_manager.sound_effect_manager_mut().update();
         }
     }
 

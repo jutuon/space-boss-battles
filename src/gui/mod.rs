@@ -1,5 +1,5 @@
 /*
-src/gui/mod.rs, 2017-08-14
+src/gui/mod.rs, 2017-08-15
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -22,9 +22,8 @@ use gui::components::*;
 
 use input::Input;
 use logic::{Difficulty, MovingBackground};
-use settings::{ Settings, SettingType, SettingContainer, BooleanSetting, IntegerSetting};
+use settings::{ Settings, SettingType, BooleanSetting, IntegerSetting};
 
-use audio::AudioManager;
 use audio;
 
 
@@ -449,7 +448,7 @@ impl SettingsMenu {
                 SettingType::Boolean(_, true) => texts.push(GUIText::new(x_text, y, "Enabled")),
                 SettingType::Boolean(_, false) => texts.push(GUIText::new(x_text, y, "Disabled")),
                 SettingType::Integer(_, value) => {
-                    let mut value_indicator = GUIHealthBar::new(GUIComponentAlignment::Left, 1.5, y, 3.0, AudioManager::max_volume() as u32, 0, false);
+                    let mut value_indicator = GUIHealthBar::new(GUIComponentAlignment::Left, 1.5, y, 3.0, audio::MAX_VOLUME as u32, 0, false);
                     value_indicator.update_health(value as u32);
                     value_indicator.update_borders();
                     value_indicators.push(value_indicator);

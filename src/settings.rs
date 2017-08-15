@@ -1,5 +1,5 @@
 /*
-src/settings.rs, 2017-08-14
+src/settings.rs, 2017-08-15
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -26,6 +26,7 @@ use gui::components::GUIUpdatePosition;
 use logic::Logic;
 
 use audio::AudioManager;
+use audio;
 
 const SETTINGS_FILE_NAME: &'static str = "space_boss_battles_settings.txt";
 
@@ -70,8 +71,8 @@ impl Settings {
             SettingContainer::new("Full screen", SettingType::Boolean(BooleanSetting::FullScreen, false)),
             SettingContainer::new("FPS counter", SettingType::Boolean(BooleanSetting::ShowFpsCounter, false)),
             SettingContainer::new("VSync", SettingType::Boolean(BooleanSetting::VSync, true)),
-            SettingContainer::new("Music volume", SettingType::Integer(IntegerSetting::MusicVolume, AudioManager::max_volume())),
-            SettingContainer::new("Effect volume", SettingType::Integer(IntegerSetting::SoundEffectVolume, AudioManager::max_volume())),
+            SettingContainer::new("Music volume", SettingType::Integer(IntegerSetting::MusicVolume, audio::DEFAULT_VOLUME)),
+            SettingContainer::new("Effect volume", SettingType::Integer(IntegerSetting::SoundEffectVolume, audio::DEFAULT_VOLUME)),
 
         ];
 
@@ -190,7 +191,7 @@ impl Settings {
     /// If parser finds `[GameControllerMappings]` section, it adds all following non empty lines to
     /// `Vec<String>` field named `controller_mappings`.
     ///
-    /// # Example file
+    /// ## Example file
     ///
     /// ```text
     /// # Settings file for Space Boss Battles
@@ -359,7 +360,7 @@ impl Settings {
             },
             SettingType::Boolean(BooleanSetting::ShowFpsCounter, value) => gui.set_show_fps_counter(value),
             SettingType::Boolean(BooleanSetting::VSync , value)  => renderer.v_sync(value),
-            SettingType::Integer(IntegerSetting::SoundEffectVolume, value) => audio_manager.sound_effect_manager_mut().change_volume(value),
+            SettingType::Integer(IntegerSetting::SoundEffectVolume, value) => audio_manager.set_sound_effect_volume(value),
             SettingType::Integer(IntegerSetting::MusicVolume, value) => audio_manager.set_music_volume(value),
         }
     }
