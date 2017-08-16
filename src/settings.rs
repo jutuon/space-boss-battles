@@ -21,7 +21,6 @@ use sdl2::GameControllerSubsystem;
 use renderer::Renderer;
 
 use gui::GUI;
-use gui::components::GUIUpdatePosition;
 
 use logic::Logic;
 

@@ -38,17 +38,18 @@ pub mod components;
 const BUTTON_WIDTH: f32 = 5.0;
 const BUTTON_HEIGHT: f32 = 1.0;
 
+const FPS_COUNTER_POSITION_Y: f32 = 3.2;
 
 use gui::components::*;
 
 use input::Input;
-use logic::{Difficulty, MovingBackground};
+use logic::Difficulty;
 use settings::{ Settings, SettingType, BooleanSetting, IntegerSetting};
 
 use audio;
 
 
-/// Event that will be send to `GUI` from `GUILayer`.
+/// Event that will be sent from `GUILayer` to `GUI`.
 #[derive(Copy, Clone)]
 pub enum GUIEvent {
     NextLevel,
@@ -88,7 +89,8 @@ pub trait GUILayerInputHandler : GUILayer {
     fn layer_specific_operations(&mut self, _event: &mut GUIEvent) {}
 
     /// Override this method to do additional input handling in addition
-    /// to the default input handling.
+    /// to the default input handling. This method will be called
+    /// in the else block of default `handle_input` function.
     fn layer_specific_input_handling<T: Input>(&mut self, _input: &mut T) -> Option<GUIEvent> { None }
 
     /// Default implementation for handling input for vertical button groups.
@@ -174,6 +176,7 @@ impl <'a> GUIComponentReferences<'a> {
 }
 
 
+/// Stores GUI components and state.
 pub struct GUI {
     main_menu: BasicGUILayer,
     pause_menu: PauseMenu,
@@ -189,6 +192,7 @@ pub struct GUI {
 
 
 impl GUI {
+    /// Create new `GUI`.
     pub fn new(settings: &Settings) -> GUI {
         GUI {
             main_menu: BasicGUILayer::main_menu(),
@@ -197,13 +201,17 @@ impl GUI {
             game_status: GameStatus::new(),
             difficulty_selection_menu: BasicGUILayer::difficulty_selection_menu(),
             state: GUIState::MainMenu,
-            fps_counter: GUIFpsCounter::new(-5.0, 3.2),
+            fps_counter: GUIFpsCounter::new(0.0, FPS_COUNTER_POSITION_Y),
             game_over_screen: BasicGUILayer::game_over_screen(),
             player_wins_screen: BasicGUILayer::player_wins_screen(),
             next_level_screen: BasicGUILayer::next_level_screen(),
         }
     }
 
+    /// Call `handle_input` function of current `GUILayer`.
+    ///
+    /// Updates `GUI`'s state according to `GUIEvent` returned by
+    /// the current `GUILayer`.
     pub fn handle_input<T: Input>(&mut self, input: &mut T) -> Option<GUIEvent> {
         let event = match self.state {
             GUIState::MainMenu => self.main_menu.handle_input(input),
@@ -230,6 +238,7 @@ impl GUI {
         event
     }
 
+    /// Update `GUI`'s state from `GUIEvent`.
     pub fn handle_gui_event(&mut self, event: GUIEvent ) {
         match event {
             GUIEvent::NextLevel | GUIEvent::NewGame(_) => self.state = GUIState::Game,
@@ -238,22 +247,27 @@ impl GUI {
         };
     }
 
+    /// Update `GUIFpsCounter`.
     pub fn update_fps_counter(&mut self, count: u32) {
         self.fps_counter.update_fps_count(count);
     }
 
+    /// Get `GUIFpsCounter`.
     pub fn get_gui_fps_counter(&self) -> &GUIFpsCounter {
         &self.fps_counter
     }
 
+    /// Show or hide `GUIFpsCounter`.
     pub fn set_show_fps_counter(&mut self, value: bool) {
         self.fps_counter.set_show_fps(value);
     }
 
+    /// Get `GUILayer` `GameStatus`.
     pub fn get_game_status(&mut self) -> &mut GameStatus {
         &mut self.game_status
     }
 
+    /// Get current `GUILayer`'s components.
     pub fn components<'a>(&'a self) -> GUIComponentReferences<'a> {
         match self.state {
             GUIState::MainMenu => self.main_menu.components(),
@@ -266,21 +280,22 @@ impl GUI {
             GUIState::NextLevelScreen => self.next_level_screen.components(),
         }
     }
-}
 
-impl GUIUpdatePosition for GUI {
-    fn update_position_from_half_screen_width(&mut self, width: f32) {
+    /// Update positions of `GUIFpsCounter` and `GameStatus`.
+    pub fn update_position_from_half_screen_width(&mut self, width: f32) {
         self.fps_counter.update_position_from_half_screen_width(width);
         self.game_status.update_position_from_half_screen_width(width);
     }
 }
 
+/// Base type for simple menus with `GUIButton`s and `GUIText`s.
 pub struct BasicGUILayer {
      buttons: GUIGroup<GUIButton<GUIEvent>>,
      texts: Vec<GUIText>,
 }
 
 impl BasicGUILayer {
+    /// Create main menu.
     fn main_menu() -> BasicGUILayer {
         BasicGUILayer {
             buttons: GUIGroup::new(GUIButton::new(0.0, 1.0, BUTTON_WIDTH, BUTTON_HEIGHT, "Start Game", GUIEvent::ChangeState(GUIState::DifficultySelectionMenu)))
@@ -290,12 +305,14 @@ impl BasicGUILayer {
         }
     }
 
+    /// Create difficulty selection menu.
     fn difficulty_selection_menu() -> BasicGUILayer {
         let mut buttons = GUIGroup::new(GUIButton::new(0.0, 1.5, BUTTON_WIDTH, BUTTON_HEIGHT, "Easy", GUIEvent::NewGame(Difficulty::Easy)))
             .add(GUIButton::new(0.0, 0.2, BUTTON_WIDTH, BUTTON_HEIGHT, "Normal", GUIEvent::NewGame(Difficulty::Normal)))
             .add(GUIButton::new(0.0, -1.1, BUTTON_WIDTH, BUTTON_HEIGHT, "Hard", GUIEvent::NewGame(Difficulty::Hard)))
             .add(GUIButton::new(0.0, -2.7, BUTTON_WIDTH, BUTTON_HEIGHT, "Main Menu", GUIEvent::ChangeState(GUIState::MainMenu)));
 
+        // Set default selection to "Normal".
         buttons.selection_down();
 
         BasicGUILayer {
@@ -304,6 +321,7 @@ impl BasicGUILayer {
         }
     }
 
+    /// Create player wins screen.
     fn player_wins_screen() -> BasicGUILayer {
         BasicGUILayer {
             buttons: GUIGroup::new(GUIButton::new(0.0, 1.0, BUTTON_WIDTH, BUTTON_HEIGHT, "Main Menu", GUIEvent::ChangeState(GUIState::MainMenu))),
@@ -311,6 +329,7 @@ impl BasicGUILayer {
         }
     }
 
+    /// Create game over screen.
     fn game_over_screen() -> BasicGUILayer {
         BasicGUILayer {
             buttons: GUIGroup::new(GUIButton::new(0.0, 1.0, BUTTON_WIDTH, BUTTON_HEIGHT, "Main Menu", GUIEvent::ChangeState(GUIState::MainMenu))),
@@ -318,6 +337,7 @@ impl BasicGUILayer {
         }
     }
 
+    /// Create next level screen.
     fn next_level_screen() -> BasicGUILayer {
         BasicGUILayer {
             buttons: GUIGroup::new(GUIButton::new(0.0, 1.0, BUTTON_WIDTH, BUTTON_HEIGHT, "Next Level", GUIEvent::NextLevel)),
@@ -336,7 +356,8 @@ impl GUILayerInputHandler for BasicGUILayer {
     fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton<GUIEvent>> { &mut self.buttons }
 }
 
-
+/// New type `PauseMenu` because selected button
+/// must be reset to "Continue" after pressing "Main Menu" button.
 pub struct PauseMenu(BasicGUILayer);
 
 impl PauseMenu {
@@ -358,6 +379,7 @@ impl GUILayer for PauseMenu {
 impl GUILayerInputHandler for PauseMenu {
     fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton<GUIEvent>> { self.0.get_buttons_mut() }
 
+    /// Reset currently selected button to "Continue" after pressing "Main Menu" button.
     fn layer_specific_operations(&mut self, event: &mut GUIEvent) {
         if let &mut GUIEvent::ChangeState(GUIState::MainMenu) = event {
             self.0.buttons.selection_up();
@@ -366,11 +388,14 @@ impl GUILayerInputHandler for PauseMenu {
 }
 
 
+/// New type `GameStatus` because game status
+/// screen contains only two `GUIHealthBar`.
 pub struct GameStatus {
     health_bars: [GUIHealthBar; 2],
 }
 
 impl GameStatus {
+    /// Create new `GameStatus`.
     fn new() -> GameStatus {
         GameStatus {
             health_bars: [
@@ -380,16 +405,17 @@ impl GameStatus {
         }
     }
 
+    /// Updates players health bar.
     pub fn set_player_health(&mut self, health: u32) {
         self.health_bars[0].update_health(health);
     }
 
+    /// Updates enemy health bar.
     pub fn set_enemy_health(&mut self, health: u32) {
         self.health_bars[1].update_health(health);
     }
-}
 
-impl GUIUpdatePosition for GameStatus {
+    /// Update positions of `GUIHealthBar`s
     fn update_position_from_half_screen_width(&mut self, width: f32) {
         self.health_bars[0].update_position_from_half_screen_width(width);
         self.health_bars[1].update_position_from_half_screen_width(width);
@@ -402,13 +428,17 @@ impl GUILayer for GameStatus {
     }
 }
 
+// TODO: Audio volume sliders mouse support.
 
+/// Create settings menu from `Settings`, create
+/// updated setting values and send them with `GUIEvent`.
 pub struct SettingsMenu {
     layer: BasicGUILayer,
     value_indicators: Vec<GUIHealthBar>,
 }
 
 impl SettingsMenu {
+    /// Creates new settings menu from `Settings`.
     fn new(settings: &Settings) -> SettingsMenu {
         let x_button = -2.0;
         let x_text = 3.0;
@@ -448,6 +478,10 @@ impl SettingsMenu {
         }
     }
 
+    /// Toggles boolean setting value if there exist an `GUIButton` with same values
+    /// as arguments `setting` and `value`. Function will also update text related to that button.
+    ///
+    /// Returns the new setting value inside `SettingType` if matching button is found.
     fn update_boolean_setting(&mut self, setting: BooleanSetting, value: bool) -> Option<SettingType> {
         for (button, text) in self.layer.buttons.get_components_mut().iter_mut().zip(self.layer.texts.iter_mut()) {
 
@@ -470,6 +504,11 @@ impl SettingsMenu {
         None
     }
 
+    /// Tries adding argument `number` to current value of currently selected volume slider.
+    ///
+    /// To determine is volume slider selected, the method will check does the currently selected button
+    /// contain an `IntegerSetting`. If button contains an `IntegerSetting`, the button's and slider's integer value will
+    /// be updated and the new value will be returned as `GUIEvent`.
     fn update_currently_selected_integer_setting(&mut self, number: i32) -> Option<GUIEvent> {
          if let GUIEvent::ChangeSetting(SettingType::Integer(integer_setting, value)) = self.layer.buttons.action_of_currently_selected_component() {
             let value = audio::Volume::new(value + number).value();
@@ -499,6 +538,7 @@ impl GUILayer for SettingsMenu {
 impl GUILayerInputHandler for SettingsMenu {
     fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton<GUIEvent>> { self.layer.get_buttons_mut() }
 
+    /// Toggle `BooleanSetting`.
     fn layer_specific_operations(&mut self, event: &mut GUIEvent) {
         if let &mut GUIEvent::ChangeSetting(SettingType::Boolean(setting_event, value)) = event {
             if let Some(updated_setting) = self.update_boolean_setting(setting_event, value) {
@@ -507,6 +547,7 @@ impl GUILayerInputHandler for SettingsMenu {
         }
     }
 
+    /// Change slider values with left and right keys.
     fn layer_specific_input_handling<T: Input>(&mut self, input: &mut T) -> Option<GUIEvent> {
         if input.key_hit_left() {
             self.update_currently_selected_integer_setting(-20)

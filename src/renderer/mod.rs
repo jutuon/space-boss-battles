@@ -32,8 +32,8 @@ use renderer::shader::*;
 
 use logic::{Logic, LaserColor};
 
-use gui::{GUI, GUILayer};
-use gui::components::*;
+use gui::GUI;
+use gui::components::GUIText;
 
 const DEFAULT_SCREEN_WIDTH: i32 = 640;
 const DEFAULT_SCREEN_HEIGHT: i32 = 480;

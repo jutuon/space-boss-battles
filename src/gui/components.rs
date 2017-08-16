@@ -1,5 +1,5 @@
 /*
-src/gui/components.rs, 2017-08-11
+src/gui/components.rs, 2017-08-16
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -12,6 +12,8 @@ or
 MIT License
 */
 
+//! GUI toolkit components.
+
 use cgmath::{Matrix4, Point2, Vector3};
 use cgmath::prelude::*;
 
@@ -19,6 +21,7 @@ use renderer::{ModelMatrix, Color, TileLocationInfo};
 
 use super::GUIEvent;
 
+/// Macro for implementing `ModelMatrix` trait.
 macro_rules! impl_model_matrix {
     ( $x:ty ) => {
         impl ModelMatrix for $x {
@@ -36,6 +39,7 @@ macro_rules! impl_model_matrix {
     };
 }
 
+/// Macro for implementing `Color` trait.
 macro_rules! impl_color {
     ( $x:ty ) => {
         impl Color for $x {
@@ -51,17 +55,52 @@ pub trait GUIActionData<T: Clone + Copy> {
     fn set_action_data(&mut self, data: T);
 }
 
-pub trait GUICollision {
+pub trait GUIComponent {
     fn collision(&self, point: &Point2<f32>) -> bool;
-}
-
-pub trait SetGUIComponentState {
     fn set_state(&mut self, state: GUIComponentState);
 }
+
+pub trait GUIPosition {
+    fn update_position_from_half_screen_width(&mut self, width: f32);
+    fn width(&self) -> f32;
+    fn set_x(&mut self, x: f32);
+    fn alignment(&self) -> GUIComponentAlignment;
+
+    fn calculate_component_position(&self, new_x: f32, width: f32) -> f32 {
+        let mut x = new_x;
+
+        let half_width = width/2.0;
+
+        match self.alignment() {
+            GUIComponentAlignment::Left => {
+                x += half_width;
+            },
+            GUIComponentAlignment::Right => {
+                x -= half_width;
+            },
+            _  => (),
+        };
+
+        x
+    }
+
+    fn update_component_position(&mut self, new_x: f32) {
+        let x = self.calculate_component_position(new_x, self.width());
+        self.set_x(x);
+    }
+}
+
 
 pub enum GUIComponentState {
     Selected,
     Normal,
+}
+
+#[derive(Copy, Clone)]
+pub enum GUIComponentAlignment {
+    Left,
+    Right,
+    Center,
 }
 
 pub struct GUIRectangle<T> {
@@ -72,11 +111,13 @@ pub struct GUIRectangle<T> {
 }
 
 impl GUIRectangle<f32> {
-    pub fn new(x: f32, y: f32, width: f32, height: f32) -> GUIRectangle<f32> {
-        let model_matrix = Matrix4::identity();
-        let position = Point2::new(x, y);
-
-        let mut rectangle = GUIRectangle { model_matrix, position, width, height};
+    pub fn new(position: Point2<f32>, width: f32, height: f32) -> GUIRectangle<f32> {
+        let mut rectangle = GUIRectangle {
+            model_matrix: Matrix4::identity(),
+            position,
+            width,
+            height
+        };
         rectangle.update_model_matrix();
 
         rectangle
@@ -129,7 +170,7 @@ pub struct GUIButton<T: Clone + Copy> {
 impl <T: Clone + Copy> GUIButton<T> {
     pub fn new(x: f32, y: f32, width: f32, height: f32, text: &str, action_data: T) -> GUIButton<T> {
         let mut button = GUIButton {
-            rectangle: GUIRectangle::new(x, y, width, height),
+            rectangle: GUIRectangle::new(Point2 {x, y}, width, height),
             text: GUIText::new(x, y, text),
             color: Vector3::zero(),
             action_data,
@@ -158,13 +199,11 @@ impl <T: Clone + Copy> GUIActionData<T> for GUIButton<T> {
     }
 }
 
-impl <T: Clone + Copy> GUICollision for GUIButton<T> {
+impl <T: Clone + Copy> GUIComponent for GUIButton<T> {
     fn collision(&self, point: &Point2<f32>) -> bool {
         self.rectangle.axis_aligned_rectangle_and_point_collision(point)
     }
-}
 
-impl <T: Clone + Copy> SetGUIComponentState for GUIButton<T> {
     fn set_state(&mut self, state: GUIComponentState) {
         let color_selected = Vector3::new(0.0,0.0,1.0);
         let color_normal = Vector3::new(0.0,0.0,0.4);
@@ -176,11 +215,12 @@ impl <T: Clone + Copy> SetGUIComponentState for GUIButton<T> {
     }
 }
 
-pub struct GUIGroupBuilder<T: SetGUIComponentState> {
+
+pub struct GUIGroupBuilder<T: GUIComponent> {
     components: Vec<T>,
 }
 
-impl <T: SetGUIComponentState> GUIGroupBuilder<T> {
+impl <T: GUIComponent> GUIGroupBuilder<T> {
     pub fn new() -> GUIGroupBuilder<T> {
         GUIGroupBuilder {
             components: Vec::new(),
@@ -206,12 +246,12 @@ impl <T: SetGUIComponentState> GUIGroupBuilder<T> {
     }
 }
 
-pub struct GUIGroup<T: SetGUIComponentState> {
+pub struct GUIGroup<T: GUIComponent> {
     components: Vec<T>,
     selected: usize,
 }
 
-impl <T: SetGUIComponentState + GUICollision + GUIActionData<GUIEvent>> GUIGroup<T> {
+impl <T: GUIComponent> GUIGroup<T> {
     pub fn new(mut first_component: T) -> GUIGroup<T> {
         let mut vec = Vec::new();
         first_component.set_state(GUIComponentState::Selected);
@@ -258,30 +298,12 @@ impl <T: SetGUIComponentState + GUICollision + GUIActionData<GUIEvent>> GUIGroup
         self.components[self.selected].set_state(GUIComponentState::Selected);
     }
 
-    pub fn set_action_of_currently_selected_component(&mut self, action: GUIEvent) {
-        self.components[self.selected].set_action_data(action);
-    }
-
-    pub fn action_of_currently_selected_component(&self) -> GUIEvent {
-        self.components[self.selected].action_data()
-    }
-
     pub fn get_components(&self) -> &[T] {
         self.components.as_slice()
     }
 
     pub fn get_components_mut(&mut self) -> &mut [T] {
         self.components.as_mut_slice()
-    }
-
-    pub fn check_collision_and_return_action(&self, point: &Point2<f32>) -> Option<GUIEvent> {
-        for button in &self.components {
-            if button.collision(point) {
-                return Some(button.action_data());
-            }
-        };
-
-        None
     }
 
     pub fn update_selection(&mut self, point: &Point2<f32>) {
@@ -298,6 +320,26 @@ impl <T: SetGUIComponentState + GUICollision + GUIActionData<GUIEvent>> GUIGroup
             self.selected = i;
             self.components[self.selected].set_state(GUIComponentState::Selected);
         }
+    }
+}
+
+impl <T: GUIComponent + GUIActionData<GUIEvent>> GUIGroup<T> {
+    pub fn set_action_of_currently_selected_component(&mut self, action: GUIEvent) {
+        self.components[self.selected].set_action_data(action);
+    }
+
+    pub fn action_of_currently_selected_component(&self) -> GUIEvent {
+        self.components[self.selected].action_data()
+    }
+
+    pub fn check_collision_and_return_action(&self, point: &Point2<f32>) -> Option<GUIEvent> {
+        for button in &self.components {
+            if button.collision(point) {
+                return Some(button.action_data());
+            }
+        };
+
+        None
     }
 }
 
@@ -406,18 +448,10 @@ fn tilemap_index_from_char(c: char) -> (u32, u32) {
     }
 }
 
-#[derive(Copy, Clone)]
-pub enum GUIComponentAlignment {
-    Left,
-    Right,
-    Center,
-}
-
 
 pub struct GUIText {
     tiles: Vec<Tile>,
-    x: f32,
-    y: f32,
+    position: Point2<f32>,
     font_size: f32,
     space_between_tiles: f32,
     width: f32,
@@ -432,8 +466,7 @@ impl GUIText {
     pub fn new_with_alignment(x: f32, y: f32, text: &str, alignment: GUIComponentAlignment) -> GUIText {
         let mut gui_text = GUIText {
             tiles: Vec::new(),
-            x: x,
-            y: y,
+            position: Point2 {x, y},
             font_size: 0.57,
             space_between_tiles: 1.0,
             width: 0.0,
@@ -453,10 +486,10 @@ impl GUIText {
         self.space_between_tiles = self.font_size - 0.17;
         self.width = text_len * self.space_between_tiles;
 
-        let mut x = self.calculate_component_position(self.x, self.width);
+        let mut x = self.calculate_component_position(self.position.x, self.width);
 
         for c in text.chars() {
-            let rectangle = GUIRectangle::new(x, self.y, self.font_size, self.font_size);
+            let rectangle = GUIRectangle::new(Point2{ x, .. self.position }, self.font_size, self.font_size);
 
             self.tiles.push(Tile::new(tilemap_index_from_char(c), rectangle));
 
@@ -471,21 +504,19 @@ impl GUIText {
     pub fn get_width(&self) -> f32 {
         self.width
     }
-
-
 }
 
-impl SetGUIComponentPosition for GUIText {
+impl GUIPosition for GUIText {
     fn width(&self) -> f32 { self.width }
     fn alignment(&self) -> GUIComponentAlignment {self.alignment}
 
     fn set_x(&mut self, x: f32) {
-        self.x = x;
+        self.position.x = x;
 
         let mut x = x;
 
         for tile in &mut self.tiles {
-            let rectangle = GUIRectangle::new(x, self.y, self.font_size, self.font_size);
+            let rectangle = GUIRectangle::new(Point2 {x, .. self.position}, self.font_size, self.font_size);
             tile.set_gui_rectangle(rectangle);
 
             x += self.space_between_tiles;
@@ -505,9 +536,7 @@ impl SetGUIComponentPosition for GUIText {
 
         x
     }
-}
 
-impl GUIUpdatePosition for GUIText {
     fn update_position_from_half_screen_width(&mut self, width: f32) {
         match self.alignment() {
             GUIComponentAlignment::Left => self.update_component_position(-width),
@@ -516,6 +545,8 @@ impl GUIUpdatePosition for GUIText {
         }
     }
 }
+
+
 pub struct GUIFpsCounter {
     fps_text: GUIText,
     fps_count_text: GUIText,
@@ -523,16 +554,14 @@ pub struct GUIFpsCounter {
 }
 
 impl GUIFpsCounter {
-    pub fn new(x: f32, y:f32) -> GUIFpsCounter {
+    pub fn new(x: f32, y: f32) -> GUIFpsCounter {
         let fps_text = GUIText::new_with_alignment(x, y, "FPS ", GUIComponentAlignment::Left);
         let fps_count_text = GUIText::new_with_alignment(x + fps_text.get_width(), y, "0", GUIComponentAlignment::Left);
-
-        let show_fps = false;
 
         GUIFpsCounter {
             fps_text,
             fps_count_text,
-            show_fps,
+            show_fps: false,
         }
     }
 
@@ -552,48 +581,15 @@ impl GUIFpsCounter {
     pub fn set_show_fps(&mut self, value: bool) {
         self.show_fps = value;
     }
-}
 
-pub trait GUIUpdatePosition {
-    fn update_position_from_half_screen_width(&mut self, width: f32);
-}
-
-impl GUIUpdatePosition for GUIFpsCounter {
-    fn update_position_from_half_screen_width(&mut self, width: f32) {
+    pub fn update_position_from_half_screen_width(&mut self, width: f32) {
         self.fps_text.update_position_from_half_screen_width(width);
         self.fps_count_text.update_position_from_half_screen_width(width - self.fps_text.get_width());
     }
 }
 
 
-pub trait SetGUIComponentPosition {
-    fn width(&self) -> f32;
-    fn set_x(&mut self, x: f32);
-    fn alignment(&self) -> GUIComponentAlignment;
-
-    fn calculate_component_position(&self, new_x: f32, width: f32) -> f32 {
-        let mut x = new_x;
-
-        let half_width = width/2.0;
-
-        match self.alignment() {
-            GUIComponentAlignment::Left => {
-                x += half_width;
-            },
-            GUIComponentAlignment::Right => {
-                x -= half_width;
-            },
-            _  => (),
-        };
-
-        x
-    }
-
-    fn update_component_position(&mut self, new_x: f32) {
-        let x = self.calculate_component_position(new_x, self.width());
-        self.set_x(x);
-    }
-}
+// TODO: Rename GUIHealthBar to GUISlider?
 
 pub struct GUIHealthBar {
     rectangle: GUIRectangle<f32>,
@@ -628,7 +624,7 @@ impl GUIHealthBar {
         let height = 0.5;
 
         let health_bar = GUIHealthBar {
-            rectangle: GUIRectangle::new(0.0,y,max_width,height),
+            rectangle: GUIRectangle::new(Point2::new(0.0,y),max_width,height),
             color: Vector3::zero(),
             alignment,
             max_value,
@@ -636,10 +632,10 @@ impl GUIHealthBar {
             max_width,
             x,
             margin,
-            border_left: GUIRectangle::new(0.0, y, border_width, height + border_height*2.0),
-            border_right: GUIRectangle::new(0.0, y, border_width, height + border_height*2.0),
-            border_top: GUIRectangle::new(0.0, y + (height/2.0 + border_height/2.0), max_width, border_height),
-            border_bottom: GUIRectangle::new(0.0, y - (height/2.0 + border_height/2.0), max_width, border_height),
+            border_left: GUIRectangle::new(Point2::new(0.0, y), border_width, height + border_height*2.0),
+            border_right: GUIRectangle::new(Point2::new(0.0, y), border_width, height + border_height*2.0),
+            border_top: GUIRectangle::new(Point2::new(0.0, y + (height/2.0 + border_height/2.0)), max_width, border_height),
+            border_bottom: GUIRectangle::new(Point2::new(0.0, y - (height/2.0 + border_height/2.0)), max_width, border_height),
             border_width,
             change_color_when_low_value,
         };
@@ -702,7 +698,15 @@ impl GUIHealthBar {
 impl_model_matrix!(GUIHealthBar, rectangle);
 impl_color!(GUIHealthBar);
 
-impl GUIUpdatePosition for GUIHealthBar {
+
+impl GUIPosition for GUIHealthBar {
+    fn width(&self) -> f32 { self.rectangle.width() }
+    fn alignment(&self) -> GUIComponentAlignment { self.alignment }
+    fn set_x(&mut self, x: f32) {
+        self.rectangle.position_mut().x = x;
+        self.rectangle.update_model_matrix();
+    }
+
     fn update_position_from_half_screen_width(&mut self, width: f32) {
         match self.alignment() {
             GUIComponentAlignment::Left => {
@@ -718,14 +722,5 @@ impl GUIUpdatePosition for GUIHealthBar {
             _ => (),
         }
         self.update_borders();
-    }
-}
-
-impl SetGUIComponentPosition for GUIHealthBar {
-    fn width(&self) -> f32 { self.rectangle.width() }
-    fn alignment(&self) -> GUIComponentAlignment { self.alignment }
-    fn set_x(&mut self, x: f32) {
-        self.rectangle.position_mut().x = x;
-        self.rectangle.update_model_matrix();
     }
 }

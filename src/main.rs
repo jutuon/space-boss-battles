@@ -37,7 +37,6 @@ use logic::Logic;
 
 use input::{InputManager};
 use gui::{GUI, GUIEvent, GUIState};
-use gui::components::GUIUpdatePosition;
 
 use settings::{Settings, Arguments};
 
