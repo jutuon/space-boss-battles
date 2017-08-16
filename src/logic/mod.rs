@@ -28,7 +28,7 @@ use logic::common::*;
 use input::Input;
 
 use time::PreciseTime;
-use Timer;
+use utils::Timer;
 
 use gui::{GUI, GUIState, GUIEvent};
 

@@ -1,5 +1,5 @@
 /*
-src/input.rs, 2017-08-12
+src/input.rs, 2017-08-16
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -458,7 +458,7 @@ mod utils {
     //! Utilities for `input` module's objects.
 
     use time::PreciseTime;
-    use Timer;
+    use utils::Timer;
 
     /// Key press states.
     #[derive(Clone)]
