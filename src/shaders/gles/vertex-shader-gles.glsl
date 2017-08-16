@@ -1,7 +1,7 @@
 #version 100
 
 /*
-src/shaders/gles/vertex-shader-gles.glsl, 2017-07-17
+src/shaders/gles/vertex-shader-gles.glsl, 2017-08-16
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -13,6 +13,8 @@ or
 
 MIT License
 */
+
+// OpenGL ES 2.0 vertex shader for rendering a texture.
 
 attribute vec3 vertex;
 attribute vec2 texture_coordinates_attribute;

@@ -1,5 +1,5 @@
 /*
-src/settings.rs, 2017-08-15
+src/settings.rs, 2017-08-16
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -11,6 +11,8 @@ or
 
 MIT License
 */
+
+//! Settings loading and saving, command line arguments.
 
 use std::env::Args;
 use std::fs::File;

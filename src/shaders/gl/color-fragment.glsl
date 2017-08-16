@@ -1,7 +1,7 @@
 #version 330 core
 
 /*
-src/shaders/gl/color-fragment.glsl, 2017-07-17
+src/shaders/gl/color-fragment.glsl, 2017-08-16
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -13,6 +13,8 @@ or
 
 MIT License
 */
+
+// OpenGL 3.3 fragment shader for rendering with specific color.
 
 out vec4 color_out;
 

@@ -1,7 +1,7 @@
 #version 330 core
 
 /*
-src/shaders/gl/color-vertex.glsl, 2017-08-06
+src/shaders/gl/color-vertex.glsl, 2017-08-16
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -13,6 +13,8 @@ or
 
 MIT License
 */
+
+// OpenGL 3.3 vertex shader for rendering with specific color.
 
 in vec3 vertex;
 

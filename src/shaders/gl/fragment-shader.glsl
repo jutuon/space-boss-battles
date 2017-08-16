@@ -1,7 +1,7 @@
 #version 330 core
 
 /*
-src/shaders/gl/fragment-shader.glsl, 2017-07-23
+src/shaders/gl/fragment-shader.glsl, 2017-08-16
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -13,6 +13,8 @@ or
 
 MIT License
 */
+
+// OpenGL 3.3 fragment shader for rendering a texture.
 
 in vec2 texture_coordinates;
 out vec4 color;

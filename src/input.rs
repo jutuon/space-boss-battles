@@ -12,6 +12,8 @@ or
 MIT License
 */
 
+//! Input handling.
+
 use sdl2::keyboard::Keycode;
 use sdl2::{GameControllerSubsystem, JoystickSubsystem};
 use sdl2::controller::{GameController, Button, Axis};

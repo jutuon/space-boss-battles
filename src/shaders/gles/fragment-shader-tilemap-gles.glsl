@@ -1,7 +1,7 @@
 #version 100
 
 /*
-src/shaders/gles/fragment-shader-tilemap-gles.glsl, 2017-08-01
+src/shaders/gles/fragment-shader-tilemap-gles.glsl, 2017-08-16
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -13,6 +13,8 @@ or
 
 MIT License
 */
+
+// OpenGL ES 2.0 fragment shader for rendering a tile from tilemap.
 
 precision mediump float;
 
