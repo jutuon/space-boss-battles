@@ -1,5 +1,5 @@
 /*
-src/gui/mod.rs, 2017-08-15
+src/gui/mod.rs, 2017-08-16
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -11,6 +11,27 @@ or
 
 MIT License
 */
+
+//! Simple GUI toolkit with events.
+//!
+//! # Implementation
+//!
+//! `GUI` type stores several types that implements `GUILayer` trait.
+//! `GUILayer` is layer which consists of several GUI components like
+//! like `GUIButton` or `GUIText`.
+//!
+//! `GUI` stores info about currently active `GUILayer`.
+//! There can only be one active `GUILayer` at a time.
+//!
+//! `GUI` will call `handle_input` method
+//! of currently active `GUILayer` when input should be updated.
+//! `GUILayer` will check the if there is adequate input for
+//! updating it's state, like changing `GUIButton`'s color when its selected, and
+//! will possibly send an `GUIEvent` back to the `GUI`.
+//!
+//! `GUIEvent` type represents request of change to the current state of `GUI` or
+//! some other component of the game. That means you can request starting a new game or
+//! changing some setting also.
 
 pub mod components;
 
@@ -27,6 +48,7 @@ use settings::{ Settings, SettingType, BooleanSetting, IntegerSetting};
 use audio;
 
 
+/// Event that will be send to `GUI` from `GUILayer`.
 #[derive(Copy, Clone)]
 pub enum GUIEvent {
     NextLevel,
@@ -36,6 +58,7 @@ pub enum GUIEvent {
     Exit,
 }
 
+/// Current state of the GUI.
 #[derive(Copy, Clone)]
 pub enum GUIState {
     MainMenu,
@@ -48,17 +71,28 @@ pub enum GUIState {
     SettingsMenu,
 }
 
-
+/// Component information for rendering is only required for GUILayer.
 pub trait GUILayer {
-    fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton<GUIEvent>>;
-
-    fn layer_specific_operations(&mut self, _event: &mut GUIEvent) {}
-    fn layer_specific_input_handling<T: Input>(&mut self, _input: &mut T) -> Option<GUIEvent> { None }
+    fn components<'a>(&'a self) -> GUIComponentReferences<'a>;
 }
 
-pub trait GUILayerEventHandler
-    where Self: GUILayer {
+/// Input handling for GUILayer.
+///
+/// Includes default implementation for handling input for vertical button groups.
+pub trait GUILayerInputHandler : GUILayer {
+    /// Implementation for this is required for default input handling.
+    fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton<GUIEvent>>;
 
+    /// Override this method to do something before sending the `GUIEvent`
+    /// to the `GUI`.
+    fn layer_specific_operations(&mut self, _event: &mut GUIEvent) {}
+
+    /// Override this method to do additional input handling in addition
+    /// to the default input handling.
+    fn layer_specific_input_handling<T: Input>(&mut self, _input: &mut T) -> Option<GUIEvent> { None }
+
+    /// Default implementation for handling input for vertical button groups.
+    /// Keyboard and mouse input are supported.
     fn handle_input<T: Input>(&mut self, input: &mut T) -> Option<GUIEvent> {
         if input.key_hit_up() {
             self.get_buttons_mut().selection_up();
@@ -87,6 +121,8 @@ pub trait GUILayerEventHandler
     }
 }
 
+/// Slices of different types of GUI components.
+/// Currently used only for rendering the components.
 pub struct GUIComponentReferences<'a> {
     buttons: &'a [GUIButton<GUIEvent>],
     texts: &'a [GUIText],
@@ -94,6 +130,7 @@ pub struct GUIComponentReferences<'a> {
 }
 
 impl <'a> GUIComponentReferences<'a> {
+    /// Create new GUIComponentReferences with empty slices.
     fn new() -> GUIComponentReferences<'a> {
         GUIComponentReferences {
             buttons: &[],
@@ -102,36 +139,38 @@ impl <'a> GUIComponentReferences<'a> {
         }
     }
 
+    /// Set `GUIButton` slice.
     fn set_buttons(mut self, buttons: &'a [GUIButton<GUIEvent>]) -> GUIComponentReferences<'a> {
         self.buttons = buttons;
         self
     }
 
+    /// Set `GUIText` slice.
     fn set_texts(mut self, texts: &'a [GUIText]) -> GUIComponentReferences<'a> {
         self.texts = texts;
         self
     }
 
+    /// Set `GUIHealthBar` slice.
     fn set_health_bars(mut self, health_bars: &'a [GUIHealthBar]) -> GUIComponentReferences<'a> {
         self.health_bars = health_bars;
         self
     }
 
+    /// Get `GUIButton` slice.
     pub fn buttons(&self) -> &[GUIButton<GUIEvent>] {
         self.buttons
     }
 
+    /// Get `GUIText` slice.
     pub fn texts(&self) -> &[GUIText] {
         self.texts
     }
 
+    /// Get `GUIHealthBar` slice.
     pub fn health_bars(&self) -> &[GUIHealthBar] {
         self.health_bars
     }
-}
-
-pub trait GUILayerComponents {
-    fn components<'a>(&'a self) -> GUIComponentReferences<'a>;
 }
 
 
@@ -142,10 +181,7 @@ pub struct GUI {
     game_status: GameStatus,
     difficulty_selection_menu: BasicGUILayer,
     state: GUIState,
-    render_game: bool,
-    update_game: bool,
     fps_counter: GUIFpsCounter,
-    background: MovingBackground,
     game_over_screen: BasicGUILayer,
     player_wins_screen: BasicGUILayer,
     next_level_screen: BasicGUILayer,
@@ -154,9 +190,6 @@ pub struct GUI {
 
 impl GUI {
     pub fn new(settings: &Settings) -> GUI {
-        let mut background = MovingBackground::new();
-        background.move_position_x(0.25);
-
         GUI {
             main_menu: BasicGUILayer::main_menu(),
             pause_menu: PauseMenu::new(),
@@ -164,22 +197,11 @@ impl GUI {
             game_status: GameStatus::new(),
             difficulty_selection_menu: BasicGUILayer::difficulty_selection_menu(),
             state: GUIState::MainMenu,
-            render_game: false,
-            update_game: false,
             fps_counter: GUIFpsCounter::new(-5.0, 3.2),
-            background,
             game_over_screen: BasicGUILayer::game_over_screen(),
             player_wins_screen: BasicGUILayer::player_wins_screen(),
             next_level_screen: BasicGUILayer::next_level_screen(),
         }
-    }
-
-    pub fn render_game(&self) -> bool {
-        self.render_game
-    }
-
-    pub fn update_game(&self) -> bool {
-        self.update_game
     }
 
     pub fn handle_input<T: Input>(&mut self, input: &mut T) -> Option<GUIEvent> {
@@ -210,39 +232,8 @@ impl GUI {
 
     pub fn handle_gui_event(&mut self, event: GUIEvent ) {
         match event {
-            GUIEvent::ChangeState(GUIState::Game) | GUIEvent::NextLevel => {
-                self.render_game = true;
-                self.update_game = true;
-                self.state = GUIState::Game;
-            },
-            GUIEvent::ChangeState(state @ GUIState::PauseMenu) |
-            GUIEvent::ChangeState(state @ GUIState::GameOverScreen) |
-            GUIEvent::ChangeState(state @ GUIState::NextLevelScreen) |
-            GUIEvent::ChangeState(state @ GUIState::PlayerWinsScreen) => {
-                self.render_game = true;
-                self.update_game = false;
-                self.state = state;
-            },
-            GUIEvent::ChangeState(state @ GUIState::MainMenu) => {
-                self.render_game = false;
-                self.update_game = false;
-                self.state = state;
-            },
-            GUIEvent::ChangeState(state @ GUIState::DifficultySelectionMenu) => {
-                self.render_game = false;
-                self.update_game = false;
-                self.state = state;
-            },
-            GUIEvent::ChangeState(state @ GUIState::SettingsMenu) => {
-                self.render_game = false;
-                self.update_game = false;
-                self.state = state;
-            },
-            GUIEvent::NewGame(_) => {
-                self.render_game = true;
-                self.update_game = true;
-                self.state = GUIState::Game;
-            }
+            GUIEvent::NextLevel | GUIEvent::NewGame(_) => self.state = GUIState::Game,
+            GUIEvent::ChangeState(state) => self.state = state,
             _ => (),
         };
     }
@@ -263,20 +254,7 @@ impl GUI {
         &mut self.game_status
     }
 
-    pub fn get_background(&self) -> &MovingBackground {
-        &self.background
-    }
-}
-
-impl GUIUpdatePosition for GUI {
-    fn update_position_from_half_screen_width(&mut self, width: f32) {
-        self.fps_counter.update_position_from_half_screen_width(width);
-        self.game_status.update_position_from_half_screen_width(width);
-    }
-}
-
-impl GUILayerComponents for GUI {
-    fn components<'a>(&'a self) -> GUIComponentReferences<'a> {
+    pub fn components<'a>(&'a self) -> GUIComponentReferences<'a> {
         match self.state {
             GUIState::MainMenu => self.main_menu.components(),
             GUIState::PauseMenu => self.pause_menu.components(),
@@ -290,9 +268,12 @@ impl GUILayerComponents for GUI {
     }
 }
 
-
-
-
+impl GUIUpdatePosition for GUI {
+    fn update_position_from_half_screen_width(&mut self, width: f32) {
+        self.fps_counter.update_position_from_half_screen_width(width);
+        self.game_status.update_position_from_half_screen_width(width);
+    }
+}
 
 pub struct BasicGUILayer {
      buttons: GUIGroup<GUIButton<GUIEvent>>,
@@ -345,17 +326,15 @@ impl BasicGUILayer {
     }
 }
 
-impl GUILayerComponents for BasicGUILayer {
+impl GUILayer for BasicGUILayer {
     fn components<'a>(&'a self) -> GUIComponentReferences<'a> {
         GUIComponentReferences::new().set_buttons(self.buttons.get_components()).set_texts(&self.texts)
     }
 }
 
-impl GUILayer for BasicGUILayer {
+impl GUILayerInputHandler for BasicGUILayer {
     fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton<GUIEvent>> { &mut self.buttons }
 }
-
-impl GUILayerEventHandler for BasicGUILayer {}
 
 
 pub struct PauseMenu(BasicGUILayer);
@@ -372,11 +351,11 @@ impl PauseMenu {
     }
 }
 
-impl GUILayerComponents for PauseMenu {
+impl GUILayer for PauseMenu {
     fn components<'a>(&'a self) -> GUIComponentReferences<'a> { self.0.components() }
 }
 
-impl GUILayer for PauseMenu {
+impl GUILayerInputHandler for PauseMenu {
     fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton<GUIEvent>> { self.0.get_buttons_mut() }
 
     fn layer_specific_operations(&mut self, event: &mut GUIEvent) {
@@ -385,8 +364,6 @@ impl GUILayer for PauseMenu {
         }
     }
 }
-
-impl GUILayerEventHandler for PauseMenu {}
 
 
 pub struct GameStatus {
@@ -419,7 +396,7 @@ impl GUIUpdatePosition for GameStatus {
     }
 }
 
-impl GUILayerComponents for GameStatus {
+impl GUILayer for GameStatus {
     fn components<'a>(&'a self) -> GUIComponentReferences<'a> {
         GUIComponentReferences::new().set_health_bars(&self.health_bars)
     }
@@ -513,16 +490,13 @@ impl SettingsMenu {
     }
 }
 
-
-
-
-impl GUILayerComponents for SettingsMenu {
+impl GUILayer for SettingsMenu {
     fn components<'a>(&'a self) -> GUIComponentReferences<'a> {
         self.layer.components().set_health_bars(&self.value_indicators)
     }
 }
 
-impl GUILayer for SettingsMenu {
+impl GUILayerInputHandler for SettingsMenu {
     fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton<GUIEvent>> { self.layer.get_buttons_mut() }
 
     fn layer_specific_operations(&mut self, event: &mut GUIEvent) {
@@ -543,5 +517,3 @@ impl GUILayer for SettingsMenu {
         }
     }
 }
-
-impl GUILayerEventHandler for SettingsMenu {}

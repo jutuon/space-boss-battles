@@ -1,5 +1,5 @@
 /*
-src/main.rs, 2017-08-15
+src/main.rs, 2017-08-16
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -36,7 +36,7 @@ use renderer::{Renderer, OpenGLRenderer};
 use logic::Logic;
 
 use input::{InputManager};
-use gui::{GUI, GUIEvent};
+use gui::{GUI, GUIEvent, GUIState};
 use gui::components::GUIUpdatePosition;
 
 use settings::{Settings, Arguments};
@@ -130,6 +130,8 @@ pub struct Game {
     renderer: OpenGLRenderer,
     settings: Settings,
     audio_manager: AudioManager,
+    update_game: bool,
+    render_game: bool,
 }
 
 impl Game {
@@ -158,7 +160,7 @@ impl Game {
 
         audio_manager.play_music();
 
-        Game { game_logic, quit, input, fps_counter, timer, gui, renderer, settings, audio_manager }
+        Game { game_logic, quit, input, fps_counter, timer, gui, renderer, settings, audio_manager, update_game: false, render_game: false }
     }
 
     pub fn quit(&self) -> bool {
@@ -201,8 +203,10 @@ impl Game {
 
         self.renderer.start();
 
-        if self.gui.render_game() {
-            self.renderer.render(&self.game_logic);
+        if self.render_game {
+            self.renderer.render(&self.game_logic, false);
+        } else {
+            self.renderer.render(&self.game_logic, true);
         }
 
         self.renderer.render_gui(&self.gui);
@@ -222,7 +226,7 @@ impl Game {
         self.timer.update(current_time);
 
         if self.timer.update_logic() {
-            if self.gui.update_game() {
+            if self.update_game {
                 self.game_logic.update(&self.input, &mut self.gui, self.audio_manager.sound_effect_manager_mut());
             }
 
@@ -233,9 +237,20 @@ impl Game {
                     self.settings.update_setting(new_setting_value);
                     Settings::apply_setting(new_setting_value, &mut self.renderer, &mut self.gui, &mut self.game_logic, &mut self.audio_manager);
                 },
-                Some(GUIEvent::NewGame(difficulty)) => self.game_logic.reset_game(&mut self.gui, difficulty, 0),
-                Some(GUIEvent::NextLevel) => self.game_logic.reset_to_next_level(&mut self.gui),
-                _ => (),
+                Some(GUIEvent::NewGame(difficulty)) => {
+                    self.game_logic.reset_game(&mut self.gui, difficulty, 0);
+                    self.set_game_rendering_and_updating(true, true);
+                },
+                Some(GUIEvent::NextLevel) => {
+                    self.game_logic.reset_to_next_level(&mut self.gui);
+                    self.set_game_rendering_and_updating(true, true);
+                },
+                Some(GUIEvent::ChangeState(GUIState::Game)) => self.set_game_rendering_and_updating(true, true),
+                Some(GUIEvent::ChangeState(GUIState::PauseMenu)) |
+                Some(GUIEvent::ChangeState(GUIState::NextLevelScreen)) |
+                Some(GUIEvent::ChangeState(GUIState::GameOverScreen)) |
+                Some(GUIEvent::ChangeState(GUIState::PlayerWinsScreen)) => self.set_game_rendering_and_updating(true, false),
+                Some(GUIEvent::ChangeState(_)) => self.set_game_rendering_and_updating(false, false),
             }
 
             self.input.update(current_time);
@@ -245,6 +260,11 @@ impl Game {
 
     pub fn save_settings(&self) {
         self.settings.save();
+    }
+
+    pub fn set_game_rendering_and_updating(&mut self, rendering: bool, updating: bool) {
+        self.render_game = rendering;
+        self.update_game = updating;
     }
 }
 

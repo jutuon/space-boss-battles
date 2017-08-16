@@ -57,7 +57,7 @@ pub trait Input {
     /// Is mouse location update occurred.
     /// Resets to false.
     fn mouse_motion(&mut self) -> bool;
-    /// Current location of mouse.
+    /// Current location of mouse in world coordinates.
     fn mouse_location(&self) -> &Point2<f32>;
 }
 

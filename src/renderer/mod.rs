@@ -1,5 +1,5 @@
 /*
-src/renderer/mod.rs, 2017-08-13
+src/renderer/mod.rs, 2017-08-16
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -32,7 +32,7 @@ use renderer::shader::*;
 
 use logic::{Logic, LaserColor};
 
-use gui::{GUI, GUILayerComponents};
+use gui::{GUI, GUILayer};
 use gui::components::*;
 
 const DEFAULT_SCREEN_WIDTH: i32 = 640;
@@ -106,7 +106,7 @@ pub trait Renderer {
     /// Start rendering new frame. Call this first.
     fn start(&mut self);
     /// Render game logic.
-    fn render(&mut self, &Logic);
+    fn render(&mut self, &Logic, only_background: bool);
     /// Render GUI.
     fn render_gui(&mut self, &GUI);
     /// End rendering of new frame. Call this last.
@@ -136,12 +136,16 @@ impl Renderer for OpenGLRenderer {
         }
     }
 
-    fn render(&mut self, logic: &Logic) {
+    fn render(&mut self, logic: &Logic, only_background: bool) {
         self.texture_shader.use_program();
 
         self.textures[Textures::Background as usize].bind();
         for background in logic.get_moving_background().get_backgrounds() {
             self.render_rectangle_with_texture(background);
+        }
+
+        if only_background {
+            return;
         }
 
         if logic.get_player().visible() {
@@ -208,15 +212,6 @@ impl Renderer for OpenGLRenderer {
     }
 
     fn render_gui(&mut self, gui: &GUI) {
-        if !gui.render_game() {
-            self.texture_shader.use_program();
-
-            self.textures[Textures::Background as usize].bind();
-            for background in gui.get_background().get_backgrounds() {
-                self.render_rectangle_with_texture(background);
-            }
-        }
-
         let components = gui.components();
 
         self.color_shader.use_program();
