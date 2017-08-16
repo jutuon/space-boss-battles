@@ -197,7 +197,7 @@ impl Game {
 
     pub fn render(&mut self) {
         if self.timer.drop_frame() {
-            //self.fps_counter.frame_drop_count;
+            self.fps_counter.frame_drop();
             return;
         }
 
@@ -219,10 +219,10 @@ impl Game {
     pub fn update(&mut self) {
         let current_time = PreciseTime::now();
 
-        let (fps_updated, fps_count) = self.fps_counter.update(current_time, self.settings.print_fps_count());
+        let fps_updated = self.fps_counter.update(current_time, self.settings.print_fps_count());
 
         if fps_updated && self.gui.get_gui_fps_counter().show_fps() {
-            self.gui.update_fps_counter(fps_count);
+            self.gui.update_fps_counter(self.fps_counter.fps());
         }
 
         self.timer.update(current_time);
