@@ -1,5 +1,5 @@
 /*
-src/logic/mod.rs, 2017-08-13
+src/logic/mod.rs, 2017-08-16
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -158,7 +158,7 @@ pub struct Logic {
 
 impl Logic {
     pub fn new() -> Logic {
-        Logic {
+        let mut logic = Logic {
             player: Player::new(),
             enemy: Enemy::new(),
             moving_background: MovingBackground::new(),
@@ -168,7 +168,11 @@ impl Logic {
             game_running: true,
             explosion: Explosion::new(EXPLOSION_PARTICLE_COUNT, EXPLOSION_MILLISECONDS_BETWEEN_PARTICLE_CREATION),
             index_buffer: vec![],
-        }
+        };
+
+        logic.moving_background.move_position_x(0.05);
+
+        logic
     }
 
     pub fn update<T: Input>(&mut self, input: &T, gui: &mut GUI, sound_effect_manager: &mut SoundEffectManager) {

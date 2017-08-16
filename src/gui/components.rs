@@ -466,9 +466,9 @@ impl GUIText {
     pub fn new_with_alignment(x: f32, y: f32, text: &str, alignment: GUIComponentAlignment) -> GUIText {
         let mut gui_text = GUIText {
             tiles: Vec::new(),
-            position: Point2 {x, y},
+            position: Point2 {x, y: y - 0.04},
             font_size: 0.57,
-            space_between_tiles: 1.0,
+            space_between_tiles: 0.0,
             width: 0.0,
             alignment,
         };
@@ -530,7 +530,7 @@ impl GUIPosition for GUIText {
 
         match self.alignment {
             GUIComponentAlignment::Left   => x = new_x + self.space_between_tiles/2.0 + margin,
-            GUIComponentAlignment::Center => x = new_x - width/2.0,
+            GUIComponentAlignment::Center => x = new_x - width/2.0 + self.space_between_tiles/2.0,
             GUIComponentAlignment::Right  => x = new_x - width + self.space_between_tiles/2.0 - margin,
         };
 
