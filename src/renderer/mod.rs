@@ -1,5 +1,5 @@
 /*
-src/renderer/mod.rs, 2017-08-16
+src/renderer/mod.rs, 2017-08-17
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -225,7 +225,7 @@ impl Renderer for OpenGLRenderer {
             self.render_color_rectangle(health_bar);
 
             for border in health_bar.borders().into_iter() {
-                self.render_color_rectangle_with_color(*border, health_bar.color());
+                self.render_color_rectangle_with_color(*border, health_bar.border_color());
             }
         }
 

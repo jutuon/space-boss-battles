@@ -710,6 +710,7 @@ impl GUIFpsCounter {
 pub struct GUIHealthBar {
     rectangle: GUIRectangle<f32>,
     color: Vector3<f32>,
+    border_color: Vector3<f32>,
     alignment: GUIComponentAlignment,
     max_value: u32,
     low_value: u32,
@@ -733,9 +734,10 @@ impl GUIHealthBar {
             _ => 0.0,
         };
 
-        let health_bar = GUIHealthBar {
+        let mut health_bar = GUIHealthBar {
             rectangle: GUIRectangle::new(Point2::new(0.0, y), max_width, GUI_HEALTH_BAR_HEIGHT_NOT_INCLUDING_BORDERS),
             color: Vector3::zero(),
+            border_color: Vector3::zero(),
             alignment,
             max_value,
             low_value,
@@ -749,6 +751,14 @@ impl GUIHealthBar {
             border_width: GUI_HEALTH_BAR_BORDER_WIDTH,
             change_color_when_low_value,
         };
+
+        health_bar.update_borders();
+
+        if let GUIComponentAlignment::Center = health_bar.alignment {
+            health_bar.x -= max_width/2.0;
+            health_bar.alignment = GUIComponentAlignment::Left;
+        }
+
         health_bar
     }
 
@@ -756,8 +766,10 @@ impl GUIHealthBar {
     pub fn update_health(&mut self, health: u32) {
         if health <= self.low_value && self.change_color_when_low_value {
             self.color = GUI_HEALTH_BAR_LOW_VALUE_COLOR;
+            self.border_color = GUI_HEALTH_BAR_LOW_VALUE_COLOR;
         } else {
             self.color = GUI_HEALTH_BAR_COLOR;
+            self.border_color = GUI_HEALTH_BAR_COLOR;
         }
 
         if health > self.max_value {
@@ -804,6 +816,10 @@ impl GUIHealthBar {
             &self.border_top,
             &self.border_bottom,
         ]
+    }
+
+    pub fn border_color(&self) -> &Vector3<f32> {
+        &self.border_color
     }
 }
 
