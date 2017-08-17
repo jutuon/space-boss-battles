@@ -40,6 +40,11 @@ use gui::components::GUIText;
 const DEFAULT_SCREEN_WIDTH: i32 = 640;
 const DEFAULT_SCREEN_HEIGHT: i32 = 480;
 
+const BLUE_COLOR: Vector3<f32> = Vector3 { x: 0.0, y: 0.0, z: 1.0 };
+const RED_COLOR: Vector3<f32> = Vector3 { x: 1.0, y: 0.0, z: 0.0 };
+const GREEN_LASER_COLOR: Vector3<f32> = Vector3 { x: 0.0, y: 0.5, z: 0.0 };
+const PARTICLE_COLOR: Vector3<f32> = Vector3 { x: 0.3, y: 0.3, z: 0.3 };
+
 // FIXME: Changing this value makes GUI element positioning
 //        and object movement limits not match screen size.
 pub const SCREEN_TOP_Y_VALUE_IN_WORLD_COORDINATES: f32 = 4.5;
@@ -184,30 +189,25 @@ impl Renderer for OpenGLRenderer {
 
         self.color_shader.use_program();
 
-        let color_blue = Vector3::new(0.0,0.0,1.0);
-        let color_red = Vector3::new(1.0,0.0,0.0);
-        let color_green = Vector3::new(0.0,0.5,0.0);
-        let color_particle = Vector3::from_value(0.3);
-
         for laser in logic.get_player().get_lasers() {
-            self.render_color_rectangle_with_color(laser, &color_green);
+            self.render_color_rectangle_with_color(laser, &GREEN_LASER_COLOR);
         }
 
         for laser in logic.get_enemy().get_lasers() {
             if let LaserColor::Red = laser.color() {
-                self.render_color_rectangle_with_color(laser, &color_red);
+                self.render_color_rectangle_with_color(laser, &RED_COLOR);
             } else {
-                self.render_color_rectangle_with_color(laser, &color_blue);
+                self.render_color_rectangle_with_color(laser, &BLUE_COLOR);
             }
         }
 
         for laser_bomb in logic.get_enemy().get_laser_bombs() {
-            self.render_color_rectangle_with_color(laser_bomb, &color_blue);
+            self.render_color_rectangle_with_color(laser_bomb, &BLUE_COLOR);
         }
 
         if logic.get_explosion().visible() {
             for particle in logic.get_explosion().particles() {
-                self.render_color_rectangle_with_color(particle, &color_particle);
+                self.render_color_rectangle_with_color(particle, &PARTICLE_COLOR);
             }
         }
     }
