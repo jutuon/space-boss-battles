@@ -1,5 +1,5 @@
 /*
-src/main.rs, 2017-08-16
+src/main.rs, 2017-08-17
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -31,7 +31,7 @@ pub mod utils;
 
 use sdl2::event::{Event};
 use sdl2::keyboard::Keycode;
-use sdl2::{GameControllerSubsystem, JoystickSubsystem, AudioSubsystem};
+use sdl2::{GameControllerSubsystem, JoystickSubsystem, AudioSubsystem, TimerSubsystem};
 
 use renderer::{Renderer, OpenGLRenderer};
 use logic::Logic;
@@ -41,13 +41,11 @@ use gui::{GUI, GUIEvent, GUIState};
 
 use settings::{Settings, Arguments};
 
-use time::PreciseTime;
-
 use std::env;
 
 use audio::{AudioManager, SoundEffectPlayer};
 
-use utils::{FpsCounter, GameLoopTimer};
+use utils::{FpsCounter, GameLoopTimer, TimeManager};
 
 pub const COMMAND_LINE_HELP_TEXT: &str = "
 Space Boss Battles command line options:
@@ -95,6 +93,8 @@ fn main() {
 
     let game_controller_subsystem = sdl_context.game_controller().expect("game controller subsystem init failed");
     let joystick_subsystem = sdl_context.joystick().expect("joystick subsystem init failed");
+    //let timer_subsystem = sdl_context.timer().expect("timer subsystem init failed");
+
     let mut game = Game::new(game_controller_subsystem, renderer, joystick_subsystem, arguments);
 
 
@@ -134,10 +134,17 @@ pub struct Game {
     audio_manager: AudioManager,
     update_game: bool,
     render_game: bool,
+    time_manager: TimeManager,
 }
 
 impl Game {
-    pub fn new(mut controller_subsystem: GameControllerSubsystem, mut renderer: OpenGLRenderer, joystick_subsystem: JoystickSubsystem, command_line_arguments: Arguments) -> Game {
+    pub fn new(
+                mut controller_subsystem: GameControllerSubsystem,
+                mut renderer: OpenGLRenderer,
+                joystick_subsystem: JoystickSubsystem,
+                command_line_arguments: Arguments,
+                //timer_subsystem: TimerSubsystem,
+            ) -> Game {
         let mut game_logic = Logic::new();
         let quit = false;
 
@@ -162,7 +169,20 @@ impl Game {
 
         audio_manager.play_music();
 
-        Game { game_logic, quit, input, fps_counter, timer, gui, renderer, settings, audio_manager, update_game: false, render_game: false }
+        Game {
+            game_logic,
+            quit,
+            input,
+            fps_counter,
+            timer,
+            gui,
+            renderer,
+            settings,
+            audio_manager,
+            update_game: false,
+            render_game: false,
+            time_manager: TimeManager::new(),
+        }
     }
 
     pub fn quit(&self) -> bool {
@@ -172,14 +192,14 @@ impl Game {
     pub fn handle_event(&mut self, event: Event) {
         match event {
                 Event::Quit {..} | Event::KeyDown {keycode: Some(Keycode::Escape), ..} => self.quit = true,
-                Event::KeyDown {keycode: Some(key), ..} => self.input.update_key_down(key),
-                Event::KeyUp {keycode: Some(key), ..} => self.input.update_key_up(key),
+                Event::KeyDown {keycode: Some(key), ..} => self.input.update_key_down(key, self.time_manager.current_time()),
+                Event::KeyUp {keycode: Some(key), ..} => self.input.update_key_up(key, self.time_manager.current_time()),
                 Event::MouseMotion { x, y, ..} => self.input.update_mouse_motion(self.renderer.screen_coordinates_to_world_coordinates(x, y)),
                 Event::MouseButtonUp { x, y, ..} =>  self.input.update_mouse_button_up(self.renderer.screen_coordinates_to_world_coordinates(x, y)),
                 Event::ControllerDeviceRemoved { which, ..} => self.input.remove_game_controller(which),
-                Event::ControllerAxisMotion { axis, value, ..} => self.input.game_controller_axis_motion(axis, value),
-                Event::ControllerButtonDown { button, ..} => self.input.game_controller_button_down(button),
-                Event::ControllerButtonUp { button, ..} => self.input.game_controller_button_up(button),
+                Event::ControllerAxisMotion { axis, value, ..} => self.input.game_controller_axis_motion(axis, value, self.time_manager.current_time()),
+                Event::ControllerButtonDown { button, ..} => self.input.game_controller_button_down(button, self.time_manager.current_time()),
+                Event::ControllerButtonUp { button, ..} => self.input.game_controller_button_up(button, self.time_manager.current_time()),
                 Event::JoyDeviceAdded { which, ..} => self.input.add_joystick(which as u32, &mut self.settings),
                 _ => (),
         }
@@ -217,19 +237,19 @@ impl Game {
     }
 
     pub fn update(&mut self) {
-        let current_time = PreciseTime::now();
+        self.time_manager.update_current_time();
 
-        let fps_updated = self.fps_counter.update(current_time, self.settings.print_fps_count());
+        let fps_updated = self.fps_counter.update(self.time_manager.current_time(), self.settings.print_fps_count());
 
         if fps_updated && self.gui.get_gui_fps_counter().show_fps() {
             self.gui.update_fps_counter(self.fps_counter.fps());
         }
 
-        self.timer.update(current_time);
+        self.timer.update(self.time_manager.current_time());
 
         if self.timer.update_logic() {
             if self.update_game {
-                self.game_logic.update(&self.input, &mut self.gui, self.audio_manager.sound_effect_manager_mut());
+                self.game_logic.update(&self.input, &mut self.gui, self.audio_manager.sound_effect_manager_mut(), self.time_manager.current_time());
             }
 
             match self.gui.handle_input(&mut self.input) {
@@ -240,11 +260,11 @@ impl Game {
                     Settings::apply_setting(new_setting_value, &mut self.renderer, &mut self.gui, &mut self.game_logic, &mut self.audio_manager);
                 },
                 Some(GUIEvent::NewGame(difficulty)) => {
-                    self.game_logic.reset_game(&mut self.gui, difficulty, 0);
+                    self.game_logic.reset_game(&mut self.gui, difficulty, 0, self.time_manager.current_time());
                     self.set_game_rendering_and_updating(true, true);
                 },
                 Some(GUIEvent::NextLevel) => {
-                    self.game_logic.reset_to_next_level(&mut self.gui);
+                    self.game_logic.reset_to_next_level(&mut self.gui, self.time_manager.current_time());
                     self.set_game_rendering_and_updating(true, true);
                 },
                 Some(GUIEvent::ChangeState(GUIState::Game)) => self.set_game_rendering_and_updating(true, true),
@@ -255,7 +275,7 @@ impl Game {
                 Some(GUIEvent::ChangeState(_)) => self.set_game_rendering_and_updating(false, false),
             }
 
-            self.input.update(current_time);
+            self.input.update(self.time_manager.current_time());
             self.audio_manager.sound_effect_manager_mut().update();
         }
     }

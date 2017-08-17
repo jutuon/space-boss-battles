@@ -22,7 +22,7 @@ use cgmath::Point2;
 
 use settings::Settings;
 
-use time::PreciseTime;
+use utils::TimeMilliseconds;
 
 use self::utils::{KeyEvent, KeyHitGenerator};
 
@@ -86,13 +86,13 @@ impl InputManager {
     }
 
     /// Handle key up event.
-    pub fn update_key_up(&mut self, key: Keycode) {
-        self.keyboard.update_keys(key, KeyEvent::KeyUp);
+    pub fn update_key_up(&mut self, key: Keycode, current_time: &TimeMilliseconds) {
+        self.keyboard.update_keys(key, KeyEvent::KeyUp, current_time);
     }
 
     /// Handle keyboard key down event.
-    pub fn update_key_down(&mut self, key: Keycode) {
-        self.keyboard.update_keys(key, KeyEvent::KeyDown);
+    pub fn update_key_down(&mut self, key: Keycode, current_time: &TimeMilliseconds) {
+        self.keyboard.update_keys(key, KeyEvent::KeyDown, current_time);
     }
 
     /// Handle mouse motion event.
@@ -106,24 +106,24 @@ impl InputManager {
     }
 
     /// Resets `MouseManager` button hits and updates `KeyboardManager`
-    pub fn update(&mut self, current_time: PreciseTime) {
+    pub fn update(&mut self, current_time: &TimeMilliseconds) {
         self.mouse.reset_button_hits();
         self.keyboard.update(current_time);
     }
 
     /// Handle game controller button up event.
-    pub fn game_controller_button_up(&mut self, button: Button) {
-        GameControllerManager::handle_button(button, KeyEvent::KeyUp, &mut self.keyboard);
+    pub fn game_controller_button_up(&mut self, button: Button, current_time: &TimeMilliseconds) {
+        GameControllerManager::handle_button(button, KeyEvent::KeyUp, &mut self.keyboard, current_time);
     }
 
     /// Handle game controller button down event.
-    pub fn game_controller_button_down(&mut self, button: Button) {
-        GameControllerManager::handle_button(button, KeyEvent::KeyDown, &mut self.keyboard);
+    pub fn game_controller_button_down(&mut self, button: Button, current_time: &TimeMilliseconds) {
+        GameControllerManager::handle_button(button, KeyEvent::KeyDown, &mut self.keyboard, current_time);
     }
 
     /// Handle game controller axis motion event.
-    pub fn game_controller_axis_motion(&mut self, axis: Axis, value: i16) {
-        GameControllerManager::handle_axis_motion(axis, value, &mut self.keyboard);
+    pub fn game_controller_axis_motion(&mut self, axis: Axis, value: i16, current_time: &TimeMilliseconds) {
+        GameControllerManager::handle_axis_motion(axis, value, &mut self.keyboard, current_time);
     }
 
     /// Handle joystick event.
@@ -248,7 +248,7 @@ impl KeyboardManager {
     }
 
     /// Updates `KeyboardManager`'s fields from keyboard event
-    pub fn update_keys(&mut self, key: Keycode, key_event: KeyEvent) {
+    pub fn update_keys(&mut self, key: Keycode, key_event: KeyEvent, current_time: &TimeMilliseconds) {
         let (key_down_field, key_hit_field) = match key_event {
             KeyEvent::KeyUp => (false, true),
             KeyEvent::KeyDown => (true, false),
@@ -257,19 +257,19 @@ impl KeyboardManager {
         match key {
             Keycode::Up => {
                 self.up = key_down_field;
-                self.key_hit_up.update_from_key_event(key_event);
+                self.key_hit_up.update_from_key_event(key_event, current_time);
             },
             Keycode::Down => {
                 self.down = key_down_field;
-                self.key_hit_down.update_from_key_event(key_event);
+                self.key_hit_down.update_from_key_event(key_event, current_time);
             }
             Keycode::Left => {
                 self.left = key_down_field;
-                self.key_hit_left.update_from_key_event(key_event);
+                self.key_hit_left.update_from_key_event(key_event, current_time);
             }
             Keycode::Right => {
                 self.right = key_down_field;
-                self.key_hit_right.update_from_key_event(key_event);
+                self.key_hit_right.update_from_key_event(key_event, current_time);
             }
             Keycode::Space      => self.shoot = key_down_field,
             Keycode::Return     => self.key_hit_enter = key_hit_field,
@@ -290,7 +290,7 @@ impl KeyboardManager {
     }
 
     /// Reset key hit fields and `KeyHitGenerator`s and updates `KeyHitGenerator`s
-    pub fn update(&mut self, current_time: PreciseTime) {
+    pub fn update(&mut self, current_time: &TimeMilliseconds) {
         self.reset_key_hits();
 
         self.key_hit_up.update(current_time, self.up);
@@ -396,33 +396,33 @@ impl GameControllerManager {
 
 
     /// Forwards game controller's axis event to `KeyboardManager`.
-    pub fn handle_axis_motion(axis: Axis, value: i16, keyboard: &mut KeyboardManager) {
+    pub fn handle_axis_motion(axis: Axis, value: i16, keyboard: &mut KeyboardManager, current_time: &TimeMilliseconds) {
         match axis {
             Axis::LeftX | Axis::RightX => {
                 if value > 10000 {
-                    keyboard.update_keys(Keycode::Right, KeyEvent::KeyDown);
+                    keyboard.update_keys(Keycode::Right, KeyEvent::KeyDown, current_time);
                 } else if value < -10000 {
-                    keyboard.update_keys(Keycode::Left, KeyEvent::KeyDown);
+                    keyboard.update_keys(Keycode::Left, KeyEvent::KeyDown, current_time);
                 } else {
                     if keyboard.left {
-                        keyboard.update_keys(Keycode::Left, KeyEvent::KeyUp);
+                        keyboard.update_keys(Keycode::Left, KeyEvent::KeyUp, current_time);
                     }
                     if keyboard.right {
-                        keyboard.update_keys(Keycode::Right, KeyEvent::KeyUp);
+                        keyboard.update_keys(Keycode::Right, KeyEvent::KeyUp, current_time);
                     }
                 }
             },
             Axis::LeftY | Axis::RightY => {
                 if value > 10000 {
-                    keyboard.update_keys(Keycode::Down, KeyEvent::KeyDown);
+                    keyboard.update_keys(Keycode::Down, KeyEvent::KeyDown, current_time);
                 } else if value < -10000 {
-                    keyboard.update_keys(Keycode::Up, KeyEvent::KeyDown);
+                    keyboard.update_keys(Keycode::Up, KeyEvent::KeyDown, current_time);
                 } else {
                     if keyboard.down {
-                        keyboard.update_keys(Keycode::Down, KeyEvent::KeyUp);
+                        keyboard.update_keys(Keycode::Down, KeyEvent::KeyUp, current_time);
                     }
                     if keyboard.up {
-                        keyboard.update_keys(Keycode::Up, KeyEvent::KeyUp);
+                        keyboard.update_keys(Keycode::Up, KeyEvent::KeyUp, current_time);
                     }
                 }
             },
@@ -437,17 +437,17 @@ impl GameControllerManager {
     }
 
     /// Forwards game controller's button event to `KeyboardManager`.
-    pub fn handle_button(button: Button, key_event: KeyEvent, keyboard: &mut KeyboardManager) {
+    pub fn handle_button(button: Button, key_event: KeyEvent, keyboard: &mut KeyboardManager, current_time: &TimeMilliseconds) {
         match button {
-            Button::DPadUp     => keyboard.update_keys(Keycode::Up, key_event),
-            Button::DPadDown   => keyboard.update_keys(Keycode::Down, key_event),
-            Button::DPadLeft   => keyboard.update_keys(Keycode::Left, key_event),
-            Button::DPadRight  => keyboard.update_keys(Keycode::Right, key_event),
+            Button::DPadUp     => keyboard.update_keys(Keycode::Up, key_event, current_time),
+            Button::DPadDown   => keyboard.update_keys(Keycode::Down, key_event, current_time),
+            Button::DPadLeft   => keyboard.update_keys(Keycode::Left, key_event, current_time),
+            Button::DPadRight  => keyboard.update_keys(Keycode::Right, key_event, current_time),
             Button::A          => {
-                keyboard.update_keys(Keycode::Space, key_event.clone());
-                keyboard.update_keys(Keycode::Return, key_event);
+                keyboard.update_keys(Keycode::Space, key_event.clone(), current_time);
+                keyboard.update_keys(Keycode::Return, key_event, current_time);
             },
-            Button::Back       => keyboard.update_keys(Keycode::Backspace, key_event),
+            Button::Back       => keyboard.update_keys(Keycode::Backspace, key_event, current_time),
             _ => (),
         }
     }
@@ -459,8 +459,7 @@ mod utils {
 
     //! Utilities for `input` module's objects.
 
-    use time::PreciseTime;
-    use utils::Timer;
+    use utils::{Timer, TimeMilliseconds};
 
     /// Key press states.
     #[derive(Clone)]
@@ -482,7 +481,7 @@ mod utils {
     /// Generates key hits from key up event and if the key is pressed down
     /// long enough, the generator will generate multiple key hits.
     pub struct KeyHitGenerator {
-        milliseconds_between_key_hits: i64,
+        milliseconds_between_key_hits: u32,
         timer: Timer,
         state: Option<KeyHitState>,
         key_hit: bool,
@@ -500,7 +499,7 @@ mod utils {
         }
 
         /// Set time between key hits in milliseconds.
-        pub fn set_milliseconds_between_key_hits(mut self, milliseconds: i64) -> KeyHitGenerator {
+        pub fn set_milliseconds_between_key_hits(mut self, milliseconds: u32) -> KeyHitGenerator {
             let milliseconds = if milliseconds <= 0 {
                 1
             } else {
@@ -514,10 +513,10 @@ mod utils {
 
 
         /// Updates generators state from `KeyEvent`.
-        pub fn update_from_key_event(&mut self, key_event: KeyEvent) {
+        pub fn update_from_key_event(&mut self, key_event: KeyEvent, current_time: &TimeMilliseconds) {
             match key_event {
                 KeyEvent::KeyUp => self.up(),
-                KeyEvent::KeyDown => self.down(),
+                KeyEvent::KeyDown => self.down(current_time),
             }
         }
 
@@ -525,7 +524,7 @@ mod utils {
         ///
         /// * There is enough time passed from the last key hit.
         /// * `key_down` argument is true.
-        pub fn update(&mut self, current_time: PreciseTime, key_down: bool) {
+        pub fn update(&mut self, current_time: &TimeMilliseconds, key_down: bool) {
             if !key_down {
                 return;
             }
@@ -550,9 +549,7 @@ mod utils {
         ///
         /// Sets generators state to `Some(KeyHitState::NormalMode)` and resets
         /// generators internal timer if generators current state is `None`.
-        fn down(&mut self) {
-            let current_time = PreciseTime::now();
-
+        fn down(&mut self, current_time: &TimeMilliseconds) {
             match self.state {
                 None => {
                     self.state = Some(KeyHitState::NormalMode);
