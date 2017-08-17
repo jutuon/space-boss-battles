@@ -12,6 +12,8 @@ or
 MIT License
 */
 
+//! Render GUI and Logic.
+
 mod texture;
 mod shader;
 
@@ -92,7 +94,6 @@ pub struct OpenGLRenderer {
     projection_matrix: Matrix4<f32>,
     /// Go back to world coordinates from normalized device coordinates.
     inverse_projection_matrix: Matrix4<f32>,
-    // FIXME: use unsigned values for coordinates?
     screen_width: i32,
     screen_height: i32,
     half_screen_width_world_coordinates: f32,

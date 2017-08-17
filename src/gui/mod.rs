@@ -82,7 +82,7 @@ pub trait GUILayer {
 /// Includes default implementation for handling input for vertical button groups.
 pub trait GUILayerInputHandler : GUILayer {
     /// Implementation for this is required for default input handling.
-    fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton<GUIEvent>>;
+    fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton>;
 
     /// Override this method to do something before sending the `GUIEvent`
     /// to the `GUI`.
@@ -103,11 +103,11 @@ pub trait GUILayerInputHandler : GUILayer {
             self.get_buttons_mut().selection_down();
             None
         } else if input.key_hit_enter() {
-            let mut event = self.get_buttons_mut().action_of_currently_selected_component();
+            let mut event = self.get_buttons_mut().event_of_currently_selected_component();
             self.layer_specific_operations(&mut event);
             Some(event)
         } else if input.mouse_button_hit() {
-            let mut option_event = self.get_buttons_mut().check_collision_and_return_action(input.mouse_location());
+            let mut option_event = self.get_buttons_mut().check_collision_and_return_event(input.mouse_location());
 
             if let &mut Some(ref mut event) = &mut option_event {
                 self.layer_specific_operations(event);
@@ -126,7 +126,7 @@ pub trait GUILayerInputHandler : GUILayer {
 /// Slices of different types of GUI components.
 /// Currently used only for rendering the components.
 pub struct GUIComponentReferences<'a> {
-    buttons: &'a [GUIButton<GUIEvent>],
+    buttons: &'a [GUIButton],
     texts: &'a [GUIText],
     health_bars: &'a [GUIHealthBar],
 }
@@ -142,7 +142,7 @@ impl <'a> GUIComponentReferences<'a> {
     }
 
     /// Set `GUIButton` slice.
-    fn set_buttons(mut self, buttons: &'a [GUIButton<GUIEvent>]) -> GUIComponentReferences<'a> {
+    fn set_buttons(mut self, buttons: &'a [GUIButton]) -> GUIComponentReferences<'a> {
         self.buttons = buttons;
         self
     }
@@ -160,7 +160,7 @@ impl <'a> GUIComponentReferences<'a> {
     }
 
     /// Get `GUIButton` slice.
-    pub fn buttons(&self) -> &[GUIButton<GUIEvent>] {
+    pub fn buttons(&self) -> &[GUIButton] {
         self.buttons
     }
 
@@ -290,7 +290,7 @@ impl GUI {
 
 /// Base type for simple menus with `GUIButton`s and `GUIText`s.
 pub struct BasicGUILayer {
-     buttons: GUIGroup<GUIButton<GUIEvent>>,
+     buttons: GUIGroup<GUIButton>,
      texts: Vec<GUIText>,
 }
 
@@ -353,7 +353,7 @@ impl GUILayer for BasicGUILayer {
 }
 
 impl GUILayerInputHandler for BasicGUILayer {
-    fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton<GUIEvent>> { &mut self.buttons }
+    fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton> { &mut self.buttons }
 }
 
 /// New type `PauseMenu` because selected button
@@ -377,7 +377,7 @@ impl GUILayer for PauseMenu {
 }
 
 impl GUILayerInputHandler for PauseMenu {
-    fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton<GUIEvent>> { self.0.get_buttons_mut() }
+    fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton> { self.0.get_buttons_mut() }
 
     /// Reset currently selected button to "Continue" after pressing "Main Menu" button.
     fn layer_specific_operations(&mut self, event: &mut GUIEvent) {
@@ -485,7 +485,7 @@ impl SettingsMenu {
     fn update_boolean_setting(&mut self, setting: BooleanSetting, value: bool) -> Option<SettingType> {
         for (button, text) in self.layer.buttons.get_components_mut().iter_mut().zip(self.layer.texts.iter_mut()) {
 
-            if let GUIEvent::ChangeSetting(SettingType::Boolean(events_boolean_setting, value2)) = button.action_data() {
+            if let GUIEvent::ChangeSetting(SettingType::Boolean(events_boolean_setting, value2)) = button.event_data() {
                 if setting == events_boolean_setting && value == value2 {
 
                     if value {
@@ -494,7 +494,7 @@ impl SettingsMenu {
                         text.change_text("Enabled");
                     }
                     let new_setting = SettingType::Boolean(setting, !value);
-                    button.set_action_data(GUIEvent::ChangeSetting(new_setting));
+                    button.set_event_data(GUIEvent::ChangeSetting(new_setting));
                     return Some(new_setting);
                 }
             }
@@ -510,11 +510,11 @@ impl SettingsMenu {
     /// contain an `IntegerSetting`. If button contains an `IntegerSetting`, the button's and slider's integer value will
     /// be updated and the new value will be returned as `GUIEvent`.
     fn update_currently_selected_integer_setting(&mut self, number: i32) -> Option<GUIEvent> {
-         if let GUIEvent::ChangeSetting(SettingType::Integer(integer_setting, value)) = self.layer.buttons.action_of_currently_selected_component() {
+         if let GUIEvent::ChangeSetting(SettingType::Integer(integer_setting, value)) = self.layer.buttons.event_of_currently_selected_component() {
             let value = audio::Volume::new(value + number).value();
 
             let updated_gui_event = GUIEvent::ChangeSetting(SettingType::Integer(integer_setting, value));
-            self.layer.buttons.set_action_of_currently_selected_component(updated_gui_event);
+            self.layer.buttons.set_event_of_currently_selected_component(updated_gui_event);
 
             if let IntegerSetting::MusicVolume = integer_setting {
                 self.value_indicators[0].update_health(value as u32);
@@ -536,7 +536,7 @@ impl GUILayer for SettingsMenu {
 }
 
 impl GUILayerInputHandler for SettingsMenu {
-    fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton<GUIEvent>> { self.layer.get_buttons_mut() }
+    fn get_buttons_mut(&mut self) -> &mut GUIGroup<GUIButton> { self.layer.get_buttons_mut() }
 
     /// Toggle `BooleanSetting`.
     fn layer_specific_operations(&mut self, event: &mut GUIEvent) {

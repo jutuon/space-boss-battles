@@ -21,7 +21,7 @@ use gl::texture::*;
 use image::png::PNGDecoder;
 use image::{ImageDecoder, DecodingResult, ColorType};
 
-/// Availible textures.
+/// Available textures.
 pub enum Textures {
     Player,
     Enemy,
