@@ -1,5 +1,5 @@
 /*
-src/logic/mod.rs, 2017-08-17
+src/logic/mod.rs, 2017-08-18
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -166,7 +166,7 @@ impl Logic {
             current_difficulty: Difficulty::Normal,
             game_running: true,
             explosion: Explosion::new(EXPLOSION_PARTICLE_COUNT, EXPLOSION_MILLISECONDS_BETWEEN_PARTICLE_CREATION),
-            index_buffer: vec![],
+            index_buffer: Vec::with_capacity(25),
         };
 
         logic.moving_background.move_position_x(0.05);
@@ -332,7 +332,7 @@ impl Explosion {
             position: Vector2::zero(),
             visible: false,
             timer: Timer::new(),
-            particles: vec![],
+            particles: Vec::with_capacity(25),
             particle_creation_timer: Timer::new(),
             rng: rand::thread_rng(),
             particle_count,
@@ -398,7 +398,7 @@ impl Player {
         Player {
             data: Data::new_square(Vector2::zero(), PLAYER_SQUARE_SIDE_LENGTH),
             speed: PLAYER_MOVEMENT_SPEED,
-            lasers: vec![],
+            lasers: Vec::with_capacity(25),
             laser_timer: Timer::new(),
             health: PLAYER_MAX_HEALTH,
             health_update: true,
@@ -598,7 +598,7 @@ impl Enemy {
         Enemy {
             data: Data::new_square(Vector2::zero(), 0.0),
             speed: ENEMY_MOVEMENT_SPEED,
-            lasers: vec![],
+            lasers: Vec::with_capacity(50),
             laser_timer: Timer::new(),
             health: ENEMY_MAX_HEALTH,
             health_update: true,
@@ -606,7 +606,7 @@ impl Enemy {
             enemy_type: EnemyType::Normal,
             laser_cannon_top: LaserCannon::new(true),
             laser_cannon_bottom: LaserCannon::new(false),
-            laser_bombs: Vec::new(),
+            laser_bombs: Vec::with_capacity(5),
             laser_bomb_timer: Timer::new(),
             laser_bomb_enabled: true,
             shield: Shield::new(Vector2::zero()),
