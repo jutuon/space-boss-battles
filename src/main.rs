@@ -216,11 +216,6 @@ impl Game {
     }
 
     pub fn render(&mut self) {
-        if self.timer.drop_frame() {
-            self.fps_counter.frame_drop();
-            return;
-        }
-
         self.fps_counter.frame();
 
         self.renderer.start();
