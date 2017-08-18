@@ -16,6 +16,8 @@ MIT License
 
 //use sdl2::TimerSubsystem;
 use time::PreciseTime;
+use TARGET_FPS;
+use TARGET_FRAME_TIME_MILLISECONDS;
 
 /// Fps counter.
 pub struct FpsCounter {
@@ -109,11 +111,75 @@ impl GameLoopTimer {
     }
 }
 
-/// Provides current time as milliseconds for game's components.
+/// Time handling for game logic.
+///
+/// Provides delta time for moving objects at constant speed if FPS value is low and
+/// game logic specific global time, so pausing the game will not have effect on game logic.
+pub struct GameTimeManager {
+    current_game_time: TimeMilliseconds,
+    previous_game_time: TimeMilliseconds,
+    logic_update_start: Option<PreciseTime>,
+    delta_time: f32,
+    previous_frame_update: PreciseTime,
+}
+
+impl GameTimeManager {
+    /// Creates new `GameTimeManager`.
+    fn new() -> GameTimeManager {
+        GameTimeManager {
+            current_game_time: TimeMilliseconds(0),
+            previous_game_time: TimeMilliseconds(0),
+            logic_update_start: None,
+            delta_time: 1.0,
+            previous_frame_update: PreciseTime::now(),
+        }
+    }
+
+    /// Get current game time.
+    pub fn time(&self) -> &TimeMilliseconds {
+        &self.current_game_time
+    }
+
+    /// Updates delta time and game time.
+    fn update(&mut self, current_time: PreciseTime, game_logic_running: bool, current_fps: u32) {
+        if game_logic_running {
+            if let Some(logic_start) = self.logic_update_start {
+                self.current_game_time = TimeMilliseconds(self.previous_game_time.0 + logic_start.to(current_time).num_milliseconds() as u32)
+            } else {
+                self.logic_update_start = Some(current_time);
+            }
+        } else {
+            if let Some(_) = self.logic_update_start {
+                self.previous_game_time = self.current_game_time.clone();
+                self.logic_update_start = None;
+            }
+        }
+
+        if current_fps < TARGET_FPS {
+            let milliseconds_between_frames = self.previous_frame_update.to(current_time).num_milliseconds();
+            self.delta_time = milliseconds_between_frames as f32 / TARGET_FRAME_TIME_MILLISECONDS;
+        } else {
+            self.delta_time = 1.0;
+        }
+
+        self.previous_frame_update = current_time;
+    }
+
+    /// Difference between real frame time and target frame time. Value should be between [1.0, f32::MAX].
+    ///
+    /// Multiply all movement values in logic code with this, so objects will move at same speed when FPS is low.
+    pub fn delta_time(&self) -> f32 {
+        self.delta_time
+    }
+}
+
+
+/// Provides current time for game's components.
 pub struct TimeManager {
     //timer_subsystem: TimerSubsystem,
     current_time: TimeMilliseconds,
     start_time: PreciseTime,
+    game_time: GameTimeManager,
 }
 
 impl TimeManager {
@@ -123,6 +189,7 @@ impl TimeManager {
             //timer_subsystem,
             current_time: TimeMilliseconds(0),
             start_time: PreciseTime::now(),
+            game_time: GameTimeManager::new(),
         }
     }
 
@@ -131,10 +198,20 @@ impl TimeManager {
         &self.current_time
     }
 
-    /// Updates `TimeManager`'s current time.
-    pub fn update_current_time(&mut self) {
+    /// Get game time manager.
+    pub fn game_time_manager(&self) -> &GameTimeManager {
+        &self.game_time
+    }
+
+    /// Updates `TimeManager`'s current time and `GameTimeManager`'s time and delta time.
+    pub fn update_time(&mut self, game_logic_running: bool, current_fps: u32) {
         //self.current_time = TimeMilliseconds(self.timer_subsystem.ticks());
-        self.current_time = TimeMilliseconds(self.start_time.to(PreciseTime::now()).num_milliseconds() as u32);
+
+        let current_precise_time = PreciseTime::now();
+
+        self.current_time = TimeMilliseconds(self.start_time.to(current_precise_time).num_milliseconds() as u32);
+
+        self.game_time.update(current_precise_time, game_logic_running, current_fps);
     }
 }
 

@@ -1,5 +1,5 @@
 /*
-src/main.rs, 2017-08-17
+src/main.rs, 2017-08-18
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -46,6 +46,9 @@ use std::env;
 use audio::{AudioManager, SoundEffectPlayer};
 
 use utils::{FpsCounter, GameLoopTimer, TimeManager};
+
+pub const TARGET_FPS: u32 = 60;
+pub const TARGET_FRAME_TIME_MILLISECONDS: f32 = 1000.0 / TARGET_FPS as f32;
 
 pub const COMMAND_LINE_HELP_TEXT: &str = "
 Space Boss Battles command line options:
@@ -158,7 +161,7 @@ impl Game {
 
         let input = InputManager::new(controller_subsystem, joystick_subsystem);
         let fps_counter = FpsCounter::new();
-        let timer = GameLoopTimer::new(16);
+        let timer = GameLoopTimer::new(1000/TARGET_FPS);
 
         let mut gui = GUI::new(&settings);
         gui.update_position_from_half_screen_width(renderer.half_screen_width_world_coordinates());
@@ -229,10 +232,12 @@ impl Game {
         self.renderer.render_gui(&self.gui);
 
         self.renderer.end();
+
+        //std::thread::sleep(std::time::Duration::from_millis(50));
     }
 
     pub fn update(&mut self) {
-        self.time_manager.update_current_time();
+        self.time_manager.update_time(self.update_game, self.fps_counter.fps());
 
         let fps_updated = self.fps_counter.update(self.time_manager.current_time(), self.settings.print_fps_count());
 
@@ -244,7 +249,7 @@ impl Game {
 
         if self.timer.update_logic() {
             if self.update_game {
-                self.game_logic.update(&self.input, &mut self.gui, self.audio_manager.sound_effect_manager_mut(), self.time_manager.current_time());
+                self.game_logic.update(&self.input, &mut self.gui, self.audio_manager.sound_effect_manager_mut(), self.time_manager.game_time_manager());
             }
 
             match self.gui.handle_input(&mut self.input) {
@@ -255,11 +260,11 @@ impl Game {
                     Settings::apply_setting(new_setting_value, &mut self.renderer, &mut self.gui, &mut self.game_logic, &mut self.audio_manager);
                 },
                 Some(GUIEvent::NewGame(difficulty)) => {
-                    self.game_logic.reset_game(&mut self.gui, difficulty, 0, self.time_manager.current_time());
+                    self.game_logic.reset_game(&mut self.gui, difficulty, 0, self.time_manager.game_time_manager());
                     self.set_game_rendering_and_updating(true, true);
                 },
                 Some(GUIEvent::NextLevel) => {
-                    self.game_logic.reset_to_next_level(&mut self.gui, self.time_manager.current_time());
+                    self.game_logic.reset_to_next_level(&mut self.gui, self.time_manager.game_time_manager());
                     self.set_game_rendering_and_updating(true, true);
                 },
                 Some(GUIEvent::ChangeState(GUIState::Game)) => self.set_game_rendering_and_updating(true, true),
