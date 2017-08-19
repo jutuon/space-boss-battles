@@ -215,7 +215,13 @@ impl GUI {
     pub fn handle_input<T: Input>(&mut self, input: &mut T) -> Option<GUIEvent> {
         let event = match self.state {
             GUIState::MainMenu => self.main_menu.handle_input(input),
-            GUIState::PauseMenu => self.pause_menu.handle_input(input),
+            GUIState::PauseMenu => {
+                if input.key_hit_back() {
+                    Some(GUIEvent::ChangeState(GUIState::Game))
+                } else {
+                    self.pause_menu.handle_input(input)
+                }
+            },
             GUIState::Game => {
                 if input.key_hit_back() {
                     Some(GUIEvent::ChangeState(GUIState::PauseMenu))

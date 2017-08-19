@@ -201,7 +201,7 @@ impl Game {
 
     pub fn handle_event(&mut self, event: Event) {
         match event {
-                Event::Quit {..} | Event::KeyDown {keycode: Some(Keycode::Escape), ..} => self.quit = true,
+                Event::Quit {..} => self.quit = true,
                 Event::KeyDown {keycode: Some(key), ..} => self.input.update_key_down(key, self.time_manager.current_time()),
                 Event::KeyUp {keycode: Some(key), ..} => self.input.update_key_up(key, self.time_manager.current_time()),
                 Event::MouseMotion { x, y, ..} => self.input.update_mouse_motion(self.renderer.screen_coordinates_to_world_coordinates(x, y)),

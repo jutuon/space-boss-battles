@@ -255,25 +255,25 @@ impl KeyboardManager {
         };
 
         match key {
-            Keycode::Up => {
+            Keycode::Up | Keycode::W => {
                 self.up = key_down_field;
                 self.key_hit_up.update_from_key_event(key_event, current_time);
             },
-            Keycode::Down => {
+            Keycode::Down | Keycode::S => {
                 self.down = key_down_field;
                 self.key_hit_down.update_from_key_event(key_event, current_time);
             }
-            Keycode::Left => {
+            Keycode::Left | Keycode::A => {
                 self.left = key_down_field;
                 self.key_hit_left.update_from_key_event(key_event, current_time);
             }
-            Keycode::Right => {
+            Keycode::Right | Keycode::D => {
                 self.right = key_down_field;
                 self.key_hit_right.update_from_key_event(key_event, current_time);
             }
-            Keycode::Space      => self.shoot = key_down_field,
+            Keycode::Space | Keycode::LCtrl | Keycode::RCtrl => self.shoot = key_down_field,
             Keycode::Return     => self.key_hit_enter = key_hit_field,
-            Keycode::Backspace  => self.key_hit_back = key_hit_field,
+            Keycode::Escape  => self.key_hit_back = key_hit_field,
             _ => (),
         }
     }
@@ -447,6 +447,7 @@ impl GameControllerManager {
                 keyboard.update_keys(Keycode::Space, key_event.clone(), current_time);
                 keyboard.update_keys(Keycode::Return, key_event, current_time);
             },
+            Button::LeftShoulder | Button::RightShoulder => keyboard.update_keys(Keycode::Space, key_event, current_time),
             Button::Back       => keyboard.update_keys(Keycode::Backspace, key_event, current_time),
             _ => (),
         }
