@@ -1,5 +1,5 @@
 /*
-src/input.rs, 2017-08-16
+src/input.rs, 2017-08-19
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -181,8 +181,8 @@ impl MouseManager {
     /// Create new `MouseManager`.
     pub fn new() -> MouseManager {
         MouseManager {
-            mouse_motion: true,
-            mouse_button_hit: true,
+            mouse_motion: false,
+            mouse_button_hit: false,
             mouse_location: Point2::new(0.0, 0.0),
         }
     }
