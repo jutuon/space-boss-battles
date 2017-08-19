@@ -1,5 +1,5 @@
 /*
-src/renderer/texture.rs, 2017-08-13
+src/renderer/texture.rs, 2017-08-19
 
 Copyright (c) 2017 Juuso Tuononen
 

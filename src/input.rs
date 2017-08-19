@@ -448,7 +448,7 @@ impl GameControllerManager {
                 keyboard.update_keys(Keycode::Return, key_event, current_time);
             },
             Button::LeftShoulder | Button::RightShoulder => keyboard.update_keys(Keycode::Space, key_event, current_time),
-            Button::Back       => keyboard.update_keys(Keycode::Backspace, key_event, current_time),
+            Button::Back       => keyboard.update_keys(Keycode::Escape, key_event, current_time),
             _ => (),
         }
     }

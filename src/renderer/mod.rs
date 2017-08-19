@@ -1,5 +1,5 @@
 /*
-src/renderer/mod.rs, 2017-08-17
+src/renderer/mod.rs, 2017-08-19
 
 Copyright (c) 2017 Juuso Tuononen
 
