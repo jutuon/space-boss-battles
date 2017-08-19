@@ -296,7 +296,7 @@ impl AudioManager {
 
         let default_volume = Volume::new(DEFAULT_VOLUME);
 
-        if let Err(error) = mixer::open_audio(mixer::DEFAULT_FREQUENCY, mixer::DEFAULT_FORMAT, mixer::DEFAULT_CHANNELS, 1024) {
+        if let Err(error) = mixer::open_audio(44100, mixer::DEFAULT_FORMAT, mixer::DEFAULT_CHANNELS, 1024) {
             println!("SDL_mixer init error: {}", error);
             println!("Audio support disabled");
 
