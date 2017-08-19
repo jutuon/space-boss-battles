@@ -1,5 +1,5 @@
 /*
-src/audio.rs, 2017-08-15
+src/audio.rs, 2017-08-19
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -229,7 +229,7 @@ impl SoundEffectPlayer for SoundEffectManager {
 
     fn update(&mut self) {
         if let Some(ref mut effects) = self.sound_effects {
-            SoundEffectManager::play_if_not_playing(&mut self.laser, &mut effects.laser);
+            SoundEffectManager::play(&mut self.laser, &mut effects.laser);
             SoundEffectManager::play(&mut self.laser_bomb_launch, &mut effects.laser_bomb_launch);
             SoundEffectManager::play(&mut self.laser_bomb_explosion, &mut effects.laser_bomb_explosion);
             SoundEffectManager::play(&mut self.explosion, &mut effects.explosion);

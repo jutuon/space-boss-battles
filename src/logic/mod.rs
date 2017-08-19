@@ -1,5 +1,5 @@
 /*
-src/logic/mod.rs, 2017-08-18
+src/logic/mod.rs, 2017-08-19
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -43,14 +43,14 @@ const PLAYER_SQUARE_SIDE_LENGTH: f32 = 1.0;
 const PLAYER_SQUARE_SIDE_LENGTH_HALF: f32 = PLAYER_SQUARE_SIDE_LENGTH/2.0;
 const PLAYER_STARTING_POSITION: Vector2<f32> = Vector2 { x: -3.0, y: 0.0 };
 pub const PLAYER_MAX_HEALTH: i32 = 100;
-const PLAYER_MILLISECONDS_BETWEEN_LASERS: u32 = 400;
+const PLAYER_MILLISECONDS_BETWEEN_LASERS: u32 = 300;
 
 const LAST_LEVEL_INDEX: u32 = 3;
 
 const PARTICLE_SQUARE_SIDE_LENGTH: f32 = 0.1;
 const EXPLOSION_PARTICLE_COUNT: u32 = 15;
 const EXPLOSION_MILLISECONDS_BETWEEN_PARTICLE_CREATION: u32 = 500;
-const EXPLOSION_VISIBILITY_TIME_MILLISECONDS: u32 = 1500;
+const EXPLOSION_VISIBILITY_TIME_MILLISECONDS: u32 = 2000;
 
 const FULL_CIRCLE_ANGLE_IN_RADIANS: f32 = consts::PI*2.0;
 
@@ -60,8 +60,12 @@ const ENEMY_MOVEMENT_SPEED: f32 = 0.04;
 pub const ENEMY_MAX_HEALTH: i32 = 100;
 const ENEMY_SQUARE_SIDE_LENGTH: f32 = 1.0;
 const ENEMY_SQUARE_SIDE_LENGTH_HALF: f32 = ENEMY_SQUARE_SIDE_LENGTH/2.0;
-const ENEMY_MILLISECONDS_BETWEEN_LASERS: u32 = 1000;
-const ENEMY_MILLISECONDS_BETWEEN_LASER_BOMBS: u32 = 3000;
+const ENEMY_MILLISECONDS_BETWEEN_LASER_BOMBS_BEGINNING: u32 = 3750;
+const ENEMY_MILLISECONDS_BETWEEN_LASER_BOMBS_HEALTH_40: u32 = 2500;
+const ENEMY_MILLISECONDS_BETWEEN_LASER_BOMBS_HEALTH_20: u32 = 1250;
+
+const LASER_BOMB_DAMAGE: i32 = 30;
+const LASER_BOMB_EXPLOSION_TIME_MILLISECONDS: u32 = 900;
 
 const GUI_MARGIN_TOP: f32 = 1.0;
 
@@ -86,7 +90,7 @@ macro_rules! impl_traits {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum Difficulty {
     Easy,
     Normal,
@@ -111,7 +115,9 @@ struct LogicSettings {
     screen_width_half: f32,
     player_laser_damage: i32,
     enemy_laser_damage: i32,
-    enemy_hit_damage: i32,
+    enemy_hit_damage_16_milliseconds: i32,
+    enemy_shooting_speed_milliseconds: u32,
+    difficulty: Difficulty,
 }
 
 impl LogicSettings {
@@ -120,26 +126,34 @@ impl LogicSettings {
             screen_width_half: 0.0,
             player_laser_damage: 0,
             enemy_laser_damage: 0,
-            enemy_hit_damage: 0,
+            enemy_hit_damage_16_milliseconds: 0,
+            enemy_shooting_speed_milliseconds: 0,
+            difficulty: Difficulty::Normal,
         }
     }
 
     fn settings_easy(&mut self) {
         self.player_laser_damage = 5;
-        self.enemy_laser_damage = 1;
-        self.enemy_hit_damage = 1;
+        self.enemy_laser_damage = 5;
+        self.enemy_hit_damage_16_milliseconds = 3;
+        self.enemy_shooting_speed_milliseconds = 1500;
+        self.difficulty = Difficulty::Easy;
     }
 
     fn settings_normal(&mut self) {
-        self.player_laser_damage = 2;
-        self.enemy_laser_damage = 5;
-        self.enemy_hit_damage = 2;
+        self.player_laser_damage = 3;
+        self.enemy_laser_damage = 10;
+        self.enemy_hit_damage_16_milliseconds = 6;
+        self.enemy_shooting_speed_milliseconds = 1000;
+        self.difficulty = Difficulty::Normal;
     }
 
     fn settings_hard(&mut self) {
-        self.player_laser_damage = 1;
+        self.player_laser_damage = 2;
         self.enemy_laser_damage = 10;
-        self.enemy_hit_damage = 3;
+        self.enemy_hit_damage_16_milliseconds = 6;
+        self.enemy_shooting_speed_milliseconds = 750;
+        self.difficulty = Difficulty::Hard;
     }
 }
 
@@ -169,6 +183,7 @@ impl Logic {
             index_buffer: Vec::with_capacity(25),
         };
 
+        // Move background star behind "Settings" text.
         logic.moving_background.move_position_x(0.05);
 
         logic
@@ -257,7 +272,7 @@ impl Logic {
             Difficulty::Hard => self.logic_settings.settings_hard(),
         }
 
-        self.player.reset(&self.logic_settings, current_time);
+        self.player.reset(current_time);
         self.enemy.reset(&self.logic_settings, level, current_time);
 
         if let Some(health) = self.player.health() {
@@ -391,6 +406,7 @@ pub struct Player {
     health: i32,
     health_update: bool,
     visible: bool,
+    enemy_hit_damage_timer: Timer,
 }
 
 impl Player {
@@ -403,10 +419,11 @@ impl Player {
             health: PLAYER_MAX_HEALTH,
             health_update: true,
             visible: true,
+            enemy_hit_damage_timer: Timer::new(),
         }
     }
 
-    fn reset(&mut self, logic_settings: &LogicSettings, current_time: &GameTimeManager) {
+    fn reset(&mut self, current_time: &GameTimeManager) {
         self.data = Data::new_square(PLAYER_STARTING_POSITION, PLAYER_SQUARE_SIDE_LENGTH);
         self.lasers.clear();
         self.health = PLAYER_MAX_HEALTH;
@@ -436,7 +453,7 @@ impl Player {
 
         if input.shoot() && self.laser_timer.check(current_time.time(), PLAYER_MILLISECONDS_BETWEEN_LASERS) {
             sounds.laser();
-            let position = Vector2::new(self.x() + 0.6, self.y());
+            let position = Vector2::new(self.x() + 0.5, self.y());
             let laser = Laser::new(position, LaserColor::Green);
             self.lasers.push(laser);
         }
@@ -448,9 +465,20 @@ impl Player {
 
         self.clean_and_update_lasers(enemy, logic_settings, sounds, index_buffer, current_time);
 
-        if self.circle_collision(enemy) {
-            self.update_health(-logic_settings.enemy_hit_damage);
+        if self.enemy_hit_damage_timer.check(current_time.time(), 16) {
+            if self.circle_collision(enemy) {
+                self.update_health(-logic_settings.enemy_hit_damage_16_milliseconds);
+            }
+
+            if let EnemyType::Shield = enemy.enemy_type {
+                if self.circle_collision(enemy.get_laser_cannon_top()) {
+                    self.update_health(-logic_settings.enemy_hit_damage_16_milliseconds);
+                } else if self.circle_collision(enemy.get_laser_cannon_bottom()) {
+                    self.update_health(-logic_settings.enemy_hit_damage_16_milliseconds);
+                }
+            }
         }
+
     }
 
     pub fn get_lasers(&self) -> &Vec<Laser> {
@@ -533,8 +561,9 @@ pub struct Laser {
 
 impl Laser {
     fn new(position: Vector2<f32>, color: LaserColor) -> Laser {
+        let size = 1.5;
         Laser {
-            data: Data::new(position, 0.3, 0.1),
+            data: Data::new(position, 0.10 * size, 0.05 * size),
             speed: LASER_SPEED,
             destroy: false,
             color: color,
@@ -610,7 +639,7 @@ impl Enemy {
             laser_bomb_timer: Timer::new(),
             laser_bomb_enabled: true,
             shield: Shield::new(Vector2::zero()),
-            laser_x_position_margin: -0.6,
+            laser_x_position_margin: 0.0,
         }
     }
 
@@ -626,8 +655,10 @@ impl Enemy {
 
         if level == 0 || level == 2 {
             self.enemy_type = EnemyType::Normal;
+            self.laser_x_position_margin = -0.5;
         } else {
             self.enemy_type = EnemyType::Shield;
+            self.laser_x_position_margin = -0.5;
         }
 
         if level >= 2 {
@@ -660,13 +691,19 @@ impl Enemy {
             self.speed *= -1.0;
         }
 
-        if self.laser_timer.check(current_time.time(), ENEMY_MILLISECONDS_BETWEEN_LASERS) {
-            self.create_laser(consts::PI);
-            if self.health < 25 {
+        if self.laser_timer.check(current_time.time(), logic_settings.enemy_shooting_speed_milliseconds) {
+            if let EnemyType::Shield = self.enemy_type {
+                self.create_laser(consts::PI);
                 self.create_laser(consts::PI * 0.9);
                 self.create_laser(consts::PI * 1.1);
-            } else if self.health < 50 {
-                self.create_laser(consts::PI * 0.9);
+            } else {
+                self.create_laser(consts::PI);
+                if self.health < 20 {
+                    self.create_laser(consts::PI * 0.9);
+                    self.create_laser(consts::PI * 1.1);
+                } else if self.health < 40 {
+                    self.create_laser(consts::PI * 0.9);
+                }
             }
         }
 
@@ -683,6 +720,12 @@ impl Enemy {
             }
         });
 
+        if self.health < 30 {
+            self.laser_cannon_bottom.laser_enabled = true;
+            self.laser_cannon_top.laser_enabled = true;
+        } else if self.health < 60 {
+            self.laser_cannon_top.laser_enabled = true;
+        }
 
         let y = self.y();
         self.laser_cannon_bottom.update(y, current_time, logic_settings, &mut self.lasers);
@@ -697,7 +740,7 @@ impl Enemy {
                     if laser_bomb.destroy() {
                         true
                     } else if player.circle_collision(laser_bomb) {
-                        player.update_health(-logic_settings.enemy_laser_damage);
+                        player.update_health(-LASER_BOMB_DAMAGE);
                         true
                     } else {
                         false
@@ -705,7 +748,15 @@ impl Enemy {
                 });
             }
 
-            if self.laser_bomb_timer.check(current_time.time(), ENEMY_MILLISECONDS_BETWEEN_LASER_BOMBS) {
+            let laser_bomb_milliseconds = if logic_settings.difficulty == Difficulty::Hard && self.health <= 20 {
+                ENEMY_MILLISECONDS_BETWEEN_LASER_BOMBS_HEALTH_20
+            } else if (logic_settings.difficulty == Difficulty::Hard || logic_settings.difficulty == Difficulty::Normal) && self.health <= 40 {
+                ENEMY_MILLISECONDS_BETWEEN_LASER_BOMBS_HEALTH_40
+            } else {
+                ENEMY_MILLISECONDS_BETWEEN_LASER_BOMBS_BEGINNING
+            };
+
+            if self.laser_bomb_timer.check(current_time.time(), laser_bomb_milliseconds) {
                 sounds.laser_bomb_launch();
                 self.create_laser_bomb(current_time);
             }
@@ -865,6 +916,7 @@ pub struct LaserCannon {
     laser_bombs_enabled: bool,
     laser_timer: Timer,
     parent_object_shield_enabled: bool,
+    laser_enabled: bool,
 }
 
 impl LaserCannon {
@@ -878,6 +930,7 @@ impl LaserCannon {
             laser_bombs_enabled: false,
             laser_timer: Timer::new(),
             parent_object_shield_enabled: true,
+            laser_enabled: false,
         }
     }
 
@@ -901,6 +954,7 @@ impl LaserCannon {
         self.laser_timer.reset(current_time.time());
 
         self.parent_object_shield_enabled = true;
+        self.laser_enabled = false;
     }
 
     fn update(&mut self, parent_position_y: f32, current_time: &GameTimeManager, logic_settings: &LogicSettings, parents_lasers: &mut Vec<Laser>) {
@@ -908,7 +962,7 @@ impl LaserCannon {
             return;
         }
 
-        if self.laser_timer.check(current_time.time(), 1000) {
+        if self.laser_enabled && self.laser_timer.check(current_time.time(), 1000) {
             let position = vec2(self.x() - 0.5, self.y());
             let mut laser = Laser::new(position, LaserColor::Red);
             laser.turn(consts::PI);
@@ -955,14 +1009,14 @@ impl LaserBomb {
     fn update(&mut self, current_time: &GameTimeManager, logic_settings: &LogicSettings, parent_lasers: &mut Vec<Laser>, sounds: &mut SoundEffectManager) {
         self.laser.update(logic_settings, current_time);
 
-        if self.timer.check(current_time.time(), 1000) {
+        if self.timer.check(current_time.time(), LASER_BOMB_EXPLOSION_TIME_MILLISECONDS) {
             sounds.laser_bomb_explosion();
             let laser_count : u16 = 15;
             let mut angle = 0.0;
             let angle_between_lasers = (consts::PI*2.0) / f32::from(laser_count);
 
             for _ in 0..laser_count {
-                let position = vec2(self.x() - 0.6, self.y());
+                let position = vec2(self.x(), self.y());
                 let mut laser = Laser::new(position, LaserColor::Blue);
                 laser.turn(angle);
                 parent_lasers.push(laser);
