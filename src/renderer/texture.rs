@@ -25,11 +25,13 @@ use image::{ImageDecoder, DecodingResult, ColorType};
 pub enum Textures {
     Player,
     Enemy,
+    EnemyWithShield,
     Background,
     Font,
     Shield,
     LaserCannonGreen,
     LaserCannonRed,
+    LaserBomb,
     TextureCount,
 }
 
@@ -42,11 +44,13 @@ impl Textures {
         [
             Textures::load("game_files/images/player.png"),
             Textures::load("game_files/images/enemy1.png"),
+            Textures::load("game_files/images/enemy2.png"),
             Textures::load("game_files/images/background.png"),
             Textures::load("game_files/images/tilemap-font.png"),
             Textures::load("game_files/images/shield.png"),
             Textures::load("game_files/images/laser_cannon_green.png"),
             Textures::load("game_files/images/laser_cannon_red.png"),
+            Textures::load("game_files/images/laser_bomb.png"),
         ]
     }
 

@@ -57,6 +57,7 @@ const FULL_CIRCLE_ANGLE_IN_RADIANS: f32 = consts::PI*2.0;
 const LASER_SPEED: f32 = 0.08;
 
 const ENEMY_MOVEMENT_SPEED: f32 = 0.04;
+const ENEMY_WITH_SHIELD_MOVEMENT_SPEED: f32 = 0.02;
 pub const ENEMY_MAX_HEALTH: i32 = 100;
 const ENEMY_SQUARE_SIDE_LENGTH: f32 = 1.0;
 const ENEMY_SQUARE_SIDE_LENGTH_HALF: f32 = ENEMY_SQUARE_SIDE_LENGTH/2.0;
@@ -626,7 +627,7 @@ impl Enemy {
     fn new() -> Enemy {
         Enemy {
             data: Data::new_square(Vector2::zero(), 0.0),
-            speed: ENEMY_MOVEMENT_SPEED,
+            speed: 0.0,
             lasers: Vec::with_capacity(50),
             laser_timer: Timer::new(),
             health: ENEMY_MAX_HEALTH,
@@ -656,9 +657,13 @@ impl Enemy {
         if level == 0 || level == 2 {
             self.enemy_type = EnemyType::Normal;
             self.laser_x_position_margin = -0.5;
+            self.data = Data::new_square(vec2(logic_settings.screen_width_half - 2.5, 0.0), ENEMY_SQUARE_SIDE_LENGTH);
+            self.speed = ENEMY_MOVEMENT_SPEED;
         } else {
             self.enemy_type = EnemyType::Shield;
-            self.laser_x_position_margin = -0.5;
+            self.laser_x_position_margin = -0.7;
+            self.data = Data::new_square(vec2(logic_settings.screen_width_half - 3.0, 0.0), ENEMY_SQUARE_SIDE_LENGTH + 0.6);
+            self.speed = ENEMY_WITH_SHIELD_MOVEMENT_SPEED;
         }
 
         if level >= 2 {
@@ -680,7 +685,7 @@ impl Enemy {
 
         let width = logic_settings.screen_width_half - ENEMY_SQUARE_SIDE_LENGTH_HALF;
         let height = if let EnemyType::Shield = self.enemy_type {
-            2.0
+            1.0
         } else {
             4.0
         };
@@ -864,7 +869,7 @@ pub struct Shield {
 
 impl Shield {
     fn new(position: Vector2<f32>) -> Shield {
-        let size = 1.5;
+        let size = 2.25;
         Shield {
             data: Data::new_square(position, size),
             visible: false,
@@ -987,9 +992,9 @@ impl LaserCannon {
 
     fn update_position(&mut self, parent_object_y: f32) {
         if self.cannon_position_top {
-            self.set_position_y(parent_object_y + 2.0);
+            self.set_position_y(parent_object_y + 3.0);
         } else {
-            self.set_position_y(parent_object_y - 2.0);
+            self.set_position_y(parent_object_y - 3.0);
         }
     }
 

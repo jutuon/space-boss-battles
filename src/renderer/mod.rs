@@ -160,16 +160,19 @@ impl Renderer for OpenGLRenderer {
         }
 
         if logic.get_enemy().visible() {
-            self.textures[Textures::Enemy as usize].bind();
-            self.render_rectangle_with_texture(logic.get_enemy());
-
             if logic.get_enemy().get_laser_cannon_top().visible() {
+                self.textures[Textures::EnemyWithShield as usize].bind();
+                self.render_rectangle_with_texture(logic.get_enemy());
+
                 if logic.get_enemy().get_laser_cannon_top().red_light() {
                     self.textures[Textures::LaserCannonRed as usize].bind();
                 } else {
                     self.textures[Textures::LaserCannonGreen as usize].bind();
                 }
                 self.render_rectangle_with_texture(logic.get_enemy().get_laser_cannon_top());
+            } else {
+                self.textures[Textures::Enemy as usize].bind();
+                self.render_rectangle_with_texture(logic.get_enemy());
             }
 
             if logic.get_enemy().get_laser_cannon_bottom().visible() {
@@ -187,6 +190,11 @@ impl Renderer for OpenGLRenderer {
             }
         }
 
+        for laser_bomb in logic.get_enemy().get_laser_bombs() {
+            self.textures[Textures::LaserBomb as usize].bind();
+            self.render_rectangle_with_texture(laser_bomb);
+        }
+
         self.color_shader.use_program();
 
         for laser in logic.get_player().get_lasers() {
@@ -199,10 +207,6 @@ impl Renderer for OpenGLRenderer {
             } else {
                 self.render_color_rectangle_with_color(laser, &BLUE_COLOR);
             }
-        }
-
-        for laser_bomb in logic.get_enemy().get_laser_bombs() {
-            self.render_color_rectangle_with_color(laser_bomb, &BLUE_COLOR);
         }
 
         if logic.get_explosion().visible() {
