@@ -765,7 +765,10 @@ impl Enemy {
         if let EnemyType::Shield = self.enemy_type {
             if self.shield.update(self.data.position.y, current_time) {
                 self.laser_cannon_top.parent_object_shield_enabled = true;
+                self.laser_cannon_top.red_light = false;
+
                 self.laser_cannon_bottom.parent_object_shield_enabled = true;
+                self.laser_cannon_bottom.red_light = false;
             }
 
             if self.shield.visible && !self.laser_cannon_top.parent_object_shield_enabled && !self.laser_cannon_bottom.parent_object_shield_enabled {
@@ -917,6 +920,8 @@ pub struct LaserCannon {
     laser_timer: Timer,
     parent_object_shield_enabled: bool,
     laser_enabled: bool,
+    light_color_toggle_timer: Timer,
+    red_light: bool,
 }
 
 impl LaserCannon {
@@ -931,6 +936,8 @@ impl LaserCannon {
             laser_timer: Timer::new(),
             parent_object_shield_enabled: true,
             laser_enabled: false,
+            light_color_toggle_timer: Timer::new(),
+            red_light: false,
         }
     }
 
@@ -952,9 +959,11 @@ impl LaserCannon {
         }
 
         self.laser_timer.reset(current_time.time());
+        self.light_color_toggle_timer.reset(current_time.time());
 
         self.parent_object_shield_enabled = true;
         self.laser_enabled = false;
+        self.red_light = false;
     }
 
     fn update(&mut self, parent_position_y: f32, current_time: &GameTimeManager, logic_settings: &LogicSettings, parents_lasers: &mut Vec<Laser>) {
@@ -967,6 +976,10 @@ impl LaserCannon {
             let mut laser = Laser::new(position, LaserColor::Red);
             laser.turn(consts::PI);
             parents_lasers.push(laser);
+        }
+
+        if !self.parent_object_shield_enabled && self.light_color_toggle_timer.check(current_time.time(), 400) {
+            self.red_light = !self.red_light;
         }
 
         self.update_position(parent_position_y);
@@ -984,8 +997,8 @@ impl LaserCannon {
         self.visible
     }
 
-    pub fn green_color(&self) -> bool {
-        self.parent_object_shield_enabled
+    pub fn red_light(&self) -> bool {
+        self.red_light
     }
 }
 

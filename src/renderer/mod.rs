@@ -164,19 +164,19 @@ impl Renderer for OpenGLRenderer {
             self.render_rectangle_with_texture(logic.get_enemy());
 
             if logic.get_enemy().get_laser_cannon_top().visible() {
-                if logic.get_enemy().get_laser_cannon_top().green_color() {
-                    self.textures[Textures::LaserCannonGreen as usize].bind();
-                } else {
+                if logic.get_enemy().get_laser_cannon_top().red_light() {
                     self.textures[Textures::LaserCannonRed as usize].bind();
+                } else {
+                    self.textures[Textures::LaserCannonGreen as usize].bind();
                 }
                 self.render_rectangle_with_texture(logic.get_enemy().get_laser_cannon_top());
             }
 
             if logic.get_enemy().get_laser_cannon_bottom().visible() {
-                if logic.get_enemy().get_laser_cannon_bottom().green_color() {
-                    self.textures[Textures::LaserCannonGreen as usize].bind();
-                } else {
+                if logic.get_enemy().get_laser_cannon_bottom().red_light() {
                     self.textures[Textures::LaserCannonRed as usize].bind();
+                } else {
+                    self.textures[Textures::LaserCannonGreen as usize].bind();
                 }
                 self.render_rectangle_with_texture(logic.get_enemy().get_laser_cannon_bottom());
             }
