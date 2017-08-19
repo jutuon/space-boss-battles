@@ -10,7 +10,6 @@ gles = ["gl/gles"]
 gl = { path = "gl" }
 cgmath = "0.14.1"
 rand = "0.3.15"
-time = "0.1.38"
 
 [dependencies.image]
 version = "0.15.0"

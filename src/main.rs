@@ -15,7 +15,6 @@ MIT License
 
 extern crate sdl2;
 extern crate gl;
-//extern crate time;
 extern crate image;
 extern crate cgmath;
 extern crate rand;
@@ -31,7 +30,7 @@ pub mod utils;
 
 use sdl2::event::{Event};
 use sdl2::keyboard::Keycode;
-use sdl2::{GameControllerSubsystem, JoystickSubsystem, AudioSubsystem, TimerSubsystem};
+use sdl2::{GameControllerSubsystem, JoystickSubsystem};
 
 use renderer::{Renderer, OpenGLRenderer};
 use logic::Logic;
@@ -105,7 +104,6 @@ fn main() {
 
     let game_controller_subsystem = sdl_context.game_controller().expect("game controller subsystem init failed");
     let joystick_subsystem = sdl_context.joystick().expect("joystick subsystem init failed");
-    //let timer_subsystem = sdl_context.timer().expect("timer subsystem init failed");
 
     let mut game = Game::new(game_controller_subsystem, renderer, joystick_subsystem, arguments);
 

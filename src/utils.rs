@@ -14,7 +14,6 @@ MIT License
 
 //! Miscellaneous utilities.
 
-//use sdl2::TimerSubsystem;
 use std::time::Instant;
 use LOGIC_TARGET_FPS;
 use LOGIC_MAX_FPS;
@@ -188,7 +187,6 @@ impl GameTimeManager {
 
 /// Provides current time for game's components.
 pub struct TimeManager {
-    //timer_subsystem: TimerSubsystem,
     current_time: TimeMilliseconds,
     start_time: Instant,
     game_time: GameTimeManager,
@@ -198,7 +196,6 @@ impl TimeManager {
     /// Create new `TimeManager`.
     pub fn new() -> TimeManager {
         TimeManager {
-            //timer_subsystem,
             current_time: TimeMilliseconds(0),
             start_time: Instant::now(),
             game_time: GameTimeManager::new(),
@@ -217,8 +214,6 @@ impl TimeManager {
 
     /// Updates `TimeManager`'s current time and `GameTimeManager`'s time and delta time.
     pub fn update_time(&mut self, game_logic_running: bool) {
-        //self.current_time = TimeMilliseconds(self.timer_subsystem.ticks());
-
         let current_instant = Instant::now();
 
         let time = current_instant.duration_since(self.start_time);
