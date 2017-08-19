@@ -1,5 +1,5 @@
 /*
-src/main.rs, 2017-08-18
+src/main.rs, 2017-08-19
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -15,7 +15,7 @@ MIT License
 
 extern crate sdl2;
 extern crate gl;
-extern crate time;
+//extern crate time;
 extern crate image;
 extern crate cgmath;
 extern crate rand;
@@ -47,8 +47,17 @@ use audio::{AudioManager, SoundEffectPlayer};
 
 use utils::{FpsCounter, GameLoopTimer, TimeManager};
 
-pub const TARGET_FPS: u32 = 60;
-pub const TARGET_FRAME_TIME_MILLISECONDS: f32 = 1000.0 / TARGET_FPS as f32;
+/// Base value for `GameTimeManager`'s delta time.
+pub const LOGIC_TARGET_FPS: u32 = 60;
+
+/// Max value for logic updates per seconds. This limit exist to avoid
+/// possible floating point errors from extremely small delta time values
+/// from `GameTimeManager`.
+///
+/// Current max value for this is 1000, because GameLoopTimer only handles milliseconds.
+pub const LOGIC_MAX_FPS: u32 = 1000;
+
+const LOGIC_MAX_UPDATES_MILLISECONDS: u32 = 1000/LOGIC_MAX_FPS;
 
 pub const COMMAND_LINE_HELP_TEXT: &str = "
 Space Boss Battles command line options:
@@ -161,7 +170,7 @@ impl Game {
 
         let input = InputManager::new(controller_subsystem, joystick_subsystem);
         let fps_counter = FpsCounter::new();
-        let timer = GameLoopTimer::new(1000/TARGET_FPS);
+        let timer = GameLoopTimer::new(LOGIC_MAX_UPDATES_MILLISECONDS);
 
         let mut gui = GUI::new(&settings);
         gui.update_position_from_half_screen_width(renderer.half_screen_width_world_coordinates());
@@ -237,7 +246,7 @@ impl Game {
     }
 
     pub fn update(&mut self) {
-        self.time_manager.update_time(self.update_game, self.fps_counter.fps());
+        self.time_manager.update_time(self.update_game);
 
         let fps_updated = self.fps_counter.update(self.time_manager.current_time(), self.settings.print_fps_count());
 
