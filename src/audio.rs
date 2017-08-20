@@ -1,5 +1,5 @@
 /*
-src/audio.rs, 2017-08-19
+src/audio.rs, 2017-08-20
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -66,13 +66,6 @@ impl SoundEffect {
                 Channel::all()
             },
         };
-    }
-
-    /// Play sound effect if its not currently playing.
-    fn play_if_not_playing(&mut self) {
-        if !self.channel.is_playing() {
-            self.play();
-        }
     }
 
     /// Change sound effect's volume.
@@ -175,16 +168,6 @@ impl SoundEffectManager {
             laser_bomb_explosion: false,
             explosion: false,
             player_laser_hits_laser_cannon: false,
-        }
-    }
-
-    /// Check if sound effect should be played and plays it with function `play_if_not_playing`.
-    ///
-    /// Resets argument `play_sound_effect` to false if it was true.
-    fn play_if_not_playing(play_sound_effect: &mut bool, sound_effect: &mut SoundEffect ) {
-        if *play_sound_effect {
-            *play_sound_effect = false;
-            sound_effect.play_if_not_playing();
         }
     }
 

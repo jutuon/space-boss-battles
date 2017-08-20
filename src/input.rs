@@ -1,5 +1,5 @@
 /*
-src/input.rs, 2017-08-19
+src/input.rs, 2017-08-20
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -498,20 +498,6 @@ mod utils {
                 key_hit: false,
             }
         }
-
-        /// Set time between key hits in milliseconds.
-        pub fn set_milliseconds_between_key_hits(mut self, milliseconds: u32) -> KeyHitGenerator {
-            let milliseconds = if milliseconds <= 0 {
-                1
-            } else {
-                milliseconds
-            };
-
-            self.milliseconds_between_key_hits = milliseconds;
-
-            self
-        }
-
 
         /// Updates generators state from `KeyEvent`.
         pub fn update_from_key_event(&mut self, key_event: KeyEvent, current_time: &TimeMilliseconds) {

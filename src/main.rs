@@ -1,5 +1,5 @@
 /*
-src/main.rs, 2017-08-19
+src/main.rs, 2017-08-20
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -28,8 +28,9 @@ pub mod settings;
 pub mod audio;
 pub mod utils;
 
+use std::env;
+
 use sdl2::event::{Event};
-use sdl2::keyboard::Keycode;
 use sdl2::{GameControllerSubsystem, JoystickSubsystem};
 
 use renderer::{Renderer, OpenGLRenderer};
@@ -39,8 +40,6 @@ use input::{InputManager};
 use gui::{GUI, GUIEvent, GUIState};
 
 use settings::{Settings, Arguments};
-
-use std::env;
 
 use audio::{AudioManager, SoundEffectPlayer};
 
@@ -66,6 +65,7 @@ Space Boss Battles command line options:
 --music FILE_PATH - set path to music file
 ";
 
+/// Check command line arguments, initialize game and start game loop.
 fn main() {
     let arguments = match Arguments::parse(env::args()) {
         Ok(arguments) => arguments,
@@ -84,18 +84,6 @@ fn main() {
     let sdl_context = sdl2::init().expect("sdl2 init failed");
     println!("SDL2 version: {}", sdl2::version::version());
 
-/*
-    let audio_subsystem = sdl_context.audio().expect("error");
-
-    println!("SDL2 current audio driver: {}", audio_subsystem.current_audio_driver());
-
-    if let Some(number) = audio_subsystem.num_audio_playback_devices() {
-        for i in 0..number {
-            println!("playback device index: {}, name: {}", i, audio_subsystem.audio_playback_device_name(i).expect("error"));
-        }
-    }
-*/
-
     let mut event_pump = sdl_context.event_pump().expect("failed to get handle to sdl2 event_pump");
 
     let video = sdl_context.video().expect("video subsystem init fail");
@@ -107,7 +95,7 @@ fn main() {
 
     let mut game = Game::new(game_controller_subsystem, renderer, joystick_subsystem, arguments);
 
-
+    // Clear event pump from some possible unwanted input events.
     for event in event_pump.poll_iter() {
         match event {
             Event::Quit{..} | Event::JoyDeviceAdded{..} => game.handle_event(event),
@@ -132,6 +120,7 @@ fn main() {
 
 }
 
+/// Store game components and handle interaction between all components.
 pub struct Game {
     game_logic: Logic,
     quit: bool,
@@ -148,15 +137,13 @@ pub struct Game {
 }
 
 impl Game {
+    /// Create new `Game`. Creates and initializes game's components.
     pub fn new(
                 mut controller_subsystem: GameControllerSubsystem,
                 mut renderer: OpenGLRenderer,
                 joystick_subsystem: JoystickSubsystem,
                 command_line_arguments: Arguments,
-                //timer_subsystem: TimerSubsystem,
             ) -> Game {
-        let mut game_logic = Logic::new();
-        let quit = false;
 
         let mut audio_manager = if let & Some(ref music_file_path) = command_line_arguments.music_file_path() {
             AudioManager::new(music_file_path)
@@ -167,24 +154,22 @@ impl Game {
         let settings = Settings::new(&mut controller_subsystem, command_line_arguments);
 
         let input = InputManager::new(controller_subsystem, joystick_subsystem);
-        let fps_counter = FpsCounter::new();
-        let timer = GameLoopTimer::new(LOGIC_MAX_UPDATES_MILLISECONDS);
 
         let mut gui = GUI::new(&settings);
         gui.update_position_from_half_screen_width(renderer.half_screen_width_world_coordinates());
 
-
+        let mut game_logic = Logic::new();
         settings.apply_current_settings(&mut renderer, &mut gui, &mut game_logic, &mut audio_manager);
 
-
+        // Try to play music after getting audio volume from settings.
         audio_manager.play_music();
 
         Game {
             game_logic,
-            quit,
+            quit: false,
             input,
-            fps_counter,
-            timer,
+            fps_counter: FpsCounter::new(),
+            timer: GameLoopTimer::new(LOGIC_MAX_UPDATES_MILLISECONDS),
             gui,
             renderer,
             settings,
@@ -195,10 +180,12 @@ impl Game {
         }
     }
 
+    /// Return true if game should be closed.
     pub fn quit(&self) -> bool {
         self.quit
     }
 
+    /// Handles SDL2 event.
     pub fn handle_event(&mut self, event: Event) {
         match event {
                 Event::Quit {..} => self.quit = true,
@@ -225,6 +212,7 @@ impl Game {
         }
     }
 
+    /// Render game's current state.
     pub fn render(&mut self) {
         self.fps_counter.frame();
 
@@ -239,10 +227,9 @@ impl Game {
         self.renderer.render_gui(&self.gui);
 
         self.renderer.end();
-
-        //std::thread::sleep(std::time::Duration::from_millis(50));
     }
 
+    /// Updates logic and other game components.
     pub fn update(&mut self) {
         self.time_manager.update_time(self.update_game);
 
@@ -287,10 +274,12 @@ impl Game {
         }
     }
 
+    /// Save current settings.
     pub fn save_settings(&self) {
         self.settings.save();
     }
 
+    /// Set game logic rendering and updating options.
     pub fn set_game_rendering_and_updating(&mut self, rendering: bool, updating: bool) {
         self.render_game = rendering;
         self.update_game = updating;
