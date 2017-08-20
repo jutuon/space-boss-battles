@@ -331,6 +331,7 @@ impl BasicGUILayer {
     fn player_wins_screen() -> BasicGUILayer {
         BasicGUILayer {
             buttons: GUIGroup::new(GUIButton::new(0.0, 1.0, BUTTON_WIDTH, BUTTON_HEIGHT, "Main Menu", GUIEvent::ChangeState(GUIState::MainMenu))),
+            // TODO: Player wins screen's GUIText is too long for non widescreen resolutions.
             texts: vec![GUIText::new(0.0, 3.0, "Congratulations, you won the game")],
         }
     }
