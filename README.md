@@ -11,7 +11,7 @@ Game:
 - [x] 3 difficulty settings
 - [x] 4 game levels
 
-GUI:
+Graphical User Interface, GUI:
 
 - [x] Main menu
 - [x] Settings
@@ -23,7 +23,7 @@ GUI:
 Input:
 
 - [x] Keyboard
-- [x] Mouse (only GUI support)
+- [x] Mouse (only GUIButton support)
 - [x] Game controllers
 - [ ] Touch screen
 - [ ] Configurable controls
@@ -54,29 +54,51 @@ General features:
 
 ## Building and running
 
-1. Install dependencies
-  - Rust, https://www.rust-lang.org/en-US/index.html
-  - SDL2 library, https://www.libsdl.org/
+### Linux
 
-2. Clone (or download) the repository
+1. Install Rust, https://www.rust-lang.org/en-US/index.html
+
+2. Install SDL2 and SDL2_mixer libraries and developer packages from package repositories. On Ubuntu 16.04 that happens with this command.
+
+```
+sudo apt-get install libsdl2-2.0-0 libsdl2-dev libsdl2-mixer-2.0-0 libsdl2-mixer-dev
+```
+
+3. Clone (or download) the repository
 
 ```
 git clone https://github.com/jutuon/space-boss-battles.git
 ```
 
-3. Change working directory to repository directory
+4. Change working directory to repository directory
 
 ```
 cd space-boss-battles
 ```
 
-4. Build and run the game with Cargo
+5. Build and run the game with Cargo
 
 ```
 cargo run --release
 ```
 
 To run the game with OpenGL ES 2.0, build and run with this command
+```
+cargo run --release --features "gles"
+```
+
+### Raspberry Pi
+
+Building the game for Raspberry Pi will work almost like building for Linux but SDL2 library
+installation differs from Linux building instructions. See the following link for instructions.
+
+[SDL2 Library and Raspberry Pi](https://github.com/jutuon/raspberry-pi-game-development/tree/master/sdl2)
+
+If you have Raspberry Pi 1 or Zero and you use the building script from link above, set
+`LIBRARY_PATH` and `LD_LIBRARY_PATH` environment variables before building and running the
+game with Cargo.
+
+Note also that OpenGL 3.3 is not available on Raspberry Pi, so build and run the game with OpenGL ES 2.0 support.
 ```
 cargo run --release --features "gles"
 ```
