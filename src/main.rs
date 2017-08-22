@@ -1,5 +1,5 @@
 /*
-src/main.rs, 2017-08-20
+src/main.rs, 2017-08-22
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -12,6 +12,9 @@ or
 MIT License
 */
 
+//! Source code for Space Boss Battles.
+//!
+//! Main function and game loop is in this file.
 
 extern crate sdl2;
 extern crate gl;

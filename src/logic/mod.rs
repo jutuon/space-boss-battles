@@ -1,5 +1,5 @@
 /*
-src/logic/mod.rs, 2017-08-20
+src/logic/mod.rs, 2017-08-22
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -11,6 +11,8 @@ or
 
 MIT License
 */
+
+//! Game logic.
 
 pub mod common;
 
