@@ -1,5 +1,5 @@
 /*
-gl/src/gl_wrapper/mod.rs, 2017-08-05
+gl/src/gl_wrapper/mod.rs, 2017-08-24
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -75,6 +75,22 @@ impl GLError {
 pub fn get_version_string<'a>() -> &'a CStr {
     unsafe {
         let ptr_to_str = gl_raw::GetString(gl_raw::VERSION) as *const c_char;
+        CStr::from_ptr(ptr_to_str)
+    }
+}
+
+/// Return OpenGL vendor string.
+pub fn get_vendor_string<'a>() -> &'a CStr {
+    unsafe {
+        let ptr_to_str = gl_raw::GetString(gl_raw::VENDOR) as *const c_char;
+        CStr::from_ptr(ptr_to_str)
+    }
+}
+
+/// Return OpenGL renderer string.
+pub fn get_renderer_string<'a>() -> &'a CStr {
+    unsafe {
+        let ptr_to_str = gl_raw::GetString(gl_raw::RENDERER) as *const c_char;
         CStr::from_ptr(ptr_to_str)
     }
 }

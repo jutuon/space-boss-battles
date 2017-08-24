@@ -350,7 +350,10 @@ impl OpenGLRenderer {
             gl_raw::ClearColor(0.0,0.0,0.0,1.0);
         }
 
-        println!("OpenGL version: {:?}", gl::get_version_string());
+        println!("OpenGL context information:");
+        println!("  Version:  {:?}", gl::get_version_string());
+        println!("  Vendor:   {:?}", gl::get_vendor_string());
+        println!("  Renderer: {:?}", gl::get_renderer_string());
 
         let mut renderer = OpenGLRenderer {
             video_system,
