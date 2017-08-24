@@ -1,5 +1,5 @@
 /*
-src/renderer/mod.rs, 2017-08-19
+src/renderer/mod.rs, 2017-08-24
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -131,6 +131,9 @@ pub trait Renderer {
     fn v_sync(&mut self, value: bool);
     /// Screen width in world coordinates divided by 2.
     fn half_screen_width_world_coordinates(&self) -> f32;
+
+    /// Update renderer to match new screen size.
+    fn update_screen_size(&mut self, new_width_in_pixels: i32, new_height_in_pixels: i32);
 }
 
 impl Renderer for OpenGLRenderer {
@@ -284,10 +287,20 @@ impl Renderer for OpenGLRenderer {
 
         if let Err(message) = self.window.set_fullscreen(setting) {
             println!("Error, couldn't change fullscreen setting: {}", message);
-        } else {
-            self.update_screen_size();
-            self.update_projection_matrix();
         }
+    }
+
+    /// Updates fields `screen_width` and `screen_height`,
+    /// OpenGL viewport, and projection matrix to match current screen size.
+    fn update_screen_size(&mut self, new_width_in_pixels: i32, new_height_in_pixels: i32) {
+        unsafe {
+            gl_raw::Viewport(0,0,new_width_in_pixels, new_height_in_pixels);
+        }
+
+        self.screen_width = new_width_in_pixels;
+        self.screen_height = new_height_in_pixels;
+
+        self.update_projection_matrix();
     }
 
     fn v_sync(&mut self, value: bool) {
@@ -357,8 +370,7 @@ impl OpenGLRenderer {
 
         // Update fields projection_matrix, inverse_projection_matrix
         // and half_screen_width_world_coordinates to have correct value.
-        renderer.update_screen_size();
-        renderer.update_projection_matrix();
+        renderer.update_screen_size(DEFAULT_SCREEN_WIDTH, DEFAULT_SCREEN_HEIGHT);
 
         renderer
     }
@@ -379,32 +391,6 @@ impl OpenGLRenderer {
                 self.inverse_projection_matrix = Matrix4::identity();
             }
         };
-    }
-
-    /// Updates fields `screen_width` and `screen_height` and
-    /// OpenGL viewport to match current display mode.
-    ///
-    /// # Errors
-    /// If getting the display mode fails this function will use
-    /// `DEFAULT_SCREEN_WIDTH` and `DEFAULT_SCREEN_HEIGHT` const values.
-    fn update_screen_size(&mut self) {
-        let mut width = DEFAULT_SCREEN_WIDTH;
-        let mut height = DEFAULT_SCREEN_HEIGHT;
-
-        match self.window.display_mode() {
-            Ok(display_mode) => {
-                width = display_mode.w;
-                height = display_mode.h;
-            },
-            Err(message) => println!("couldn't get display mode info: {}", message),
-        }
-
-        unsafe {
-            gl_raw::Viewport(0,0,width,height);
-        }
-
-        self.screen_width = width;
-        self.screen_height = height;
     }
 
     /// Render `GUIText`. Bind correct texture before calling this method.

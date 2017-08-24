@@ -1,5 +1,5 @@
 /*
-src/main.rs, 2017-08-22
+src/main.rs, 2017-08-24
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -33,7 +33,7 @@ pub mod utils;
 
 use std::env;
 
-use sdl2::event::{Event};
+use sdl2::event::{Event, WindowEvent};
 use sdl2::{GameControllerSubsystem, JoystickSubsystem};
 
 use renderer::{Renderer, OpenGLRenderer};
@@ -98,14 +98,6 @@ fn main() {
 
     let mut game = Game::new(game_controller_subsystem, renderer, joystick_subsystem, arguments);
 
-    // Clear event pump from some possible unwanted input events.
-    for event in event_pump.poll_iter() {
-        match event {
-            Event::Quit{..} | Event::JoyDeviceAdded{..} => game.handle_event(event),
-            _ => (),
-        }
-    }
-
     loop {
         if game.quit() {
             game.save_settings();
@@ -162,7 +154,9 @@ impl Game {
         gui.update_position_from_half_screen_width(renderer.half_screen_width_world_coordinates());
 
         let mut game_logic = Logic::new();
-        settings.apply_current_settings(&mut renderer, &mut gui, &mut game_logic, &mut audio_manager);
+        game_logic.update_half_screen_width(renderer.half_screen_width_world_coordinates());
+
+        settings.apply_current_settings(&mut renderer, &mut gui, &mut audio_manager);
 
         // Try to play music after getting audio volume from settings.
         audio_manager.play_music();
@@ -201,6 +195,11 @@ impl Game {
                 Event::ControllerButtonDown { button, ..} => self.input.game_controller_button_down(button, self.time_manager.current_time()),
                 Event::ControllerButtonUp { button, ..} => self.input.game_controller_button_up(button, self.time_manager.current_time()),
                 Event::JoyDeviceAdded { which, ..} => self.input.add_joystick(which as u32, &mut self.settings),
+                Event::Window { win_event: WindowEvent::SizeChanged(window_width_pixels, window_height_pixels), ..} => {
+                    self.renderer.update_screen_size(window_width_pixels, window_height_pixels);
+                    self.gui.update_position_from_half_screen_width(self.renderer.half_screen_width_world_coordinates());
+                    self.game_logic.update_half_screen_width(self.renderer.half_screen_width_world_coordinates());
+                },
                 _ => (),
         }
 
@@ -254,7 +253,7 @@ impl Game {
                 Some(GUIEvent::Exit) => self.quit = true,
                 Some(GUIEvent::ChangeSetting(new_setting_value)) => {
                     self.settings.update_setting(new_setting_value);
-                    Settings::apply_setting(new_setting_value, &mut self.renderer, &mut self.gui, &mut self.game_logic, &mut self.audio_manager);
+                    Settings::apply_setting(new_setting_value, &mut self.renderer, &mut self.gui, &mut self.audio_manager);
                 },
                 Some(GUIEvent::NewGame(difficulty)) => {
                     self.game_logic.reset_game(&mut self.gui, difficulty, 0, self.time_manager.game_time_manager());

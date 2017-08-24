@@ -1,5 +1,5 @@
 /*
-src/settings.rs, 2017-08-16
+src/settings.rs, 2017-08-24
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -23,8 +23,6 @@ use sdl2::GameControllerSubsystem;
 use renderer::Renderer;
 
 use gui::GUI;
-
-use logic::Logic;
 
 use audio::{AudioManager, Volume};
 use audio;
@@ -317,20 +315,16 @@ impl Settings {
     }
 
     /// Applies current settings from field `settings`.
-    pub fn apply_current_settings<T: Renderer>(&self, renderer: &mut T, gui: &mut GUI, game_logic: &mut Logic, audio_manager: &mut AudioManager) {
+    pub fn apply_current_settings<T: Renderer>(&self, renderer: &mut T, gui: &mut GUI, audio_manager: &mut AudioManager) {
         for setting in &self.settings {
-            Settings::apply_setting(setting.get_value(), renderer, gui, game_logic, audio_manager);
+            Settings::apply_setting(setting.get_value(), renderer, gui, audio_manager);
         }
     }
 
     /// Apply setting provided as argument.
-    pub fn apply_setting<T: Renderer>(setting: SettingType, renderer: &mut T, gui: &mut GUI, game_logic: &mut Logic, audio_manager: &mut AudioManager) {
+    pub fn apply_setting<T: Renderer>(setting: SettingType, renderer: &mut T, gui: &mut GUI, audio_manager: &mut AudioManager) {
         match setting {
-            SettingType::Boolean(BooleanSetting::FullScreen, value) => {
-                    renderer.full_screen(value);
-                    gui.update_position_from_half_screen_width(renderer.half_screen_width_world_coordinates());
-                    game_logic.update_half_screen_width(renderer.half_screen_width_world_coordinates());
-            },
+            SettingType::Boolean(BooleanSetting::FullScreen, value) => renderer.full_screen(value),
             SettingType::Boolean(BooleanSetting::ShowFpsCounter, value) => gui.set_show_fps_counter(value),
             SettingType::Boolean(BooleanSetting::VSync , value)  => renderer.v_sync(value),
             SettingType::Integer(IntegerSetting::SoundEffectVolume, value) => audio_manager.set_sound_effect_volume(Volume::new(value)),
