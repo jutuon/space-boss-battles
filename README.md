@@ -89,18 +89,31 @@ cargo run --release --features "gles"
 
 ### Raspberry Pi
 
-Building the game for Raspberry Pi will work almost like building for Linux but SDL2 library
-installation differs from Linux building instructions. See the following link for instructions.
+#### Raspberry Pi 2 and 3
 
-[SDL2 Library and Raspberry Pi](https://github.com/jutuon/raspberry-pi-game-development/tree/master/sdl2)
+1. Enable experimental OpenGL driver from `raspi-config`.
 
-If you have Raspberry Pi 1 or Zero and you use the building script from link above, set
-`LIBRARY_PATH` and `LD_LIBRARY_PATH` environment variables before building and running the
-game with Cargo.
+2. Follow Linux instructions.
 
-Note also that OpenGL 3.3 is not available on Raspberry Pi, so build and run the game with OpenGL ES 2.0 support.
+3. Build the game with OpenGL ES support.
+
+#### Raspberry Pi 1 and Zero
+
+See this page for more information: [SDL2 Library and Raspberry Pi - Raspberry Pi 1 and Zero](https://github.com/jutuon/raspberry-pi-game-development/tree/master/sdl2#raspberry-pi-1-and-zero)
+
+Note that you should only use game controllers with SDL2 rpi video driver, see the link above for more details.
+
+If you use the build script from link above, run the script like this:
+
 ```
-cargo run --release --features "gles"
+./build_sdl2.py --build-sdl2 --build-mixer --add-profile-variables
+```
+
+Before building and running the game with Cargo, set `LIBRARY_PATH` and `LD_LIBRARY_PATH` environment variables, and
+then build and run the game with this command:
+
+```
+SDL_VIDEODRIVER=rpi cargo run --release --features "gles"
 ```
 
 ## Documentation
