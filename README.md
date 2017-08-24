@@ -52,6 +52,73 @@ General features:
 
 - [x] Settings file
 
+## User guide
+
+### Controls
+
+#### Keyboard
+
+  Key                                                       |   Action
+------------------------------------------------------------|-----------
+<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or <kbd>Up</kbd><kbd>Down</kbd><kbd>Left</kbd><kbd>Right</kbd>  | Move
+<kbd>Space</kbd>               | Shoot
+<kbd>Esc</kbd>                 | Pause game
+<kbd>Enter</kbd>               | Select
+
+##### Game controller
+
+  Button/Stick                 |   Action
+-------------------------------|-----------
+Left and right stick, DPad     | Move
+<kbd>A</kbd>                   | Select/Shoot
+Trigger and shoulder buttons   | Shoot
+<kbd>Back</kbd>                | Pause game
+
+### Settings file
+
+Settings file name is `space_boss_battles_settings.txt` and it will be created or
+overwritten to the current working directory every time the game exits.
+
+You shouldn't have to change the file manually, unless
+you want to change game controller mapping for a game controller which SDL2 library doesn't provide a
+default game controller mapping. Only those game controllers which doesn't
+have a default game controller mapping will appear to the file with default mapping defined in game's source code.
+
+When modifying game controller mapping, you might want to start the game with option to print
+joystick events to the command line to identify correct button or axis numbers.
+
+### Music
+
+Game supports playing music, but currently there aren't any music included with the game.
+By default game tries to play `music.ogg` named file in current working directory. You can
+override this with file path specified with command line option.
+
+Supported music file formats are the ones which SDL2_mixer library supports.
+
+### Command line options
+
+  Option                       |   Description
+-------------------------------|--------------------------------------------
+--help or -h                   | Prints help text about command line options.
+--fps                          | Print fps number to command line.
+--joystick-events              | Print joystick events to command line.
+--music FILE_PATH              | Set path to music file which game tries to play.
+
+If running the game with Cargo, you can set command line options like this:
+```
+cargo run --release -- --joystick-events --music /path/to/music/file
+```
+
+### Troubleshooting
+
+If the game crashes, doesn't start or there is no sound effects, start the game from the command line and check the error messages.
+
+Typical reasons for game to crash:
+
+* Window or OpenGL initialization fails.
+* All textures are not found.
+* All sound effects are not found.
+
 ## Building and running
 
 ### Linux
