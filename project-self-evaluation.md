@@ -10,13 +10,13 @@ have any major difficulties even if I didn't have much programming experience wi
 
 ## Table of contents
 
-1. [Project description, background and goals]()
-2. [Implementation]()
-3. [Self-evaluation]()
-4. [List of sources used during the project]()
-5. [Information for project maintainers]()
-6. [Future of the project]()
-7. [Conclusions]()
+1. [Project description, background and goals](#1-project-description-background-and-goals)
+2. [Implementation](#2-implementation)
+3. [Self-evaluation](#3-self-evaluation)
+4. [List of sources used during the project](#4-list-of-sources-used-during-the-project)
+5. [Information for project maintainers](#5-information-for-project-maintainers)
+6. [Future of the project](#6-future-of-the-project)
+7. [Conclusions](#7-conclusions)
 
 
 ## 1. Project description, background and goals
@@ -92,11 +92,11 @@ Traits `Renderer`, `SoundEffectPlayer` and `Input`, make `OpenGLRenderer`, `Audi
 
 ### Crates currently used
 
-* cgmath
-* rand
-* image
-* sdl2
-* gl_generator
+* [cgmath](https://github.com/brendanzab/cgmath)
+* [rand](https://github.com/rust-lang-nursery/rand)
+* [image](https://github.com/PistonDevelopers/image)
+* [sdl2](https://github.com/Rust-SDL2/rust-sdl2)
+* [gl_generator](https://github.com/brendanzab/gl-rs/tree/master/gl_generator)
 
 
 ## 3. Self-evaluation
