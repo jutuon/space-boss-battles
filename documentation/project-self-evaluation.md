@@ -122,6 +122,7 @@ how its told at lectures.
 
 ## 4. List of sources used during the project
 
+* SDL2 and SDL2_mixer documentation
 * Crate documentation
 * Rust standard library documentation
 * https://learnopengl.com/
