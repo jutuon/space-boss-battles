@@ -194,6 +194,8 @@ root directory of the repository.
 ```
 cargo doc --open
 ```
+Note that `cargo doc` will only create documentation for public items in the code.
+
 See also the documentation in repository's documentation directory.
 
 ## License
