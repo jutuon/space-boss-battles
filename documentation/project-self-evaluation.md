@@ -71,9 +71,11 @@ the following chapter.
 
 ## 2. Implementation
 
-The following is an overview of game's current design.
+The following is an overview of game's current architecture.
 
 ### Component diagram of main components
+
+![Alt text](/documentation/component_diagram.png?raw=true "Component diagram")
 
 Color | Meaning
 ------|------------------
