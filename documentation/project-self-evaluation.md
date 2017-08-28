@@ -120,7 +120,7 @@ My original plans had deadline for the project at end of August. I managed to fi
 And yes, its hard to design software that has lot features in a way which keeps maintainability at acceptable rate, just like
 how its told at lectures.
 
-## 4. List of sources used during the project
+## 4. List of references used during the project
 
 * SDL2 and SDL2_mixer documentation
 * Crate documentation
