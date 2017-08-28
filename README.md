@@ -4,6 +4,8 @@ Space Boss Battles is 2D arcade space shooter game. This version of the game is 
 
 This project is also my first proper project written in Rust and will also serve as coursework for programming project course.
 
+For more background information about the project and it's current architecture, see [documentation/project-self-evaluation.md](/documentation/project-self-evaluation.md).
+
 ## Features
 
 Game:
@@ -61,7 +63,7 @@ General features:
   Key                                                       |   Action
 ------------------------------------------------------------|-----------
 <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or <kbd>Up</kbd><kbd>Down</kbd><kbd>Left</kbd><kbd>Right</kbd>  | Move
-<kbd>Space</kbd>               | Shoot
+<kbd>Space</kbd> or <kbd>LeftCtrl</kbd> or <kbd>RightCtrl</kbd>       | Shoot
 <kbd>Esc</kbd>                 | Pause game
 <kbd>Enter</kbd>               | Select
 
@@ -156,6 +158,8 @@ cargo run --release --features "gles"
 
 ### Raspberry Pi
 
+Note that you may need to set GPU RAM size to at least 128 MB to run the game with frame rate of 60 fps at 1080p resolution.
+
 #### Raspberry Pi 2 and 3
 
 1. Enable experimental OpenGL driver from `raspi-config`.
@@ -190,7 +194,7 @@ root directory of the repository.
 ```
 cargo doc --open
 ```
-
+See also the documentation in repository's documentation directory.
 
 ## License
 
