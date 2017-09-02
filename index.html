@@ -103,8 +103,13 @@
         outline: none;
       }
 
-      #game_information {
+      #toggle_game_information_button, #game_information {
+        margin-top: 1em;
         margin-left: 2em;
+      }
+
+      .hide {
+        display: none;
       }
     </style>
   </head>
@@ -121,6 +126,8 @@
     <div class="emscripten_border">
       <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()"></canvas>
     </div>
+
+    <button id="toggle_game_information_button" onclick="toggle_game_information_visibility()">Hide/show help text</button>
 
     <div id="game_information">
       <p id="wasm_support"></p>
@@ -176,6 +183,16 @@
     </div>
 
     <script type='text/javascript'>
+
+      function toggle_game_information_visibility() {
+          var game_information = document.getElementById('game_information');
+
+          if (game_information.className === "hide") {
+            game_information.className = "";
+          } else {
+            game_information.className = "hide";
+          }
+      }
 
       var wasm_support = document.getElementById('wasm_support');
 
