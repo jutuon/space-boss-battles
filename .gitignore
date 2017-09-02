@@ -1,0 +1,10 @@
+target/
+**/*.rs.bk
+
+.vscode
+
+gl/src/gl_es_generated.rs
+gl/src/gl_generated.rs
+
+settings.txt
+space_boss_battles_settings.txt
