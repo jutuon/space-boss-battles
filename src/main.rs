@@ -1,5 +1,5 @@
 /*
-src/main.rs, 2017-08-24
+src/main.rs, 2017-09-02
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -22,6 +22,8 @@ extern crate image;
 extern crate cgmath;
 extern crate rand;
 
+#[cfg(target_os = "emscripten")]
+extern crate emscripten_sys;
 
 pub mod gui;
 pub mod logic;
@@ -34,7 +36,7 @@ pub mod utils;
 use std::env;
 
 use sdl2::event::{Event, WindowEvent};
-use sdl2::{GameControllerSubsystem, JoystickSubsystem};
+use sdl2::{GameControllerSubsystem, JoystickSubsystem, EventPump};
 
 use renderer::{Renderer, OpenGLRenderer};
 use logic::Logic;
@@ -87,7 +89,7 @@ fn main() {
     let sdl_context = sdl2::init().expect("sdl2 init failed");
     println!("SDL2 version: {}", sdl2::version::version());
 
-    let mut event_pump = sdl_context.event_pump().expect("failed to get handle to sdl2 event_pump");
+    let event_pump = sdl_context.event_pump().expect("failed to get handle to sdl2 event_pump");
 
     let video = sdl_context.video().expect("video subsystem init fail");
 
@@ -96,23 +98,55 @@ fn main() {
     let game_controller_subsystem = sdl_context.game_controller().expect("game controller subsystem init failed");
     let joystick_subsystem = sdl_context.joystick().expect("joystick subsystem init failed");
 
-    let mut game = Game::new(game_controller_subsystem, renderer, joystick_subsystem, arguments);
+    let mut game = Game::new(game_controller_subsystem, renderer, joystick_subsystem, arguments, event_pump);
 
-    loop {
-        if game.quit() {
-            game.save_settings();
-            break;
+    #[cfg(target_os = "emscripten")]
+    {
+        let game_ptr: *mut Game = &mut game;
+
+        unsafe {
+            // This function will not return because last parameter named `simulate_infinite_loop` is true.
+            // Function documentation: https://kripken.github.io/emscripten-site/docs/api_reference/emscripten.h.html#c.emscripten_set_main_loop_arg
+            emscripten_sys::emscripten_set_main_loop_arg(Some(game_loop_iteration_emscripten), game_ptr as *mut std::os::raw::c_void, 0, 1);
         }
-
-        for event in event_pump.poll_iter() {
-            game.handle_event(event);
-        }
-
-        game.update();
-
-        game.render();
     }
 
+    #[cfg(not(target_os = "emscripten"))]
+    {
+        loop {
+            if game.quit() {
+                game.save_settings();
+                break;
+            }
+
+            game.handle_events();
+
+            game.update();
+
+            game.render();
+        }
+    }
+}
+
+/// One iteration of game loop for emscripten build.
+#[cfg(target_os = "emscripten")]
+unsafe extern fn game_loop_iteration_emscripten(game: *mut std::os::raw::c_void) {
+    let game = game as *mut Game;
+
+    // Quit button is disabled in emscripten build, so this is true only if user closes the web page.
+    if (*game).quit() {
+        /// TODO: Emscripten build does not support saving the settings.
+
+        // Drop game to free resources.
+        std::ptr::drop_in_place(game);
+        return;
+    }
+
+    (*game).handle_events();
+
+    (*game).update();
+
+    (*game).render();
 }
 
 /// Store game components and handle interaction between all components.
@@ -129,6 +163,7 @@ pub struct Game {
     update_game: bool,
     render_game: bool,
     time_manager: TimeManager,
+    event_pump: EventPump,
 }
 
 impl Game {
@@ -138,6 +173,7 @@ impl Game {
                 mut renderer: OpenGLRenderer,
                 joystick_subsystem: JoystickSubsystem,
                 command_line_arguments: Arguments,
+                event_pump: EventPump,
             ) -> Game {
 
         let mut audio_manager = if let & Some(ref music_file_path) = command_line_arguments.music_file_path() {
@@ -174,6 +210,7 @@ impl Game {
             update_game: false,
             render_game: false,
             time_manager: TimeManager::new(),
+            event_pump: event_pump,
         }
     }
 
@@ -183,33 +220,48 @@ impl Game {
     }
 
     /// Handles SDL2 event.
-    pub fn handle_event(&mut self, event: Event) {
-        match event {
-                Event::Quit {..} => self.quit = true,
-                Event::KeyDown {keycode: Some(key), ..} => self.input.update_key_down(key, self.time_manager.current_time()),
-                Event::KeyUp {keycode: Some(key), ..} => self.input.update_key_up(key, self.time_manager.current_time()),
-                Event::MouseMotion { x, y, ..} => self.input.update_mouse_motion(self.renderer.screen_coordinates_to_world_coordinates(x, y)),
-                Event::MouseButtonUp { x, y, ..} =>  self.input.update_mouse_button_up(self.renderer.screen_coordinates_to_world_coordinates(x, y)),
-                Event::ControllerDeviceRemoved { which, ..} => self.input.remove_game_controller(which),
-                Event::ControllerAxisMotion { axis, value, ..} => self.input.game_controller_axis_motion(axis, value, self.time_manager.current_time()),
-                Event::ControllerButtonDown { button, ..} => self.input.game_controller_button_down(button, self.time_manager.current_time()),
-                Event::ControllerButtonUp { button, ..} => self.input.game_controller_button_up(button, self.time_manager.current_time()),
-                Event::JoyDeviceAdded { which, ..} => self.input.add_joystick(which as u32, &mut self.settings),
-                Event::Window { win_event: WindowEvent::SizeChanged(window_width_pixels, window_height_pixels), ..} => {
-                    self.renderer.update_screen_size(window_width_pixels, window_height_pixels);
-                    self.gui.update_position_from_half_screen_width(self.renderer.half_screen_width_world_coordinates());
-                    self.game_logic.update_half_screen_width(self.renderer.half_screen_width_world_coordinates());
-                },
-                _ => (),
-        }
-
-        if self.settings.print_joystick_events() {
+    pub fn handle_events(&mut self) {
+        for event in self.event_pump.poll_iter() {
             match event {
-                Event::JoyAxisMotion { value, axis_idx, .. } => println!("JoyAxisMotion, value: {}, axis_idx: {},", value, axis_idx),
-                Event::JoyBallMotion { ball_idx, xrel, yrel, .. } => println!("JoyBallMotion, ball_idx: {}, xrel: {}, yrel: {}", ball_idx, xrel, yrel),
-                Event::JoyHatMotion { hat_idx, state, .. } => println!("JoyHatMotion, hat_idx: {}, state as number: {}, state: {:?}", hat_idx, state as u32, state),
-                Event::JoyButtonDown { button_idx, .. } => println!("JoyButtonDown, button_idx: {}", button_idx),
-                _ => (),
+                    Event::Quit {..} => self.quit = true,
+                    Event::KeyDown {keycode: Some(key), ..} => self.input.update_key_down(key, self.time_manager.current_time()),
+                    Event::KeyUp {keycode: Some(key), ..} => self.input.update_key_up(key, self.time_manager.current_time()),
+                    Event::MouseMotion { x, y, ..} => self.input.update_mouse_motion(self.renderer.screen_coordinates_to_world_coordinates(x, y)),
+                    Event::MouseButtonUp { x, y, ..} =>  self.input.update_mouse_button_up(self.renderer.screen_coordinates_to_world_coordinates(x, y)),
+                    Event::ControllerDeviceRemoved { which, ..} => self.input.remove_game_controller(which),
+                    Event::ControllerAxisMotion { axis, value, ..} => self.input.game_controller_axis_motion(axis, value, self.time_manager.current_time()),
+                    Event::ControllerButtonDown { button, ..} => self.input.game_controller_button_down(button, self.time_manager.current_time()),
+                    Event::ControllerButtonUp { button, ..} => self.input.game_controller_button_up(button, self.time_manager.current_time()),
+                    Event::JoyDeviceAdded { which, ..} => self.input.add_joystick(which as u32, &mut self.settings),
+                    Event::Window { win_event: WindowEvent::SizeChanged(window_width_pixels, window_height_pixels), ..} => {
+
+                        #[cfg(target_os = "emscripten")]
+                        {
+                            // It seems that full screen setting on emscripten build does not always change the game to full screen mode, so
+                            // lets set full screen mode to disabled when event's screen width is less or equal than current screen width.
+                            if window_width_pixels <= self.renderer.screen_width_pixels() {
+                                let value = false;
+                                let setting = settings::BooleanSetting::FullScreen;
+                                self.settings.update_setting(settings::SettingType::Boolean(setting, value));
+                                self.gui.get_settings_menu().set_boolean_setting(setting, value);
+                            }
+                        }
+
+                        self.renderer.update_screen_size(window_width_pixels, window_height_pixels);
+                        self.gui.update_position_from_half_screen_width(self.renderer.half_screen_width_world_coordinates());
+                        self.game_logic.update_half_screen_width(self.renderer.half_screen_width_world_coordinates());
+                    },
+                    _ => (),
+            }
+
+            if self.settings.print_joystick_events() {
+                match event {
+                    Event::JoyAxisMotion { value, axis_idx, .. } => println!("JoyAxisMotion, value: {}, axis_idx: {},", value, axis_idx),
+                    Event::JoyBallMotion { ball_idx, xrel, yrel, .. } => println!("JoyBallMotion, ball_idx: {}, xrel: {}, yrel: {}", ball_idx, xrel, yrel),
+                    Event::JoyHatMotion { hat_idx, state, .. } => println!("JoyHatMotion, hat_idx: {}, state as number: {}, state: {:?}", hat_idx, state as u32, state),
+                    Event::JoyButtonDown { button_idx, .. } => println!("JoyButtonDown, button_idx: {}", button_idx),
+                    _ => (),
+                }
             }
         }
     }

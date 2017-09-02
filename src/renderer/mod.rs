@@ -1,5 +1,5 @@
 /*
-src/renderer/mod.rs, 2017-08-24
+src/renderer/mod.rs, 2017-09-01
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -134,6 +134,9 @@ pub trait Renderer {
 
     /// Update renderer to match new screen size.
     fn update_screen_size(&mut self, new_width_in_pixels: i32, new_height_in_pixels: i32);
+
+    /// Get current screen width in pixels
+    fn screen_width_pixels(&self) -> i32;
 }
 
 impl Renderer for OpenGLRenderer {
@@ -313,6 +316,10 @@ impl Renderer for OpenGLRenderer {
 
     fn half_screen_width_world_coordinates(&self) -> f32 {
         self.half_screen_width_world_coordinates
+    }
+
+    fn screen_width_pixels(&self) -> i32 {
+        self.screen_width
     }
 }
 

@@ -1,5 +1,5 @@
 /*
-src/gui/mod.rs, 2017-08-17
+src/gui/mod.rs, 2017-09-01
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -273,6 +273,11 @@ impl GUI {
         &mut self.game_status
     }
 
+    /// Get `SettingsMenu`.
+    pub fn get_settings_menu(&mut self) -> &mut SettingsMenu {
+        &mut self.settings_menu
+    }
+
     /// Get current `GUILayer`'s components.
     pub fn components<'a>(&'a self) -> GUIComponentReferences<'a> {
         match self.state {
@@ -303,10 +308,16 @@ pub struct BasicGUILayer {
 impl BasicGUILayer {
     /// Create main menu.
     fn main_menu() -> BasicGUILayer {
+        let mut buttons = GUIGroup::new(GUIButton::new(0.0, 1.0, BUTTON_WIDTH, BUTTON_HEIGHT, "Start Game", GUIEvent::ChangeState(GUIState::DifficultySelectionMenu)))
+                              .add(GUIButton::new(0.0, -1.0, BUTTON_WIDTH, BUTTON_HEIGHT, "Settings", GUIEvent::ChangeState(GUIState::SettingsMenu)));
+
+        // Disable Exit button in emscripten build.
+        if cfg!(not(target_os = "emscripten")) {
+            buttons = buttons.add(GUIButton::new(0.0, -3.0, BUTTON_WIDTH, BUTTON_HEIGHT, "Exit", GUIEvent::Exit));
+        }
+
         BasicGUILayer {
-            buttons: GUIGroup::new(GUIButton::new(0.0, 1.0, BUTTON_WIDTH, BUTTON_HEIGHT, "Start Game", GUIEvent::ChangeState(GUIState::DifficultySelectionMenu)))
-                              .add(GUIButton::new(0.0, -1.0, BUTTON_WIDTH, BUTTON_HEIGHT, "Settings", GUIEvent::ChangeState(GUIState::SettingsMenu)))
-                              .add(GUIButton::new(0.0, -3.0, BUTTON_WIDTH, BUTTON_HEIGHT, "Exit", GUIEvent::Exit)),
+            buttons,
             texts: vec![GUIText::new(0.0, 3.0, "Space Boss Battles")],
         }
     }
@@ -509,6 +520,26 @@ impl SettingsMenu {
         }
 
         None
+    }
+
+    /// Set boolean setting value if there exist an `GUIButton` with same setting
+    /// as argument `setting`. Function will also update text related to that button.
+    pub fn set_boolean_setting(&mut self, setting: BooleanSetting, new_value: bool) {
+        for (button, text) in self.layer.buttons.get_components_mut().iter_mut().zip(self.layer.texts.iter_mut()) {
+
+            if let GUIEvent::ChangeSetting(SettingType::Boolean(events_boolean_setting, _)) = button.event_data() {
+                if setting == events_boolean_setting {
+
+                    if new_value {
+                        text.change_text("Enabled");
+                    } else {
+                        text.change_text("Disabled");
+                    }
+                    let new_setting = SettingType::Boolean(setting, new_value);
+                    button.set_event_data(GUIEvent::ChangeSetting(new_setting));
+                }
+            }
+        }
     }
 
     /// Tries adding argument `number` to current value of currently selected volume slider.

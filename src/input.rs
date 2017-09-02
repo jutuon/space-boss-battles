@@ -1,5 +1,5 @@
 /*
-src/input.rs, 2017-08-20
+src/input.rs, 2017-09-01
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -25,6 +25,14 @@ use settings::Settings;
 use utils::TimeMilliseconds;
 
 use self::utils::{KeyEvent, KeyHitGenerator};
+
+#[cfg(not(target_os = "emscripten"))]
+const PAUSE_KEY: Keycode = Keycode::Escape;
+
+// Web browser will exit from full screen mode with escape key, so there
+// needs to be different key for pausing the game.
+#[cfg(target_os = "emscripten")]
+const PAUSE_KEY: Keycode = Keycode::P;
 
 /// Interface for game components requiring user input information.
 ///
@@ -273,7 +281,7 @@ impl KeyboardManager {
             }
             Keycode::Space | Keycode::LCtrl | Keycode::RCtrl => self.shoot = key_down_field,
             Keycode::Return     => self.key_hit_enter = key_hit_field,
-            Keycode::Escape  => self.key_hit_back = key_hit_field,
+            PAUSE_KEY  => self.key_hit_back = key_hit_field,
             _ => (),
         }
     }
