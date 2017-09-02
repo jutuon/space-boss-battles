@@ -6,6 +6,9 @@ This project is also my first proper project written in Rust and will also serve
 
 For more background information about the project and it's current architecture, see [documentation/project-self-evaluation.md](/documentation/project-self-evaluation.md).
 
+Downloadable builds are not currently available so compiling source code is required to play the game or you
+can test the [experimental web browser build](https://jutuon.github.io/space-boss-battles/).
+
 ## Features
 
 Game:
@@ -47,7 +50,7 @@ Platforms:
 - [ ] Windows
 - [ ] Mac
 - [ ] Android
-- [ ] Web
+- [x] Web (experimental support)
 - [x] Raspberry Pi
 
 General features:
