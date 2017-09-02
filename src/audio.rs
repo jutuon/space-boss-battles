@@ -1,5 +1,5 @@
 /*
-src/audio.rs, 2017-08-20
+src/audio.rs, 2017-09-02
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -18,7 +18,7 @@ use sdl2::mixer::{Channel, Chunk, Music};
 use sdl2::mixer;
 
 pub const MAX_VOLUME: i32 = mixer::MAX_VOLUME;
-pub const DEFAULT_VOLUME: i32 = mixer::MAX_VOLUME;
+pub const DEFAULT_VOLUME: i32 = 88;
 
 /// Play sound effects.
 pub trait SoundEffectPlayer {
