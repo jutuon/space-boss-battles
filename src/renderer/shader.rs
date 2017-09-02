@@ -1,5 +1,5 @@
 /*
-src/renderer/shader.rs, 2017-08-13
+src/renderer/shader.rs, 2017-09-02
 
 Copyright (c) 2017 Juuso Tuononen
 
@@ -18,8 +18,6 @@ MIT License
 //! variable indexes will be set in function `create_program`.
 //! See function's documentation for more details.
 
-use std::fs::File;
-use std::io::Read;
 use std::ffi::CString;
 
 use gl::shader::*;
@@ -42,10 +40,10 @@ impl TextureShader {
     pub fn new() -> TextureShader {
 
         #[cfg(feature = "gles")]
-        let program = create_program("src/shaders/gles/vertex-shader-gles.glsl", "src/shaders/gles/fragment-shader-gles.glsl");
+        let program = create_program(include_str!("../shaders/gles/vertex-shader-gles.glsl"), include_str!("../shaders/gles/fragment-shader-gles.glsl"));
 
         #[cfg(not(feature = "gles"))]
-        let program = create_program("src/shaders/gl/vertex-shader.glsl", "src/shaders/gl/fragment-shader.glsl");
+        let program = create_program(include_str!("../shaders/gl/vertex-shader.glsl"), include_str!("../shaders/gl/fragment-shader.glsl"));
 
         let model = create_uniform("M", &program, "texture shader");
         let projection = create_uniform("P", &program, "texture shader");
@@ -81,10 +79,10 @@ impl TileMapShader {
     pub fn new() -> TileMapShader {
 
         #[cfg(feature = "gles")]
-        let program = create_program("src/shaders/gles/vertex-shader-tilemap-gles.glsl", "src/shaders/gles/fragment-shader-tilemap-gles.glsl");
+        let program = create_program(include_str!("../shaders/gles/vertex-shader-tilemap-gles.glsl"), include_str!("../shaders/gles/fragment-shader-tilemap-gles.glsl"));
 
         #[cfg(not(feature = "gles"))]
-        let program = create_program("src/shaders/gl/vertex-shader-tilemap.glsl", "src/shaders/gl/fragment-shader-tilemap.glsl");
+        let program = create_program(include_str!("../shaders/gl/vertex-shader-tilemap.glsl"), include_str!("../shaders/gl/fragment-shader-tilemap.glsl"));
 
         let model = create_uniform("M", &program, "tilemap shader");
         let projection = create_uniform("P", &program, "tilemap shader");
@@ -122,10 +120,10 @@ impl ColorShader {
     pub fn new() -> ColorShader {
 
         #[cfg(feature = "gles")]
-        let program = create_program("src/shaders/gles/color-vertex-gles.glsl", "src/shaders/gles/color-fragment-gles.glsl");
+        let program = create_program(include_str!("../shaders/gles/color-vertex-gles.glsl"), include_str!("../shaders/gles/color-fragment-gles.glsl"));
 
         #[cfg(not(feature = "gles"))]
-        let program = create_program("src/shaders/gl/color-vertex.glsl", "src/shaders/gl/color-fragment.glsl");
+        let program = create_program(include_str!("../shaders/gl/color-vertex.glsl"), include_str!("../shaders/gl/color-fragment.glsl"));
 
         let model = create_uniform("M", &program, "color shader");
         let projection = create_uniform("P", &program, "color shader");
@@ -147,10 +145,9 @@ impl ColorShader {
     }
 }
 
-/// Build shader program from file paths.
+/// Build shader program from source code string slices.
 ///
 /// # Panics
-/// * If there is error opening or reading the files.
 /// * There is error compiling or linking the shaders.
 /// * Shader code contains 0 byte.
 ///
@@ -158,9 +155,9 @@ impl ColorShader {
 /// * variable "vertex", index 0
 /// * variable "texture_coordinates_attribute", index 1
 ///
-fn create_program(vertex_shader_path: &str, fragment_shader_path: &str) -> Program {
-    let vertex_shader = load_shader(ShaderType::Vertex, vertex_shader_path);
-    let fragment_shader = load_shader(ShaderType::Fragment, fragment_shader_path);
+fn create_program(vertex_shader_code: &str, fragment_shader_code: &str) -> Program {
+    let vertex_shader = load_shader(ShaderType::Vertex, vertex_shader_code);
+    let fragment_shader = load_shader(ShaderType::Fragment, fragment_shader_code);
 
     let mut vertex_attributes = VertexAttributeIndexBinder::new();
     vertex_attributes.add_attribute(0, "vertex");
@@ -175,19 +172,13 @@ fn create_program(vertex_shader_path: &str, fragment_shader_path: &str) -> Progr
     }
 }
 
-/// Read shader source code from file and create shader of type `ShaderType`.
+/// Create shader of type `ShaderType` from shader source code.
 ///
 /// # Panics
-/// * If there is error opening or reading the files.
 /// * There is error compiling the shader.
 /// * Shader code contains 0 byte.
-fn load_shader(shader_type: ShaderType, file_path: &str) -> Shader {
-    let mut shader_file = File::open(file_path).expect("shader file not found");
-    let mut shader_text = String::new();
-
-    shader_file.read_to_string(&mut shader_text).unwrap();
-
-    let shader_text = CString::new(shader_text).unwrap();
+fn load_shader(shader_type: ShaderType, source_code: &str) -> Shader {
+    let shader_text = CString::new(source_code).unwrap();
 
     match Shader::new(shader_type, shader_text) {
         Ok(shader) => shader,
