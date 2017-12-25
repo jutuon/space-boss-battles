@@ -8,8 +8,8 @@ gles = ["gl/gles"]
 
 [dependencies]
 gl = { path = "gl" }
-cgmath = "0.14.1"
-rand = "0.3.15"
+cgmath = "0.15.0"
+rand = "0.4.1"
 
 [dependencies.image]
 version = "0.15.0"
@@ -17,7 +17,7 @@ default-features = false
 features = ["png_codec"]
 
 [dependencies.sdl2]
-version = "0.30"
+version = "0.31"
 default-features = false
 features = ["mixer"]
 
