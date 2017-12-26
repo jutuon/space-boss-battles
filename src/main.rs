@@ -155,24 +155,26 @@ pub struct Game<W: Window> {
     gui: GUI,
     renderer: OpenGLRenderer,
     settings: Settings,
-    audio_manager: AudioManager,
+    audio_manager: AudioManager<W::AudioPlayer>,
     update_game: bool,
     render_game: bool,
     time_manager: TimeManager,
     window: W,
 }
 
-impl<W: Window> Game<W> {
+impl Game<SDL2Window> {
     /// Create new `Game`. Creates and initializes game's components.
     pub fn new(
                 command_line_arguments: Arguments,
-                mut window: W,
+                mut window: SDL2Window,
             ) -> Self {
 
+        let player = window.audio_player();
+
         let mut audio_manager = if let & Some(ref music_file_path) = command_line_arguments.music_file_path() {
-            AudioManager::new(music_file_path)
+            AudioManager::new(music_file_path, player)
         } else {
-            AudioManager::new("music.ogg")
+            AudioManager::new("music.ogg", player)
         };
 
         let settings = Settings::new(command_line_arguments);

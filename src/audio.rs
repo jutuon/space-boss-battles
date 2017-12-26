@@ -14,12 +14,6 @@ MIT License
 
 //! Play sound effects and music.
 
-use sdl2::mixer::{Channel, Chunk, Music};
-use sdl2::mixer;
-
-pub const MAX_VOLUME: i32 = mixer::MAX_VOLUME;
-pub const DEFAULT_VOLUME: i32 = 88;
-
 /// Play sound effects.
 pub trait SoundEffectPlayer {
     /// Play laser sound at next update.
@@ -37,63 +31,44 @@ pub trait SoundEffectPlayer {
     fn update(&mut self);
 }
 
-/// Sound effect's audio data and current `sdl2::mixer::Channel`
-struct SoundEffect {
-    channel: Channel,
-    chunk: Chunk,
+pub trait Audio: Sized {
+    type Volume: Volume;
+
+    fn load(&str) -> Result<Self, String>;
+    fn play(&mut self);
+    fn change_volume(&mut self, volume: Self::Volume);
 }
 
-impl SoundEffect {
-    /// Load new sound effect.
-    fn new(file_path: &str) -> Result<SoundEffect, String> {
-        let sound_effect = SoundEffect {
-            channel: Channel::all(),
-            chunk: Chunk::from_file(file_path)?,
-        };
+pub trait Volume: Copy + Clone {
+    type Value;
+    const MAX_VOLUME: Self::Value;
+    const DEFAULT_VOLUME: Self::Value;
 
-        Ok(sound_effect)
-    }
-
-    /// Play sound effect.
-    ///
-    /// Prints error message to standard output if there is sound effect
-    /// playing error.
-    fn play(&mut self) {
-        self.channel = match self.channel.play(&self.chunk, 0) {
-            Ok(channel) => channel,
-            Err(message) => {
-                println!("sound effect playing error: {}", message);
-                Channel::all()
-            },
-        };
-    }
-
-    /// Change sound effect's volume.
-    fn change_volume(&mut self, volume: Volume) {
-        self.chunk.set_volume(volume.0);
-    }
+    /// Create new volume value limited to [0; MAX_VOLUME].
+    fn new(Self::Value) -> Self;
+    fn value(&self) -> Self::Value;
 }
 
 /// All sound effect's that the game requires.
-struct AllSoundEffects {
-    laser: SoundEffect,
-    explosion: SoundEffect,
-    laser_bomb_launch: SoundEffect,
-    laser_bomb_explosion: SoundEffect,
-    player_laser_hits_laser_cannon: SoundEffect,
+struct AllSoundEffects<A: Audio> {
+    laser: A,
+    explosion: A,
+    laser_bomb_launch: A,
+    laser_bomb_explosion: A,
+    player_laser_hits_laser_cannon: A,
 }
 
-impl AllSoundEffects {
+impl <A: Audio> AllSoundEffects<A> {
 
     /// Loads all sound effects that the game requires.
-    fn new(default_volume: Volume) -> Result<AllSoundEffects, String> {
+    fn new(default_volume: A::Volume) -> Result<Self, String> {
 
         let mut sounds = AllSoundEffects {
-            laser:                  SoundEffect::new("game_files/audio/laser.wav")?,
-            explosion:              SoundEffect::new("game_files/audio/explosion.wav")?,
-            laser_bomb_launch:      SoundEffect::new("game_files/audio/laser_bomb_launch.wav")?,
-            laser_bomb_explosion:   SoundEffect::new("game_files/audio/laser_bomb_explosion.wav")?,
-            player_laser_hits_laser_cannon:   SoundEffect::new("game_files/audio/player_laser_hits_laser_cannon.wav")?,
+            laser:                  A::load("game_files/audio/laser.wav")?,
+            explosion:              A::load("game_files/audio/explosion.wav")?,
+            laser_bomb_launch:      A::load("game_files/audio/laser_bomb_launch.wav")?,
+            laser_bomb_explosion:   A::load("game_files/audio/laser_bomb_explosion.wav")?,
+            player_laser_hits_laser_cannon:   A::load("game_files/audio/player_laser_hits_laser_cannon.wav")?,
         };
 
         sounds.change_volume(default_volume);
@@ -102,7 +77,7 @@ impl AllSoundEffects {
     }
 
     /// All sound effects as array of mutable references.
-    fn all_mut(&mut self) -> [&mut SoundEffect; 5] {
+    fn all_mut(&mut self) -> [&mut A; 5] {
         [
             &mut self.laser,
             &mut self.explosion,
@@ -113,32 +88,10 @@ impl AllSoundEffects {
     }
 
     /// Change volume of every sound effect.
-    fn change_volume(&mut self, volume: Volume) {
+    fn change_volume(&mut self, volume: A::Volume) {
         for effect in self.all_mut().iter_mut() {
             effect.change_volume(volume);
         }
-    }
-}
-
-/// Wrapper for correct audio volume value.
-#[derive(Copy, Clone)]
-pub struct Volume(i32);
-
-impl Volume {
-    /// Create new volume value limited to [0; MAX_VOLUME].
-    pub fn new(volume: i32) -> Volume {
-        if volume > MAX_VOLUME {
-            Volume(MAX_VOLUME)
-        } else if volume < 0 {
-            Volume(0)
-        } else {
-            Volume(volume)
-        }
-    }
-
-    /// Get volume value.
-    pub fn value(&self) -> i32 {
-        self.0
     }
 }
 
@@ -146,8 +99,8 @@ impl Volume {
 
 /// Stores sound effects and boolean values about
 /// what sound effect should be played.
-pub struct SoundEffectManager {
-    sound_effects: Option<AllSoundEffects>,
+pub struct SoundEffectManager<A: Audio> {
+    sound_effects: Option<AllSoundEffects<A>>,
     laser: bool,
     laser_bomb_launch: bool,
     laser_bomb_explosion: bool,
@@ -155,12 +108,12 @@ pub struct SoundEffectManager {
     player_laser_hits_laser_cannon: bool,
 }
 
-impl SoundEffectManager {
+impl <A: Audio> SoundEffectManager<A> {
 
     /// Create new `SoundEffectManager`.
     ///
     /// If argument `sound_effects` is `None`, sound effects are not played.
-    fn new(sound_effects: Option<AllSoundEffects>) -> SoundEffectManager {
+    fn new(sound_effects: Option<AllSoundEffects<A>>) -> Self {
         SoundEffectManager {
             sound_effects,
             laser: false,
@@ -174,7 +127,7 @@ impl SoundEffectManager {
     /// Check if sound effect should be played and plays it with function `play`.
     ///
     /// Resets argument `play_sound_effect` to false if it was true.
-    fn play(play_sound_effect: &mut bool, sound_effect: &mut SoundEffect ) {
+    fn play(play_sound_effect: &mut bool, sound_effect: &mut A ) {
         if *play_sound_effect {
             *play_sound_effect = false;
             sound_effect.play();
@@ -182,14 +135,14 @@ impl SoundEffectManager {
     }
 
     /// Change volume of all sound effects if sound effects are available.
-    fn change_volume(&mut self, volume: Volume) {
+    fn change_volume(&mut self, volume: A::Volume) {
         if let Some(ref mut effects) = self.sound_effects {
             effects.change_volume(volume);
         }
     }
 }
 
-impl SoundEffectPlayer for SoundEffectManager {
+impl <A: Audio> SoundEffectPlayer for SoundEffectManager<A> {
     fn laser(&mut self) {
         self.laser = true;
     }
@@ -221,49 +174,21 @@ impl SoundEffectPlayer for SoundEffectManager {
     }
 }
 
-/// Wrapper for `sdl2::mixer::Music`.
-struct MusicWrapper {
-    music: Music<'static>,
-}
-
-impl MusicWrapper {
-    /// Load music from file.
-    fn new(music_file_path: &str) -> Result<MusicWrapper, String> {
-        let music_wrapper = MusicWrapper {
-            music: Music::from_file(music_file_path)?,
-        };
-
-        Ok( music_wrapper )
-    }
-
-    /// Set music volume.
-    fn set_volume(&mut self, volume: Volume) {
-        Music::set_volume(volume.0);
-    }
-
-    /// Start playing music if it isn't already playing.
-    ///
-    /// If starting the music failed, an error message will
-    /// be printed to the standard output.
-    fn play(&mut self) {
-        if !Music::is_playing() {
-            if let Err(message) = self.music.play(-1) {
-                println!("music error: {}", message);
-            }
-        }
-    }
+pub trait AudioPlayer {
+    type Music: Audio;
+    type Effect: Audio;
 }
 
 /// Store music, sound effects, volume values.
-pub struct AudioManager {
-    sound_effects: SoundEffectManager,
-    music: Option<MusicWrapper>,
-    music_volume: Volume,
-    sound_effect_volume: Volume,
-    audio_open: bool,
+pub struct AudioManager<P: AudioPlayer> {
+    _player: Option<P>,
+    sound_effects: SoundEffectManager<P::Effect>,
+    music: Option<P::Music>,
+    music_volume: <P::Music as Audio>::Volume,
+    effect_volume: <P::Effect as Audio>::Volume,
 }
 
-impl AudioManager {
+impl <P: AudioPlayer> AudioManager<P> {
     /// Create new `AudioManager`.
     ///
     /// Sound effects will be loaded from default locations. If there is
@@ -274,65 +199,66 @@ impl AudioManager {
     /// If there is a SDL_mixer init error, sound effects and music will be disabled.
     ///
     /// All errors will be printed to standard output.
-    pub fn new(music_file_path: &str) -> AudioManager {
+    pub fn new(music_file_path: &str, player: Option<P>) -> Self {
         println!("");
 
-        let default_volume = Volume::new(DEFAULT_VOLUME);
+        let music_volume = <P::Music as Audio>::Volume::new(<P::Music as Audio>::Volume::DEFAULT_VOLUME);
+        let effect_volume = <P::Effect as Audio>::Volume::new(<P::Effect as Audio>::Volume::DEFAULT_VOLUME);
 
-        if let Err(error) = mixer::open_audio(44100, mixer::DEFAULT_FORMAT, mixer::DEFAULT_CHANNELS, 1024) {
-            println!("SDL_mixer init error: {}", error);
-            println!("Audio support disabled");
+        match player {
+            Some(_) => {
+                let music = match P::Music::load(music_file_path) {
+                    Ok(mut music) => {
+                        music.change_volume(music_volume);
+                        Some(music)
+                    }
+                    Err(error) => {
+                        println!("music loading error: {}", error);
+                        None
+                    }
+                };
 
-            AudioManager {
-                sound_effects: SoundEffectManager::new(None),
-                music: None,
-                music_volume: default_volume,
-                sound_effect_volume: default_volume,
-                audio_open: false,
+                let all_sound_effects = match AllSoundEffects::new(effect_volume) {
+                    Ok(sound_effects) => Some(sound_effects),
+                    Err(error) => {
+                        println!("error when loading sound effects: {}", error);
+                        None
+                    },
+                };
+
+                Self {
+                    sound_effects: SoundEffectManager::new(all_sound_effects),
+                    music,
+                    music_volume,
+                    effect_volume,
+                    _player: player,
+                }
             }
-        } else {
-            println!("SDL_mixer version: {}", mixer::get_linked_version());
+            None => {
+                println!("Audio support disabled");
 
-            let music = match MusicWrapper::new(music_file_path) {
-                Ok(mut music) => {
-                    music.set_volume(default_volume);
-                    Some(music)
+                Self {
+                    sound_effects: SoundEffectManager::new(None),
+                    music: None,
+                    music_volume,
+                    effect_volume,
+                    _player: None,
                 }
-                Err(error) => {
-                    println!("music loading error: {}", error);
-                    None
-                }
-            };
-
-            let all_sound_effects = match AllSoundEffects::new(default_volume) {
-                Ok(sound_effects) => Some(sound_effects),
-                Err(error) => {
-                    println!("error when loading sound effects: {}", error);
-                    None
-                },
-            };
-
-            AudioManager {
-                sound_effects: SoundEffectManager::new(all_sound_effects),
-                music,
-                music_volume: default_volume,
-                sound_effect_volume: default_volume,
-                audio_open: true,
             }
         }
     }
 
     /// Get `SoundEffectManager`
-    pub fn sound_effect_manager_mut(&mut self) -> &mut SoundEffectManager {
+    pub fn sound_effect_manager_mut(&mut self) -> &mut SoundEffectManager<P::Effect> {
         &mut self.sound_effects
     }
 
     /// Set music volume.
-    pub fn set_music_volume(&mut self, volume: Volume) {
+    pub fn set_music_volume(&mut self, volume: <P::Music as Audio>::Volume) {
         self.music_volume = volume;
 
         if let Some(ref mut music) = self.music {
-            music.set_volume(volume);
+            music.change_volume(volume);
         }
     }
 
@@ -344,18 +270,9 @@ impl AudioManager {
     }
 
     /// Set sound effect volume.
-    pub fn set_sound_effect_volume(&mut self, volume: Volume) {
-        self.sound_effect_volume = volume;
+    pub fn set_sound_effect_volume(&mut self, volume: <P::Effect as Audio>::Volume) {
+        self.effect_volume = volume;
 
         self.sound_effects.change_volume(volume);
-    }
-}
-
-impl Drop for AudioManager {
-    /// Call function `sdl2::mixer::close_audio` if audio is opened.
-    fn drop(&mut self) {
-        if self.audio_open {
-            mixer::close_audio();
-        }
     }
 }

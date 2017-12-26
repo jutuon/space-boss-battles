@@ -11,6 +11,9 @@ use sdl2::video::{FullscreenType, GLProfile, GLContext};
 use sdl2::keyboard::Keycode;
 use sdl2::controller::{GameController, Button, Axis};
 
+use sdl2::mixer::{Channel, Chunk, Music};
+use sdl2::mixer;
+
 
 use input::{InputManager, Key, Input};
 use renderer::{Renderer, DEFAULT_SCREEN_HEIGHT, DEFAULT_SCREEN_WIDTH};
@@ -18,6 +21,7 @@ use settings::Settings;
 use gui::GUI;
 use logic::Logic;
 use utils::{TimeManager, TimeMilliseconds};
+use audio::{Audio, Volume, AudioPlayer};
 
 use super::{Window, RenderingContext};
 
@@ -39,9 +43,12 @@ pub struct SDL2Window {
     /// OpenGL context is stored here because it
     /// would be otherwise dropped.
     _context: GLContext,
+    audio_player: Option<AudioPlayerSDL2>,
 }
 
 impl Window for SDL2Window {
+    type AudioPlayer = AudioPlayerSDL2;
+
     fn new(rendering_context: RenderingContext) -> Result<Self,()> {
         let sdl_context = sdl2::init().expect("sdl2 init failed");
         println!("SDL2 version: {}", sdl2::version::version());
@@ -78,6 +85,7 @@ impl Window for SDL2Window {
             game_controller_manager: GameControllerManager::new(joystick_subsystem, game_controller_subsystem),
             window,
             _context,
+            audio_player: AudioPlayerSDL2::new(),
         };
 
         Ok(window)
@@ -213,6 +221,10 @@ impl Window for SDL2Window {
                 println!("error when loading game controller mapping \"{}\", error: {}", mapping, error);
             }
         }
+    }
+
+    fn audio_player(&mut self) -> Option<Self::AudioPlayer> {
+        self.audio_player.take()
     }
 }
 
@@ -382,5 +394,136 @@ impl GameControllerManager {
         };
 
         Some(key)
+    }
+}
+
+
+/// Sound effect's audio data and current `sdl2::mixer::Channel`
+pub struct SoundEffectSDL2 {
+    channel: Channel,
+    chunk: Chunk,
+}
+
+impl Audio for SoundEffectSDL2 {
+    type Volume = VolumeSDL2;
+
+    /// Load new sound effect.
+    fn load(file_path: &str) -> Result<Self, String> {
+        let sound_effect = Self {
+            channel: Channel::all(),
+            chunk: Chunk::from_file(file_path)?,
+        };
+
+        Ok(sound_effect)
+    }
+
+    /// Play sound effect.
+    ///
+    /// Prints error message to standard output if there is sound effect
+    /// playing error.
+    fn play(&mut self) {
+        self.channel = match self.channel.play(&self.chunk, 0) {
+            Ok(channel) => channel,
+            Err(message) => {
+                println!("sound effect playing error: {}", message);
+                Channel::all()
+            },
+        };
+    }
+
+    /// Change sound effect's volume.
+    fn change_volume(&mut self, volume: Self::Volume) {
+        self.chunk.set_volume(volume.value());
+    }
+}
+
+/// Wrapper for correct audio volume value.
+#[derive(Copy, Clone)]
+pub struct VolumeSDL2(i32);
+
+impl Volume for VolumeSDL2 {
+    type Value = i32;
+
+    const MAX_VOLUME: Self::Value = mixer::MAX_VOLUME;
+    const DEFAULT_VOLUME: Self::Value = 88;
+
+    /// Create new volume value limited to [0; MAX_VOLUME].
+    fn new(volume: Self::Value) -> Self {
+        if volume > Self::MAX_VOLUME {
+            VolumeSDL2(Self::MAX_VOLUME)
+        } else if volume < 0 {
+            VolumeSDL2(0)
+        } else {
+            VolumeSDL2(volume)
+        }
+    }
+
+    /// Get volume value.
+    fn value(&self) -> Self::Value {
+        self.0
+    }
+}
+
+
+pub struct MusicSDL2 {
+    music: Music<'static>,
+}
+
+impl Audio for MusicSDL2 {
+    type Volume = VolumeSDL2;
+
+    /// Load music from file.
+    fn load(music_file_path: &str) -> Result<Self, String> {
+        let music_wrapper = Self {
+            music: Music::from_file(music_file_path)?,
+        };
+
+        Ok( music_wrapper )
+    }
+
+    /// Set music volume.
+    fn change_volume(&mut self, volume: Self::Volume) {
+        Music::set_volume(volume.value());
+    }
+
+    /// Start playing music if it isn't already playing.
+    ///
+    /// If starting the music failed, an error message will
+    /// be printed to the standard output.
+    fn play(&mut self) {
+        if !Music::is_playing() {
+            if let Err(message) = self.music.play(-1) {
+                println!("music error: {}", message);
+            }
+        }
+    }
+}
+
+
+pub struct AudioPlayerSDL2;
+
+impl AudioPlayerSDL2 {
+    pub fn new() -> Option<Self> {
+        if let Err(error) = mixer::open_audio(44100, mixer::DEFAULT_FORMAT, mixer::DEFAULT_CHANNELS, 1024) {
+            println!("SDL_mixer init error: {}", error);
+
+            None
+        } else {
+            println!("SDL_mixer version: {}", mixer::get_linked_version());
+
+            Some(AudioPlayerSDL2)
+        }
+    }
+}
+
+impl AudioPlayer for AudioPlayerSDL2 {
+    type Music = MusicSDL2;
+    type Effect = SoundEffectSDL2;
+}
+
+impl Drop for AudioPlayerSDL2 {
+    /// Call function `sdl2::mixer::close_audio`.
+    fn drop(&mut self) {
+        mixer::close_audio();
     }
 }

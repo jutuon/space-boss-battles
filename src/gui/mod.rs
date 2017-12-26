@@ -46,7 +46,8 @@ use input::Input;
 use logic::Difficulty;
 use settings::{ Settings, SettingType, BooleanSetting, IntegerSetting};
 
-use audio;
+use audio::Volume;
+use window::sdl2::VolumeSDL2;
 
 
 /// Event that will be sent from `GUILayer` to `GUI`.
@@ -473,7 +474,7 @@ impl SettingsMenu {
                 SettingType::Boolean(_, true) => texts.push(GUIText::new(x_text, y, "Enabled")),
                 SettingType::Boolean(_, false) => texts.push(GUIText::new(x_text, y, "Disabled")),
                 SettingType::Integer(_, value) => {
-                    let mut value_indicator = GUIHealthBar::new(GUIComponentAlignment::Center, x_text, y, 3.0, audio::MAX_VOLUME as u32, 0, false);
+                    let mut value_indicator = GUIHealthBar::new(GUIComponentAlignment::Center, x_text, y, 3.0, VolumeSDL2::MAX_VOLUME as u32, 0, false);
                     value_indicator.update_health(value as u32);
                     value_indicator.update_borders();
                     value_indicators.push(value_indicator);
@@ -549,7 +550,9 @@ impl SettingsMenu {
     /// be updated and the new value will be returned as `GUIEvent`.
     fn update_currently_selected_integer_setting(&mut self, number: i32) -> Option<GUIEvent> {
          if let GUIEvent::ChangeSetting(SettingType::Integer(integer_setting, value)) = self.layer.buttons.event_of_currently_selected_component() {
-            let value = audio::Volume::new(value + number).value();
+
+            // TODO: add new component which will check value range
+            let value = VolumeSDL2::new(value + number).value();
 
             let updated_gui_event = GUIEvent::ChangeSetting(SettingType::Integer(integer_setting, value));
             self.layer.buttons.set_event_of_currently_selected_component(updated_gui_event);

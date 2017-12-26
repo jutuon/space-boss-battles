@@ -9,7 +9,7 @@ use settings::Settings;
 use gui::GUI;
 use logic::Logic;
 use utils::TimeManager;
-
+use audio::AudioPlayer;
 
 #[derive(Debug, Clone, Copy)]
 pub enum RenderingContext {
@@ -18,6 +18,8 @@ pub enum RenderingContext {
 }
 
 pub trait Window: Sized {
+    type AudioPlayer: AudioPlayer;
+
     fn new(RenderingContext) -> Result<Self, ()>;
 
     fn handle_events<R: Renderer>(
@@ -42,4 +44,6 @@ pub trait Window: Sized {
     fn gl_get_proc_address(&self, &str) -> *const c_void;
 
     fn add_game_controller_mappings(&mut self, &Vec<String>);
+
+    fn audio_player(&mut self) -> Option<Self::AudioPlayer>;
 }

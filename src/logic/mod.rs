@@ -35,7 +35,7 @@ use gui::{GUI, GUIState, GUIEvent};
 
 use renderer::{ModelMatrix, SCREEN_TOP_Y_VALUE_IN_WORLD_COORDINATES};
 
-use audio::{SoundEffectManager, SoundEffectPlayer};
+use audio::{SoundEffectPlayer};
 
 const BACKGROUND_MOVING_SPEED: f32 = -0.02;
 const BACKGROUND_SQUARE_SIDE_LENGTH: f32 = 9.0;
@@ -205,7 +205,7 @@ impl Logic {
     }
 
     /// Updates game logic.
-    pub fn update<T: Input>(&mut self, input: &T, gui: &mut GUI, sound_effect_manager: &mut SoundEffectManager, current_time: &GameTimeManager) {
+    pub fn update<T: Input, P: SoundEffectPlayer>(&mut self, input: &T, gui: &mut GUI, sound_effect_manager: &mut P, current_time: &GameTimeManager) {
 
         // Basic game updating.
 
@@ -407,7 +407,7 @@ impl Explosion {
     }
 
     /// If explosion is visible, update current particles and create new particles if its time to create particles.
-    pub fn update(&mut self, sounds: &mut SoundEffectManager, index_buffer: &mut Vec<usize>, current_time: &GameTimeManager) {
+    pub fn update<P: SoundEffectPlayer>(&mut self, sounds: &mut P, index_buffer: &mut Vec<usize>, current_time: &GameTimeManager) {
         if !self.visible {
             return;
         }
@@ -479,11 +479,11 @@ impl Player {
     }
 
     /// Updates player logic.
-    fn update(&mut self,
+    fn update<P: SoundEffectPlayer>(&mut self,
             input: &Input,
             enemy: &mut Enemy,
             logic_settings: &LogicSettings,
-            sounds: &mut SoundEffectManager,
+            sounds: &mut P,
             index_buffer: &mut Vec<usize>,
             current_time: &GameTimeManager) {
         // Move player.
@@ -548,10 +548,10 @@ impl Player {
         &self.lasers
     }
 
-    fn clean_and_update_lasers(&mut self,
+    fn clean_and_update_lasers<P: SoundEffectPlayer>(&mut self,
             enemy: &mut Enemy,
             logic_settings: &LogicSettings,
-            sounds: &mut SoundEffectManager,
+            sounds: &mut P,
             index_buffer: &mut Vec<usize>,
             current_time: &GameTimeManager) {
         self.lasers.update(index_buffer, &mut |laser| {
@@ -767,10 +767,10 @@ impl Enemy {
     }
 
     /// Update enemy logic.
-    fn update(&mut self,
+    fn update<P: SoundEffectPlayer>(&mut self,
             player: &mut Player,
             logic_settings: &LogicSettings,
-            sounds: &mut SoundEffectManager,
+            sounds: &mut P,
             index_buffer: &mut Vec<usize>,
             current_time: &GameTimeManager) {
         // Enemy movement.
@@ -1142,7 +1142,7 @@ impl LaserBomb {
 
     /// Updates laser logic and if there is enough time from laser bomb creation,
     /// the laser bomb will explode and create some lasers.
-    fn update(&mut self, current_time: &GameTimeManager, logic_settings: &LogicSettings, parent_lasers: &mut Vec<Laser>, sounds: &mut SoundEffectManager) {
+    fn update<P: SoundEffectPlayer>(&mut self, current_time: &GameTimeManager, logic_settings: &LogicSettings, parent_lasers: &mut Vec<Laser>, sounds: &mut P) {
         self.laser.update(logic_settings, current_time);
 
         if self.timer.check(current_time.time(), LASER_BOMB_EXPLOSION_TIME_MILLISECONDS) {
