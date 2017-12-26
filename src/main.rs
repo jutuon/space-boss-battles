@@ -32,11 +32,9 @@ pub mod input;
 pub mod settings;
 pub mod audio;
 pub mod utils;
+pub mod window;
 
 use std::env;
-
-use sdl2::event::{Event, WindowEvent};
-use sdl2::{GameControllerSubsystem, JoystickSubsystem, EventPump};
 
 use renderer::{Renderer, OpenGLRenderer};
 use logic::Logic;
@@ -49,6 +47,9 @@ use settings::{Settings, Arguments};
 use audio::{AudioManager, SoundEffectPlayer};
 
 use utils::{FpsCounter, GameLoopTimer, TimeManager};
+
+use window::{Window, RenderingContext};
+use window::sdl2::SDL2Window;
 
 /// Base value for `GameTimeManager`'s delta time.
 pub const LOGIC_TARGET_FPS: u32 = 60;
@@ -86,19 +87,14 @@ fn main() {
         return;
     }
 
-    let sdl_context = sdl2::init().expect("sdl2 init failed");
-    println!("SDL2 version: {}", sdl2::version::version());
 
-    let event_pump = sdl_context.event_pump().expect("failed to get handle to sdl2 event_pump");
+    #[cfg(not(feature = "gles"))]
+    let window = SDL2Window::new(RenderingContext::OpenGL).expect("window creation failed");
 
-    let video = sdl_context.video().expect("video subsystem init fail");
+    #[cfg(feature = "gles")]
+    let window = SDL2Window::new(RenderingContext::OpenGLES).expect("window creation failed");
 
-    let renderer = renderer::OpenGLRenderer::new(video);
-
-    let game_controller_subsystem = sdl_context.game_controller().expect("game controller subsystem init failed");
-    let joystick_subsystem = sdl_context.joystick().expect("joystick subsystem init failed");
-
-    let mut game = Game::new(game_controller_subsystem, renderer, joystick_subsystem, arguments, event_pump);
+    let mut game = Game::new(arguments, window);
 
     #[cfg(target_os = "emscripten")]
     {
@@ -150,7 +146,7 @@ unsafe extern fn game_loop_iteration_emscripten(game: *mut std::os::raw::c_void)
 }
 
 /// Store game components and handle interaction between all components.
-pub struct Game {
+pub struct Game<W: Window> {
     game_logic: Logic,
     quit: bool,
     input: InputManager,
@@ -163,18 +159,15 @@ pub struct Game {
     update_game: bool,
     render_game: bool,
     time_manager: TimeManager,
-    event_pump: EventPump,
+    window: W,
 }
 
-impl Game {
+impl<W: Window> Game<W> {
     /// Create new `Game`. Creates and initializes game's components.
     pub fn new(
-                mut controller_subsystem: GameControllerSubsystem,
-                mut renderer: OpenGLRenderer,
-                joystick_subsystem: JoystickSubsystem,
                 command_line_arguments: Arguments,
-                event_pump: EventPump,
-            ) -> Game {
+                mut window: W,
+            ) -> Self {
 
         let mut audio_manager = if let & Some(ref music_file_path) = command_line_arguments.music_file_path() {
             AudioManager::new(music_file_path)
@@ -182,17 +175,19 @@ impl Game {
             AudioManager::new("music.ogg")
         };
 
-        let settings = Settings::new(&mut controller_subsystem, command_line_arguments);
+        let settings = Settings::new(command_line_arguments);
+        window.add_game_controller_mappings(settings.game_controller_mappings());
 
-        let input = InputManager::new(controller_subsystem, joystick_subsystem);
+        let input = InputManager::new();
 
+        let mut renderer = OpenGLRenderer::new(&window);
         let mut gui = GUI::new(&settings);
         gui.update_position_from_half_screen_width(renderer.half_screen_width_world_coordinates());
 
         let mut game_logic = Logic::new();
         game_logic.update_half_screen_width(renderer.half_screen_width_world_coordinates());
 
-        settings.apply_current_settings(&mut renderer, &mut gui, &mut audio_manager);
+        settings.apply_current_settings(&mut renderer, &mut gui, &mut audio_manager, &mut window);
 
         // Try to play music after getting audio volume from settings.
         audio_manager.play_music();
@@ -210,7 +205,7 @@ impl Game {
             update_game: false,
             render_game: false,
             time_manager: TimeManager::new(),
-            event_pump: event_pump,
+            window,
         }
     }
 
@@ -219,51 +214,16 @@ impl Game {
         self.quit
     }
 
-    /// Handles SDL2 event.
     pub fn handle_events(&mut self) {
-        for event in self.event_pump.poll_iter() {
-            match event {
-                    Event::Quit {..} => self.quit = true,
-                    Event::KeyDown {keycode: Some(key), ..} => self.input.update_key_down(key, self.time_manager.current_time()),
-                    Event::KeyUp {keycode: Some(key), ..} => self.input.update_key_up(key, self.time_manager.current_time()),
-                    Event::MouseMotion { x, y, ..} => self.input.update_mouse_motion(self.renderer.screen_coordinates_to_world_coordinates(x, y)),
-                    Event::MouseButtonUp { x, y, ..} =>  self.input.update_mouse_button_up(self.renderer.screen_coordinates_to_world_coordinates(x, y)),
-                    Event::ControllerDeviceRemoved { which, ..} => self.input.remove_game_controller(which),
-                    Event::ControllerAxisMotion { axis, value, ..} => self.input.game_controller_axis_motion(axis, value, self.time_manager.current_time()),
-                    Event::ControllerButtonDown { button, ..} => self.input.game_controller_button_down(button, self.time_manager.current_time()),
-                    Event::ControllerButtonUp { button, ..} => self.input.game_controller_button_up(button, self.time_manager.current_time()),
-                    Event::JoyDeviceAdded { which, ..} => self.input.add_joystick(which as u32, &mut self.settings),
-                    Event::Window { win_event: WindowEvent::SizeChanged(window_width_pixels, window_height_pixels), ..} => {
-
-                        #[cfg(target_os = "emscripten")]
-                        {
-                            // It seems that full screen setting on emscripten build does not always change the game to full screen mode, so
-                            // lets set full screen mode to disabled when event's screen width is less or equal than current screen width.
-                            if window_width_pixels <= self.renderer.screen_width_pixels() {
-                                let value = false;
-                                let setting = settings::BooleanSetting::FullScreen;
-                                self.settings.update_setting(settings::SettingType::Boolean(setting, value));
-                                self.gui.get_settings_menu().set_boolean_setting(setting, value);
-                            }
-                        }
-
-                        self.renderer.update_screen_size(window_width_pixels, window_height_pixels);
-                        self.gui.update_position_from_half_screen_width(self.renderer.half_screen_width_world_coordinates());
-                        self.game_logic.update_half_screen_width(self.renderer.half_screen_width_world_coordinates());
-                    },
-                    _ => (),
-            }
-
-            if self.settings.print_joystick_events() {
-                match event {
-                    Event::JoyAxisMotion { value, axis_idx, .. } => println!("JoyAxisMotion, value: {}, axis_idx: {},", value, axis_idx),
-                    Event::JoyBallMotion { ball_idx, xrel, yrel, .. } => println!("JoyBallMotion, ball_idx: {}, xrel: {}, yrel: {}", ball_idx, xrel, yrel),
-                    Event::JoyHatMotion { hat_idx, state, .. } => println!("JoyHatMotion, hat_idx: {}, state as number: {}, state: {:?}", hat_idx, state as u32, state),
-                    Event::JoyButtonDown { button_idx, .. } => println!("JoyButtonDown, button_idx: {}", button_idx),
-                    _ => (),
-                }
-            }
-        }
+        self.window.handle_events(
+            &mut self.input,
+            &mut self.renderer,
+            &mut self.settings,
+            &mut self.gui,
+            &mut self.game_logic,
+            &mut self.quit,
+            &self.time_manager
+        );
     }
 
     /// Render game's current state.
@@ -280,7 +240,7 @@ impl Game {
 
         self.renderer.render_gui(&self.gui);
 
-        self.renderer.end();
+        self.renderer.end(&mut self.window);
     }
 
     /// Updates logic and other game components.
@@ -305,7 +265,7 @@ impl Game {
                 Some(GUIEvent::Exit) => self.quit = true,
                 Some(GUIEvent::ChangeSetting(new_setting_value)) => {
                     self.settings.update_setting(new_setting_value);
-                    Settings::apply_setting(new_setting_value, &mut self.renderer, &mut self.gui, &mut self.audio_manager);
+                    Settings::apply_setting(new_setting_value, &mut self.renderer, &mut self.gui, &mut self.audio_manager, &mut self.window);
                 },
                 Some(GUIEvent::NewGame(difficulty)) => {
                     self.game_logic.reset_game(&mut self.gui, difficulty, 0, self.time_manager.game_time_manager());

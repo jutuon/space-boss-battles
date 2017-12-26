@@ -14,25 +14,22 @@ MIT License
 
 //! Input handling.
 
-use sdl2::keyboard::Keycode;
-use sdl2::{GameControllerSubsystem, JoystickSubsystem};
-use sdl2::controller::{GameController, Button, Axis};
-
 use cgmath::Point2;
-
-use settings::Settings;
 
 use utils::TimeMilliseconds;
 
 use self::utils::{KeyEvent, KeyHitGenerator};
 
-#[cfg(not(target_os = "emscripten"))]
-const PAUSE_KEY: Keycode = Keycode::Escape;
 
-// Web browser will exit from full screen mode with escape key, so there
-// needs to be different key for pausing the game.
-#[cfg(target_os = "emscripten")]
-const PAUSE_KEY: Keycode = Keycode::P;
+pub enum Key {
+    Up,
+    Down,
+    Left,
+    Right,
+    Shoot,
+    Select,
+    Back,
+}
 
 /// Interface for game components requiring user input information.
 ///
@@ -80,26 +77,24 @@ pub trait Input {
 pub struct InputManager {
     keyboard: KeyboardManager,
     mouse: MouseManager,
-    game_controller: GameControllerManager,
 }
 
 impl InputManager {
     /// Create new InputManger.
-    pub fn new(game_controller_subsystem: GameControllerSubsystem, joystick_subsystem: JoystickSubsystem) -> InputManager {
+    pub fn new() -> InputManager {
         InputManager {
             keyboard: KeyboardManager::new(),
             mouse: MouseManager::new(),
-            game_controller: GameControllerManager::new(joystick_subsystem, game_controller_subsystem),
         }
     }
 
     /// Handle key up event.
-    pub fn update_key_up(&mut self, key: Keycode, current_time: &TimeMilliseconds) {
+    pub fn update_key_up(&mut self, key: Key, current_time: &TimeMilliseconds) {
         self.keyboard.update_keys(key, KeyEvent::KeyUp, current_time);
     }
 
     /// Handle keyboard key down event.
-    pub fn update_key_down(&mut self, key: Keycode, current_time: &TimeMilliseconds) {
+    pub fn update_key_down(&mut self, key: Key, current_time: &TimeMilliseconds) {
         self.keyboard.update_keys(key, KeyEvent::KeyDown, current_time);
     }
 
@@ -117,37 +112,6 @@ impl InputManager {
     pub fn update(&mut self, current_time: &TimeMilliseconds) {
         self.mouse.reset_button_hits();
         self.keyboard.update(current_time);
-    }
-
-    /// Handle game controller button up event.
-    pub fn game_controller_button_up(&mut self, button: Button, current_time: &TimeMilliseconds) {
-        GameControllerManager::handle_button(button, KeyEvent::KeyUp, &mut self.keyboard, current_time);
-    }
-
-    /// Handle game controller button down event.
-    pub fn game_controller_button_down(&mut self, button: Button, current_time: &TimeMilliseconds) {
-        GameControllerManager::handle_button(button, KeyEvent::KeyDown, &mut self.keyboard, current_time);
-    }
-
-    /// Handle game controller axis motion event.
-    pub fn game_controller_axis_motion(&mut self, axis: Axis, value: i16, current_time: &TimeMilliseconds) {
-        GameControllerManager::handle_axis_motion(axis, value, &mut self.keyboard, current_time);
-    }
-
-    /// Handle joystick event.
-    ///
-    /// Adds joystick as `GameController` to `GameControllerManager`.
-    /// If there isn't a mapping for joystick, a default mapping will be created and
-    /// saved to `Settings`.
-    pub fn add_joystick(&mut self, id: u32, settings: &mut Settings) {
-        if let Some(mapping) = self.game_controller.add_game_controller_from_joystick_id(id) {
-            settings.add_game_controller_mapping(mapping);
-        }
-    }
-
-    /// Remove game controller from `GameControllerManager`.
-    pub fn remove_game_controller(&mut self, id: i32) {
-        self.game_controller.remove_game_controller(id);
     }
 }
 
@@ -256,33 +220,32 @@ impl KeyboardManager {
     }
 
     /// Updates `KeyboardManager`'s fields from keyboard event
-    pub fn update_keys(&mut self, key: Keycode, key_event: KeyEvent, current_time: &TimeMilliseconds) {
+    pub fn update_keys(&mut self, key: Key, key_event: KeyEvent, current_time: &TimeMilliseconds) {
         let (key_down_field, key_hit_field) = match key_event {
             KeyEvent::KeyUp => (false, true),
             KeyEvent::KeyDown => (true, false),
         };
 
         match key {
-            Keycode::Up | Keycode::W => {
+            Key::Up => {
                 self.up = key_down_field;
                 self.key_hit_up.update_from_key_event(key_event, current_time);
             },
-            Keycode::Down | Keycode::S => {
+            Key::Down => {
                 self.down = key_down_field;
                 self.key_hit_down.update_from_key_event(key_event, current_time);
             }
-            Keycode::Left | Keycode::A => {
+            Key::Left => {
                 self.left = key_down_field;
                 self.key_hit_left.update_from_key_event(key_event, current_time);
             }
-            Keycode::Right | Keycode::D => {
+            Key::Right => {
                 self.right = key_down_field;
                 self.key_hit_right.update_from_key_event(key_event, current_time);
             }
-            Keycode::Space | Keycode::LCtrl | Keycode::RCtrl => self.shoot = key_down_field,
-            Keycode::Return     => self.key_hit_enter = key_hit_field,
-            PAUSE_KEY  => self.key_hit_back = key_hit_field,
-            _ => (),
+            Key::Shoot => self.shoot = key_down_field,
+            Key::Select => self.key_hit_enter = key_hit_field,
+            Key::Back  => self.key_hit_back = key_hit_field,
         }
     }
 
@@ -305,160 +268,6 @@ impl KeyboardManager {
         self.key_hit_down.update(current_time, self.down);
         self.key_hit_left.update(current_time, self.left);
         self.key_hit_right.update(current_time, self.right);
-    }
-}
-
-type GameControllerMapping = String;
-
-/// Add and remove game controllers, route game controller events to `KeyboardManager`
-struct GameControllerManager {
-    joystick_subsystem: JoystickSubsystem,
-    game_controller_subsystem: GameControllerSubsystem,
-    game_controllers: Vec<GameController>,
-}
-
-impl GameControllerManager {
-    /// Create new `GameControllerManager`
-    fn new(joystick_subsystem: JoystickSubsystem, game_controller_subsystem: GameControllerSubsystem) -> GameControllerManager {
-        GameControllerManager {
-            joystick_subsystem,
-            game_controller_subsystem,
-            game_controllers: Vec::new(),
-        }
-    }
-
-    /// Adds new game controller from SDL2 joystick id to `GameControllerManager`.
-    ///
-    /// If the joystick doesn't have a game controller mapping, method will create default
-    /// mapping for the joystick and return the created mapping.
-    ///
-    /// If there is an error it will be printed to standard output.
-    pub fn add_game_controller_from_joystick_id(&mut self, id: u32) -> Option<GameControllerMapping> {
-        let game_controller_mapping = if !self.game_controller_subsystem.is_game_controller(id) {
-            let joystick_name;
-            match self.joystick_subsystem.name_for_index(id) {
-                Ok(name) => joystick_name = name,
-                Err(error) => {
-                    println!("error: {}", error);
-                    return None;
-                }
-            }
-
-            let mut joystick_guid;
-            match self.joystick_subsystem.device_guid(id) {
-                Ok(guid) => joystick_guid = guid.to_string(),
-                Err(error) => {
-                    println!("error: {}", error);
-                    return None;
-                }
-            }
-
-            // https://wiki.libsdl.org/SDL_GameControllerAddMapping
-            joystick_guid.push(',');
-            joystick_guid.push_str(&joystick_name);
-            joystick_guid.push_str(", a:b2, b:b1, y:b0, x:b3, start:b9, guide:b12, back:b8, dpup:h0.1, dpleft:h0.8, dpdown:h0.4, dpright:h0.2, leftshoulder:b6, rightshoulder:b7, leftstick:b10, rightstick:b11, leftx:a0, lefty:a1, rightx:a3, righty:a2, lefttrigger:b4, righttrigger:b5");
-
-            match self.game_controller_subsystem.add_mapping(&joystick_guid) {
-                Ok(_) => {
-                    println!("default game controller mapping loaded for joystick with id {}", id);
-                    Some(joystick_guid)
-                },
-                Err(error) => {
-                    println!("error: {}", error);
-                    return None
-                }
-            }
-        } else {
-            None
-        };
-
-        match self.game_controller_subsystem.open(id) {
-            Ok(controller) => {
-                self.game_controllers.push(controller);
-                println!("game controller with id {} added", id);
-            },
-            Err(integer_or_sdl_error) => println!("game controller error: {}", integer_or_sdl_error),
-        }
-
-        game_controller_mapping
-    }
-
-    /// Remove game controller which has same id as argument `id`.
-    ///
-    /// Game controller will be removed from `GameControllerManager`'s `Vec<GameController>`
-    pub fn remove_game_controller(&mut self, id: i32) {
-        let mut index = None;
-
-        for (i, controller) in self.game_controllers.iter().enumerate() {
-            if controller.instance_id() == id {
-                index = Some(i);
-                break;
-            }
-        }
-
-        if let Some(i) = index {
-            self.game_controllers.swap_remove(i);
-            println!("game controller with id {} removed", id);
-        }
-    }
-
-
-    /// Forwards game controller's axis event to `KeyboardManager`.
-    pub fn handle_axis_motion(axis: Axis, value: i16, keyboard: &mut KeyboardManager, current_time: &TimeMilliseconds) {
-        match axis {
-            Axis::LeftX | Axis::RightX => {
-                if value > 10000 {
-                    keyboard.update_keys(Keycode::Right, KeyEvent::KeyDown, current_time);
-                } else if value < -10000 {
-                    keyboard.update_keys(Keycode::Left, KeyEvent::KeyDown, current_time);
-                } else {
-                    if keyboard.left {
-                        keyboard.update_keys(Keycode::Left, KeyEvent::KeyUp, current_time);
-                    }
-                    if keyboard.right {
-                        keyboard.update_keys(Keycode::Right, KeyEvent::KeyUp, current_time);
-                    }
-                }
-            },
-            Axis::LeftY | Axis::RightY => {
-                if value > 10000 {
-                    keyboard.update_keys(Keycode::Down, KeyEvent::KeyDown, current_time);
-                } else if value < -10000 {
-                    keyboard.update_keys(Keycode::Up, KeyEvent::KeyDown, current_time);
-                } else {
-                    if keyboard.down {
-                        keyboard.update_keys(Keycode::Down, KeyEvent::KeyUp, current_time);
-                    }
-                    if keyboard.up {
-                        keyboard.update_keys(Keycode::Up, KeyEvent::KeyUp, current_time);
-                    }
-                }
-            },
-            Axis::TriggerLeft | Axis::TriggerRight => {
-                if value > 100 {
-                    keyboard.shoot = true;
-                } else {
-                    keyboard.shoot = false;
-                }
-            },
-        }
-    }
-
-    /// Forwards game controller's button event to `KeyboardManager`.
-    pub fn handle_button(button: Button, key_event: KeyEvent, keyboard: &mut KeyboardManager, current_time: &TimeMilliseconds) {
-        match button {
-            Button::DPadUp     => keyboard.update_keys(Keycode::Up, key_event, current_time),
-            Button::DPadDown   => keyboard.update_keys(Keycode::Down, key_event, current_time),
-            Button::DPadLeft   => keyboard.update_keys(Keycode::Left, key_event, current_time),
-            Button::DPadRight  => keyboard.update_keys(Keycode::Right, key_event, current_time),
-            Button::A          => {
-                keyboard.update_keys(Keycode::Space, key_event.clone(), current_time);
-                keyboard.update_keys(Keycode::Return, key_event, current_time);
-            },
-            Button::LeftShoulder | Button::RightShoulder => keyboard.update_keys(Keycode::Space, key_event, current_time),
-            Button::Back       => keyboard.update_keys(Keycode::Escape, key_event, current_time),
-            _ => (),
-        }
     }
 }
 

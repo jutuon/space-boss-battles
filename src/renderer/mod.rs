@@ -17,8 +17,7 @@ MIT License
 mod texture;
 mod shader;
 
-use sdl2::VideoSubsystem;
-use sdl2::video::{Window, FullscreenType, GLProfile, GLContext};
+use window::{Window, RenderingContext};
 
 use cgmath::{Vector3, Matrix4, Point2, Vector4};
 use cgmath;
@@ -37,8 +36,8 @@ use logic::{Logic, LaserColor};
 use gui::GUI;
 use gui::components::GUIText;
 
-const DEFAULT_SCREEN_WIDTH: i32 = 640;
-const DEFAULT_SCREEN_HEIGHT: i32 = 480;
+pub const DEFAULT_SCREEN_WIDTH: i32 = 640;
+pub const DEFAULT_SCREEN_HEIGHT: i32 = 480;
 
 const BLUE_COLOR: Vector3<f32> = Vector3 { x: 0.0, y: 0.0, z: 1.0 };
 const RED_COLOR: Vector3<f32> = Vector3 { x: 1.0, y: 0.0, z: 0.0 };
@@ -85,11 +84,6 @@ pub trait TileLocationInfo {
 /// When compiling with feature "gles" you must only load
 /// OpenGL ES 2.0 compatible shaders.
 pub struct OpenGLRenderer {
-    video_system: VideoSubsystem,
-    window: Window,
-    /// OpenGL context is stored here because it
-    /// would be otherwise dropped.
-    _context: GLContext,
     textures: [Texture; Textures::TextureCount as usize],
     texture_shader: TextureShader,
     color_shader: ColorShader,
@@ -116,7 +110,7 @@ pub trait Renderer {
     /// Render GUI.
     fn render_gui(&mut self, &GUI);
     /// End rendering of new frame. Call this last.
-    fn end(&mut self);
+    fn end<W: Window>(&mut self, &mut W);
     /// Converts screen coordinates to world coordinates.
     ///
     /// # Coordinates
@@ -125,10 +119,7 @@ pub trait Renderer {
     /// * Are at range [0, i32::MAX].
     // FIXME: use unsigned values for coordinates? SDL2 event makes i32 values.
     fn screen_coordinates_to_world_coordinates(&self, x: i32, y: i32) -> Point2<f32>;
-    /// Enable or disable full screen mode.
-    fn full_screen(&mut self, value: bool);
-    /// Enable or disable vertical synchronization.
-    fn v_sync(&mut self, value: bool);
+
     /// Screen width in world coordinates divided by 2.
     fn half_screen_width_world_coordinates(&self) -> f32;
 
@@ -258,8 +249,8 @@ impl Renderer for OpenGLRenderer {
     }
 
     /// Swap color buffers and check OpenGL errors.
-    fn end(&mut self) {
-        self.window.gl_swap_window();
+    fn end<W: Window>(&mut self, window: &mut W) {
+        window.swap_buffers().expect("couldn't swap rendering buffers");
 
         while let Err(error) = gl::GLError::get_error() {
             println!("OpenGL error: {:?}", error);
@@ -279,20 +270,6 @@ impl Renderer for OpenGLRenderer {
         Point2::new(vector.x,vector.y)
     }
 
-    fn full_screen(&mut self, value: bool) {
-        let setting;
-
-        if value {
-            setting = FullscreenType::Desktop;
-        } else {
-            setting = FullscreenType::Off;
-        }
-
-        if let Err(message) = self.window.set_fullscreen(setting) {
-            println!("Error, couldn't change fullscreen setting: {}", message);
-        }
-    }
-
     /// Updates fields `screen_width` and `screen_height`,
     /// OpenGL viewport, and projection matrix to match current screen size.
     fn update_screen_size(&mut self, new_width_in_pixels: i32, new_height_in_pixels: i32) {
@@ -306,14 +283,6 @@ impl Renderer for OpenGLRenderer {
         self.update_projection_matrix();
     }
 
-    fn v_sync(&mut self, value: bool) {
-        if value {
-            self.video_system.gl_set_swap_interval(1);
-        } else {
-            self.video_system.gl_set_swap_interval(0);
-        }
-    }
-
     fn half_screen_width_world_coordinates(&self) -> f32 {
         self.half_screen_width_world_coordinates
     }
@@ -325,33 +294,8 @@ impl Renderer for OpenGLRenderer {
 
 impl OpenGLRenderer {
     /// Creates new OpenGLRenderer.
-    ///
-    /// This function will set OpenGL context version
-    /// to OpenGL ES 2.0, if game is compiled with feature "gles".
-    ///
-    /// # Panics
-    /// If window or OpenGL context creation fails.
-    pub fn new(video_system: VideoSubsystem) -> OpenGLRenderer {
-        let window = video_system.window("Space Boss Battles", DEFAULT_SCREEN_WIDTH as u32, DEFAULT_SCREEN_HEIGHT as u32).opengl().build().expect("window creation failed");
-
-        #[cfg(feature = "gles")]
-        {
-            let gl_attr = video_system.gl_attr();
-            gl_attr.set_context_profile(GLProfile::GLES);
-            gl_attr.set_context_version(2,0);
-        }
-
-        #[cfg(not(feature = "gles"))]
-        {
-            let gl_attr = video_system.gl_attr();
-            gl_attr.set_context_profile(GLProfile::Core);
-            gl_attr.set_context_version(3,3);
-        }
-
-        let _context = window.gl_create_context().expect("opengl context creation failed");
-        gl_raw::load_with(|name| video_system.gl_get_proc_address(name) as *const _);
-
-        window.gl_make_current(&_context).expect("couldn't set opengl context to current thread");
+    pub fn new<W: Window>(window: &W) -> OpenGLRenderer {
+        gl_raw::load_with(|name| window.gl_get_proc_address(name));
 
         unsafe {
             gl_raw::ClearColor(0.0,0.0,0.0,1.0);
@@ -363,9 +307,6 @@ impl OpenGLRenderer {
         println!("  Renderer: {:?}", gl::get_renderer_string());
 
         let mut renderer = OpenGLRenderer {
-            video_system,
-            window,
-            _context,
             texture_shader: TextureShader::new(),
             color_shader: ColorShader::new(),
             tile_map_shader: TileMapShader::new(),

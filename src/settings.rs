@@ -18,7 +18,7 @@ use std::env::Args;
 use std::fs::File;
 use std::io::prelude::*;
 
-use sdl2::GameControllerSubsystem;
+//use sdl2::GameControllerSubsystem;
 
 use renderer::Renderer;
 
@@ -26,6 +26,8 @@ use gui::GUI;
 
 use audio::{AudioManager, Volume};
 use audio;
+
+use window::Window;
 
 const SETTINGS_FILE_NAME: &'static str = "space_boss_battles_settings.txt";
 
@@ -63,7 +65,7 @@ impl Settings {
     ///
     /// Read settings from file and load found game controller mappings to
     /// `GameControllerSubsystem`.
-    pub fn new(game_controller_subsystem: &mut GameControllerSubsystem, command_line_arguments: Arguments) -> Settings {
+    pub fn new(command_line_arguments: Arguments) -> Settings {
         let settings = vec![
             SettingContainer::new("Full screen", SettingType::Boolean(BooleanSetting::FullScreen, false)),
             SettingContainer::new("FPS counter", SettingType::Boolean(BooleanSetting::ShowFpsCounter, false)),
@@ -80,7 +82,6 @@ impl Settings {
         };
 
         settings.load();
-        settings.load_game_controller_mappings(game_controller_subsystem);
 
         settings
     }
@@ -291,12 +292,8 @@ impl Settings {
         }
     }
 
-    pub fn load_game_controller_mappings(&self, controller_system: &mut GameControllerSubsystem) {
-        for mapping in &self.controller_mappings {
-            if let Err(error) = controller_system.add_mapping(mapping) {
-                println!("error when loading game controller mapping \"{}\", error: {}", mapping, error);
-            }
-        }
+    pub fn game_controller_mappings(&self) -> &Vec<String> {
+        &self.controller_mappings
     }
 
     /// Adds game controller mapping to `Vec<String>` located at `controller_mappings` field.
@@ -315,18 +312,18 @@ impl Settings {
     }
 
     /// Applies current settings from field `settings`.
-    pub fn apply_current_settings<T: Renderer>(&self, renderer: &mut T, gui: &mut GUI, audio_manager: &mut AudioManager) {
+    pub fn apply_current_settings<T: Renderer, W: Window>(&self, renderer: &mut T, gui: &mut GUI, audio_manager: &mut AudioManager, window: &mut W) {
         for setting in &self.settings {
-            Settings::apply_setting(setting.get_value(), renderer, gui, audio_manager);
+            Settings::apply_setting(setting.get_value(), renderer, gui, audio_manager, window);
         }
     }
 
     /// Apply setting provided as argument.
-    pub fn apply_setting<T: Renderer>(setting: SettingType, renderer: &mut T, gui: &mut GUI, audio_manager: &mut AudioManager) {
+    pub fn apply_setting<T: Renderer, W: Window>(setting: SettingType, _renderer: &mut T, gui: &mut GUI, audio_manager: &mut AudioManager, window: &mut W) {
         match setting {
-            SettingType::Boolean(BooleanSetting::FullScreen, value) => renderer.full_screen(value),
+            SettingType::Boolean(BooleanSetting::FullScreen, value) => window.set_fullscreen(value),
             SettingType::Boolean(BooleanSetting::ShowFpsCounter, value) => gui.set_show_fps_counter(value),
-            SettingType::Boolean(BooleanSetting::VSync , value)  => renderer.v_sync(value),
+            SettingType::Boolean(BooleanSetting::VSync , value)  => window.set_v_sync(value),
             SettingType::Integer(IntegerSetting::SoundEffectVolume, value) => audio_manager.set_sound_effect_volume(Volume::new(value)),
             SettingType::Integer(IntegerSetting::MusicVolume, value) => audio_manager.set_music_volume(Volume::new(value)),
         }
