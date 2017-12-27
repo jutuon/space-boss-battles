@@ -22,10 +22,9 @@ use renderer::Renderer;
 
 use gui::GUI;
 
-use audio::{AudioManager, Volume};
+use audio::{AudioManager, AudioPlayer};
 
 use window::Window;
-use window::sdl2::{VolumeSDL2, AudioPlayerSDL2};
 
 const SETTINGS_FILE_NAME: &'static str = "space_boss_battles_settings.txt";
 
@@ -63,13 +62,13 @@ impl Settings {
     ///
     /// Read settings from file and load found game controller mappings to
     /// `GameControllerSubsystem`.
-    pub fn new(command_line_arguments: Arguments) -> Settings {
+    pub fn new(command_line_arguments: Arguments, effect_default_volume_percentage: i32, music_default_volume_percentage: i32) -> Settings {
         let settings = vec![
             SettingContainer::new("Full screen", SettingType::Boolean(BooleanSetting::FullScreen, false)),
             SettingContainer::new("FPS counter", SettingType::Boolean(BooleanSetting::ShowFpsCounter, false)),
             SettingContainer::new("VSync", SettingType::Boolean(BooleanSetting::VSync, true)),
-            SettingContainer::new("Music volume", SettingType::Integer(IntegerSetting::MusicVolume, VolumeSDL2::DEFAULT_VOLUME)),
-            SettingContainer::new("Effect volume", SettingType::Integer(IntegerSetting::SoundEffectVolume, VolumeSDL2::DEFAULT_VOLUME)),
+            SettingContainer::new("Music volume", SettingType::Integer(IntegerSetting::MusicVolume, music_default_volume_percentage)),
+            SettingContainer::new("Effect volume", SettingType::Integer(IntegerSetting::SoundEffectVolume, effect_default_volume_percentage)),
         ];
 
         let mut settings = Settings {
@@ -309,20 +308,20 @@ impl Settings {
     }
 
     /// Applies current settings from field `settings`.
-    pub fn apply_current_settings<T: Renderer, W: Window>(&self, renderer: &mut T, gui: &mut GUI, audio_manager: &mut AudioManager<AudioPlayerSDL2>, window: &mut W) {
+    pub fn apply_current_settings<T: Renderer, W: Window, P: AudioPlayer>(&self, renderer: &mut T, gui: &mut GUI, audio_manager: &mut AudioManager<P>, window: &mut W) {
         for setting in &self.settings {
             Settings::apply_setting(setting.get_value(), renderer, gui, audio_manager, window);
         }
     }
 
     /// Apply setting provided as argument.
-    pub fn apply_setting<T: Renderer, W: Window>(setting: SettingType, _renderer: &mut T, gui: &mut GUI, audio_manager: &mut AudioManager<AudioPlayerSDL2>, window: &mut W) {
+    pub fn apply_setting<T: Renderer, W: Window, P: AudioPlayer>(setting: SettingType, _renderer: &mut T, gui: &mut GUI, audio_manager: &mut AudioManager<P>, window: &mut W) {
         match setting {
             SettingType::Boolean(BooleanSetting::FullScreen, value) => window.set_fullscreen(value),
             SettingType::Boolean(BooleanSetting::ShowFpsCounter, value) => gui.set_show_fps_counter(value),
             SettingType::Boolean(BooleanSetting::VSync , value)  => window.set_v_sync(value),
-            SettingType::Integer(IntegerSetting::SoundEffectVolume, value) => audio_manager.set_sound_effect_volume(Volume::new(value)),
-            SettingType::Integer(IntegerSetting::MusicVolume, value) => audio_manager.set_music_volume(Volume::new(value)),
+            SettingType::Integer(IntegerSetting::SoundEffectVolume, value) => audio_manager.set_sound_effect_volume(value),
+            SettingType::Integer(IntegerSetting::MusicVolume, value) => audio_manager.set_music_volume(value),
         }
     }
 }

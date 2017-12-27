@@ -44,7 +44,7 @@ use gui::{GUI, GUIEvent, GUIState};
 
 use settings::{Settings, Arguments};
 
-use audio::{AudioManager, SoundEffectPlayer};
+use audio::{AudioManager, SoundEffectPlayer, AudioPlayer, Audio, Volume};
 
 use utils::{FpsCounter, GameLoopTimer, TimeManager};
 
@@ -162,11 +162,11 @@ pub struct Game<W: Window> {
     window: W,
 }
 
-impl Game<SDL2Window> {
+impl<W: Window> Game<W> {
     /// Create new `Game`. Creates and initializes game's components.
     pub fn new(
                 command_line_arguments: Arguments,
-                mut window: SDL2Window,
+                mut window: W,
             ) -> Self {
 
         let player = window.audio_player();
@@ -177,7 +177,12 @@ impl Game<SDL2Window> {
             AudioManager::new("music.ogg", player)
         };
 
-        let settings = Settings::new(command_line_arguments);
+        let settings = Settings::new(
+            command_line_arguments,
+            <<<W::AudioPlayer as AudioPlayer>::Effect as Audio>::Volume as Volume>::DEFAULT_VOLUME_PERCENTAGE,
+            <<<W::AudioPlayer as AudioPlayer>::Music as Audio>::Volume as Volume>::DEFAULT_VOLUME_PERCENTAGE,
+        );
+
         window.add_game_controller_mappings(settings.game_controller_mappings());
 
         let input = InputManager::new();

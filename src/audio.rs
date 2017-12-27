@@ -42,11 +42,15 @@ pub trait Audio: Sized {
 pub trait Volume: Copy + Clone {
     type Value;
     const MAX_VOLUME: Self::Value;
-    const DEFAULT_VOLUME: Self::Value;
+    const DEFAULT_VOLUME_PERCENTAGE: i32;
 
     /// Create new volume value limited to [0; MAX_VOLUME].
     fn new(Self::Value) -> Self;
     fn value(&self) -> Self::Value;
+
+    /// Create Volume value from integer representing
+    /// volume percentage. Clamps integer to range [0; 100].
+    fn from_percentage(i32) -> Self;
 }
 
 /// All sound effect's that the game requires.
@@ -196,14 +200,14 @@ impl <P: AudioPlayer> AudioManager<P> {
     ///
     /// If there is a music loading error, music will be disabled.
     ///
-    /// If there is a SDL_mixer init error, sound effects and music will be disabled.
+    /// If argument player is `None`, sound effects and music will be disabled.
     ///
     /// All errors will be printed to standard output.
     pub fn new(music_file_path: &str, player: Option<P>) -> Self {
         println!("");
 
-        let music_volume = <P::Music as Audio>::Volume::new(<P::Music as Audio>::Volume::DEFAULT_VOLUME);
-        let effect_volume = <P::Effect as Audio>::Volume::new(<P::Effect as Audio>::Volume::DEFAULT_VOLUME);
+        let music_volume = <P::Music as Audio>::Volume::from_percentage(<P::Music as Audio>::Volume::DEFAULT_VOLUME_PERCENTAGE);
+        let effect_volume = <P::Effect as Audio>::Volume::from_percentage(<P::Effect as Audio>::Volume::DEFAULT_VOLUME_PERCENTAGE);
 
         match player {
             Some(_) => {
@@ -254,11 +258,11 @@ impl <P: AudioPlayer> AudioManager<P> {
     }
 
     /// Set music volume.
-    pub fn set_music_volume(&mut self, volume: <P::Music as Audio>::Volume) {
-        self.music_volume = volume;
+    pub fn set_music_volume(&mut self, volume_percentage: i32) {
+        self.music_volume = <P::Music as Audio>::Volume::from_percentage(volume_percentage);
 
         if let Some(ref mut music) = self.music {
-            music.change_volume(volume);
+            music.change_volume(self.music_volume);
         }
     }
 
@@ -270,9 +274,9 @@ impl <P: AudioPlayer> AudioManager<P> {
     }
 
     /// Set sound effect volume.
-    pub fn set_sound_effect_volume(&mut self, volume: <P::Effect as Audio>::Volume) {
-        self.effect_volume = volume;
+    pub fn set_sound_effect_volume(&mut self, volume_percentage: i32) {
+        self.effect_volume = <P::Effect as Audio>::Volume::from_percentage(volume_percentage);
 
-        self.sound_effects.change_volume(volume);
+        self.sound_effects.change_volume(self.effect_volume);
     }
 }

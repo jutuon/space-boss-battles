@@ -445,7 +445,7 @@ impl Volume for VolumeSDL2 {
     type Value = i32;
 
     const MAX_VOLUME: Self::Value = mixer::MAX_VOLUME;
-    const DEFAULT_VOLUME: Self::Value = 88;
+    const DEFAULT_VOLUME_PERCENTAGE: i32 = 68;
 
     /// Create new volume value limited to [0; MAX_VOLUME].
     fn new(volume: Self::Value) -> Self {
@@ -461,6 +461,20 @@ impl Volume for VolumeSDL2 {
     /// Get volume value.
     fn value(&self) -> Self::Value {
         self.0
+    }
+
+    fn from_percentage(percentage: i32) -> Self {
+        let percentage = if percentage < 0 {
+            0
+        } else if 100 < percentage {
+            100
+        } else {
+            percentage
+        };
+
+        let volume = Self::MAX_VOLUME as f32 * (percentage as f32 / 100.0);
+
+        Self::new(volume as i32)
     }
 }
 
