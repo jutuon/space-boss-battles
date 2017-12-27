@@ -23,7 +23,7 @@ use logic::Logic;
 use utils::{TimeManager, TimeMilliseconds};
 use audio::{Audio, Volume, AudioPlayer};
 
-use super::{Window, RenderingContext};
+use super::{Window, RenderingContext, WINDOW_TITLE};
 
 #[cfg(not(target_os = "emscripten"))]
 const PAUSE_KEY: Keycode = Keycode::Escape;
@@ -60,7 +60,7 @@ impl Window for SDL2Window {
 
         let video_subsystem = sdl_context.video().expect("video subsystem init fail");
 
-        let window = video_subsystem.window("Space Boss Battles", DEFAULT_SCREEN_WIDTH as u32, DEFAULT_SCREEN_HEIGHT as u32).opengl().build().expect("window creation failed");
+        let window = video_subsystem.window(WINDOW_TITLE, DEFAULT_SCREEN_WIDTH as u32, DEFAULT_SCREEN_HEIGHT as u32).opengl().build().expect("window creation failed");
 
         match rendering_context {
             RenderingContext::OpenGL => {

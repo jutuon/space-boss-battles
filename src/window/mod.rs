@@ -1,4 +1,8 @@
+#[cfg(not(feature = "glutin_window"))]
 pub mod sdl2;
+
+#[cfg(feature = "glutin_window")]
+pub mod glutin;
 
 
 use std::os::raw::c_void;
@@ -10,6 +14,8 @@ use gui::GUI;
 use logic::Logic;
 use utils::TimeManager;
 use audio::AudioPlayer;
+
+pub const WINDOW_TITLE: &'static str = "Space Boss Battles";
 
 #[derive(Debug, Clone, Copy)]
 pub enum RenderingContext {

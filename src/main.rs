@@ -16,7 +16,12 @@ MIT License
 //!
 //! Main function and game loop is in this file.
 
+#[cfg(not(feature = "glutin_window"))]
 extern crate sdl2;
+
+#[cfg(feature = "glutin_window")]
+extern crate glutin;
+
 extern crate gl;
 extern crate image;
 extern crate cgmath;
@@ -49,7 +54,6 @@ use audio::{AudioManager, SoundEffectPlayer, AudioPlayer, Audio, Volume};
 use utils::{FpsCounter, GameLoopTimer, TimeManager};
 
 use window::{Window, RenderingContext};
-use window::sdl2::SDL2Window;
 
 /// Base value for `GameTimeManager`'s delta time.
 pub const LOGIC_TARGET_FPS: u32 = 60;
@@ -89,10 +93,16 @@ fn main() {
 
 
     #[cfg(not(feature = "gles"))]
-    let window = SDL2Window::new(RenderingContext::OpenGL).expect("window creation failed");
+    let rendering_context = RenderingContext::OpenGL;
 
     #[cfg(feature = "gles")]
-    let window = SDL2Window::new(RenderingContext::OpenGLES).expect("window creation failed");
+    let rendering_context = RenderingContext::OpenGLES;
+
+    #[cfg(not(feature = "glutin_window"))]
+    let window = window::sdl2::SDL2Window::new(rendering_context).expect("window creation failed");
+
+    #[cfg(feature = "glutin_window")]
+    let window = window::glutin::GlutinWindow::new(rendering_context).expect("window creation failed");
 
     let mut game = Game::new(arguments, window);
 

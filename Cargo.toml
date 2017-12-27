@@ -5,11 +5,16 @@ authors = ["Juuso Tuononen <jutuon@outlook.com>"]
 
 [features]
 gles = ["gl/gles"]
+glutin_window = ["glutin"]
 
 [dependencies]
 gl = { path = "gl" }
 cgmath = "0.15.0"
 rand = "0.4.1"
+
+[dependencies.glutin]
+version = "0.11"
+optional = true
 
 [dependencies.image]
 version = "0.15.0"
